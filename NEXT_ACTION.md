@@ -1,3 +1,6 @@
+# LAST UPDATE
+- 2026-02-27 14:31 workflow 자동 종료 기록 스크립트 추가
+
 # NEXT ACTION - scheduler
 
 ## Now
