@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="com.scheduler.finance.sql.StockAnalysis">
+  	
+	<!-- 종목 검색 -->
+	<select id="selectStockList" parameterType="string"  resultType="stockInfoVo">
+	
+	/* selectStockAnalysis */
+	SELECT *
+	FROM (
+		SELECT 
+			 A.*
+			,ROWNUM AS RNUM
+		FROM (
+			SELECT
+				TSIS.STOCK_ID,
+				TSIS.STOCK_CODE,
+				(CASE WHEN TSIS.STOCK_MARKET ='kosdaq' THEN '#'||TSIS.STOCK_KO_NAME ELSE TSIS.STOCK_KO_NAME END)AS STOCK_KO_NAME,
+				TSIS.STOCK_MARKET,
+				TSIS.STOCK_URL,
+				'' AS TOTAL_QUANTITY,
+				'' AS TOTAL_PURCHASE_PRICE
+				,TSSA.STOCK_SMA5 ||',' || TSSA.STOCK_SMA20 ||','|| TSSA.STOCK_SMA60 ||','||
+				TSSA.STOCK_SMA120 ||','|| TSSA.STOCK_SMA240 as STOCK_SMA
+				,STOCK_SMA5 AS STOCK_5BC
+                ,TSSA.STOCK_SMA_LINES
+                ,TSSC.SALES_TREND
+                ,TSSC.OP_TREND
+                ,TSSC.EPS_TREND                
+                ,TSSA.STOCK_AV_VOLUME
+                ,TSSA.STOCK_AV_VOLUMESIGNAL
+				,TSSA.STOCK_MACD_TIME
+				,TO_NUMBER(TSSA.STOCK_MACD_TIMEDAYS) AS STOCK_MACD_TIMEDAYS
+				,TSSA.STOCK_MACD_SIGNAL
+				,TSSA.STOCK_MACD_STREAKSIGNAL				
+				,TO_NUMBER(TSSA.STOCK_MACD_STREAKDAYS) AS STOCK_MACD_STREAKDAYS
+				,TO_NUMBER(TSSA.STOCK_CLOSE) AS STOCK_CLOSE				
+				,(TO_CHAR(TSSA.MODIFY_DATE,  (CASE WHEN #{groupMarket}='KR' THEN 'YYYYMMDDHH24' ELSE 'YYYYMMDD' END ))) AS MODIFY_DATE
+			FROM TB_S_STOCK_ANALYSIS TSSA LEFT JOIN TB_S_INTEREST_STOCK TSIS
+				ON TSSA.STOCK_CODE = TSIS.STOCK_CODE LEFT JOIN TB_S_STOCK_CONSENSUS TSSC
+                ON TSSA.STOCK_CODE = TSSC.STOCK_CODE
+                AND TSSC.SALES_TREND !='NULL'
+			WHERE 1=1
+				AND TSIS.STOCK_TYPE ='stock'
+				AND TSIS.STOCK_COUNTRY_CODE = #{groupMarket}
+                AND TSIS.STOCK_TYPE_SPECS ='CS'
+                <if test="STOCK_MARKET != null and STOCK_MARKET != ''">
+                AND TSIS.STOCK_MARKET = #{STOCK_MARKET}
+                </if>
+                AND TSSA.USE_DIV ='Y'
+                <if test="STATEMONTH != null and STATEMONTH != ''">
+                AND TSSA.STOCK_MON =#{STATEMONTH}
+                </if>
+				<if test="VOLUMESIGNAL != null ">
+					AND TSSA.STOCK_AV_VOLUMESIGNAL = #{VOLUMESIGNAL}
+				</if>
+				<if test="DAY5BC != null ">
+					AND TSSA.STOCK_SMA5 = #{DAY5BC}
+				</if>
+				<if test="MONTH5BC != null ">
+					AND TSSA.STOCK_SMA60 = #{MONTH5BC}
+				</if>
+				<if test="MACDSIGNAL != null ">					
+					AND TSSA.STOCK_MACD_SIGNAL = (CASE WHEN 'UP'=#{MACDSIGNAL} THEN 'BUY' ELSE 'DOWN' END)
+				</if>
+				<if test="STOKCSMALINES != null">
+			    	AND TSSA.STOCK_SMA_LINES =#{STOKCSMALINES}
+			    </if>
+				<if test="CONSENSUS != null">
+			    	AND TSSC.SALES_TREND =#{CONSENSUS}
+			    </if>
+                <if test="RANGE_FROM != null and RANGE_TO != null">
+                	AND TO_NUMBER(TSSA.STOCK_CLOSE) BETWEEN #{RANGE_FROM} AND #{RANGE_TO}
+                </if>
+				ORDER BY STOCK_SMA240 DESC,STOCK_SMA120 DESC,STOCK_SMA60 DESC,STOCK_SMA20 DESC,STOCK_SMA5 DESC
+					  ,STOCK_MACD_SIGNAL, STOCK_MACD_STREAKSIGNAL DESC, STOCK_MACD_STREAKDAYS
+					<if test="MACDTIMEDAYS != null ">
+						,TO_NUMBER(STOCK_MACD_TIMEDAYS) ${MACDTIMEDAYS}
+					</if>
+		)A
+	)
+	WHERE 1=1
+	AND RNUM <![CDATA[<= 100]]>
+  	</select>
+  	
+	<update id="update_stockCode" parameterType="hashmap">
+	  	UPDATE TB_S_INTEREST_STOCK
+  		SET USE_DIV = #{use_div}
+  		 ,STOCK_COUNTRY_CODE = #{stock_country_code}
+  		 ,STOCK_MARKET = #{stock_market}
+  		 ,STOCK_TYPE = #{stock_type}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stockAnalysis" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_ANALYSIS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stock3minAnalysis" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_30MINANALYSIS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stockConsensus" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_CONSENSUS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  		
+  	<delete id="deleteStockCode" parameterType="list">
+	  	DELETE 
+	  	  FROM TB_S_INTEREST_STOCK 
+	  	 WHERE STOCK_CODE IN
+	  	   <foreach item="item" index="index" collection="list" open="(" separator="," close=")">	  	 
+	  	     #{item} 
+	  	   </foreach>
+  	</delete>
+
+
+	<!-- 추천 종목 리스트 -->
+	<!-- 추천 종목 리스트 -->
+	<select id="selectRecommendStocks" parameterType="hashmap" resultType="stockRecommendVo">
+	SELECT *
+	  FROM (
+		SELECT
+			Y.STOCK_CODE,
+			Y.STOCK_KO_NAME,
+			Y.STOCK_MARKET,
+			Y.STOCK_COUNTRY_CODE,
+			Y.DAILY_CLOSE_NUM,
+			TO_CHAR(Y.DAILY_CLOSE_NUM) AS DAILY_CLOSE,
+			TO_CHAR(Y.DIST20_NUM) AS DAILY_DIST20_PCT,
+			TO_CHAR(Y.SCORE_NUM) AS RECO_SCORE,
+			Y.RECO_SIGNAL_CODE,
+			Y.RECO_SIGNAL_NAME,
+			Y.RECO_TREND_TEXT,
+			Y.RECO_REASON_DETAIL,
+			TO_CHAR(Y.MODIFY_DATE_RAW, 'YYYY-MM-DD HH24:MI') AS MODIFY_DATE,
+			(CASE Y.RECO_SIGNAL_CODE
+				WHEN 'STRONG_BUY' THEN 6
+				WHEN 'BUY' THEN 5
+				WHEN 'WEAK_BUY' THEN 4
+				WHEN 'HOLD' THEN 3
+				WHEN 'WEAK_SELL' THEN 2
+				WHEN 'SELL' THEN 1
+				ELSE 0
+			END) AS RECO_RANK
+		FROM (
+			SELECT
+				X.*,
+				(CASE
+					WHEN X.SELL_BEAR = 1 THEN 'STRONG_SELL'
+					WHEN X.SCORE_NUM >= 80 THEN 'STRONG_BUY'
+					WHEN X.SCORE_NUM >= 65 THEN 'BUY'
+					WHEN X.SCORE_NUM >= 55 THEN 'WEAK_BUY'
+					WHEN X.SCORE_NUM >= 40 THEN 'HOLD'
+					WHEN X.SCORE_NUM >= 25 THEN 'WEAK_SELL'
+					WHEN X.SCORE_NUM >= 10 THEN 'SELL'
+					ELSE 'STRONG_SELL'
+				END) AS RECO_SIGNAL_CODE,
+				(CASE
+					WHEN X.SELL_BEAR = 1 THEN 'STRONG_SELL'
+					WHEN X.SCORE_NUM >= 80 THEN 'STRONG_BUY'
+					WHEN X.SCORE_NUM >= 65 THEN 'BUY'
+					WHEN X.SCORE_NUM >= 55 THEN 'WEAK_BUY'
+					WHEN X.SCORE_NUM >= 40 THEN 'HOLD'
+					WHEN X.SCORE_NUM >= 25 THEN 'WEAK_SELL'
+					WHEN X.SCORE_NUM >= 10 THEN 'SELL'
+					ELSE 'STRONG_SELL'
+				END) AS RECO_SIGNAL_NAME,
+				('단기 ' || (CASE NVL(X.MACD_30M,'') WHEN 'BUY' THEN '반등' WHEN 'SELL' THEN '약세' ELSE '관망' END)
+				  || ' · 중기 ' || (CASE X.MON_DAILY WHEN 'UP' THEN '상승' WHEN 'DOWN' THEN '하락' ELSE '횡보' END)
+				  || ' · 장기 ' || (CASE X.SMA240_DAILY WHEN 'UP' THEN '우상향' WHEN 'DOWN' THEN '하락' ELSE '중립' END)
+				) AS RECO_TREND_TEXT,
+				('일봉정렬:'|| NVL(X.SMA_LINES_DAILY,'-')
+				  || ', 일봉MACD '|| NVL(X.MACD_DAILY,'-') || '(' || NVL(TO_CHAR(X.MACD_DAYS_DAILY),'-') || 'd)'
+				  || ', 30분MACD '|| NVL(X.MACD_30M,'-') || '(' || NVL(TO_CHAR(X.MACD_DAYS_30M),'-') || 'd)'
+				  || ', 20일이격 ' || TO_CHAR(X.DIST20_NUM, 'FM9990D00') || '%'
+				  || ', 거래량 ' || NVL(X.VOL_SIG_DAILY,'-') || '/' || NVL(X.VOL_SIG_30M,'-')
+				  || ', 컨센 ' || NVL(X.SALES_TREND,'-') || '/' || NVL(X.OP_TREND,'-') || '/' || NVL(X.EPS_TREND,'-')
+				) AS RECO_REASON_DETAIL
+			FROM (
+				SELECT
+					S.STOCK_CODE AS STOCK_CODE,
+					S.STOCK_KO_NAME AS STOCK_KO_NAME,
+					S.STOCK_MARKET AS STOCK_MARKET,
+					S.STOCK_COUNTRY_CODE AS STOCK_COUNTRY_CODE,
+					TO_NUMBER(REPLACE(A.STOCK_CLOSE, ',', '')) AS DAILY_CLOSE_NUM,
+					ROUND((TO_NUMBER(REPLACE(A.STOCK_CLOSE, ',', '')) - TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', ''))) / NULLIF(TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', '')),0) * 100, 2) AS DIST20_NUM,
+					A.STOCK_SMA_LINES AS SMA_LINES_DAILY,
+					A.STOCK_MON AS MON_DAILY,
+					A.STOCK_SMA240 AS SMA240_DAILY,
+					A.STOCK_MACD_SIGNAL AS MACD_DAILY,
+					NVL(TO_NUMBER(A.STOCK_MACD_TIMEDAYS), 999) AS MACD_DAYS_DAILY,
+					A.STOCK_AV_VOLUMESIGNAL AS VOL_SIG_DAILY,
+					NVL(B.STOCK_MACD_SIGNAL,'') AS MACD_30M,
+					NVL(TO_NUMBER(B.STOCK_MACD_TIMEDAYS), 999) AS MACD_DAYS_30M,
+					NVL(B.STOCK_AV_VOLUMESIGNAL,'') AS VOL_SIG_30M,
+					NVL(B.STOCK_MON,'') AS MON_30M,
+					NVL(C.SALES_TREND,'') AS SALES_TREND,
+					NVL(C.OP_TREND,'') AS OP_TREND,
+					NVL(C.EPS_TREND,'') AS EPS_TREND,
+					NVL(A.MODIFY_DATE, SYSDATE) AS MODIFY_DATE_RAW,
+					/* 강한 약세 강제(안전장치) */
+					(CASE
+						WHEN (A.STOCK_MACD_SIGNAL = 'SELL' AND A.STOCK_MON = 'DOWN' AND INSTR(A.STOCK_SMA_LINES, '240,120,60,20,5') = 1) THEN 1
+						ELSE 0
+					END) AS SELL_BEAR,
+					/* 점수 계산(0~100) */
+					(CASE
+						WHEN (A.STOCK_MACD_SIGNAL = 'SELL' AND A.STOCK_MON = 'DOWN' AND INSTR(A.STOCK_SMA_LINES, '240,120,60,20,5') = 1)
+						THEN 0
+						ELSE LEAST(100, GREATEST(0,
+							/* 정배열/역배열 */
+							(CASE
+								WHEN A.STOCK_SMA_LINES = '5,20,60,120,240' THEN 25
+								WHEN INSTR(A.STOCK_SMA_LINES, '5,20,60') = 1 THEN 18
+								WHEN INSTR(A.STOCK_SMA_LINES, '5,20') = 1 THEN 12
+								WHEN INSTR(A.STOCK_SMA_LINES, '240,120,60,20,5') = 1 THEN -15
+								WHEN INSTR(A.STOCK_SMA_LINES, '240,120,60') = 1 THEN -10
+								ELSE 0
+							END)
+							/* 추세 */
+							+ (CASE A.STOCK_MON WHEN 'UP' THEN 10 WHEN 'SAME' THEN 6 ELSE 0 END)
+							+ (CASE NVL(B.STOCK_MON,'') WHEN 'UP' THEN 4 WHEN 'SAME' THEN 2 ELSE 0 END)
+							/* MACD */
+							+ (CASE
+								WHEN A.STOCK_MACD_SIGNAL = 'BUY' THEN GREATEST(5, 20 - LEAST(15, NVL(TO_NUMBER(A.STOCK_MACD_TIMEDAYS), 15)))
+								ELSE 0
+							  END)
+							+ (CASE
+								WHEN NVL(B.STOCK_MACD_SIGNAL,'') = 'BUY' THEN GREATEST(3, 15 - LEAST(12, NVL(TO_NUMBER(B.STOCK_MACD_TIMEDAYS), 12)))
+								ELSE 0
+							  END)
+							/* 거래량 */
+							+ (CASE WHEN A.STOCK_AV_VOLUMESIGNAL = 'UP' THEN 6 ELSE 0 END)
+							+ (CASE WHEN NVL(B.STOCK_AV_VOLUMESIGNAL,'') = 'UP' THEN 4 ELSE 0 END)
+							/* 장기 */
+							+ (CASE A.STOCK_SMA240 WHEN 'UP' THEN 5 WHEN 'SAME' THEN 3 ELSE 0 END)
+							/* 20일 이격 */
+							+ (CASE
+								WHEN ROUND((TO_NUMBER(REPLACE(A.STOCK_CLOSE, ',', '')) - TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', ''))) / NULLIF(TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', '')),0) * 100, 2) BETWEEN 0 AND 5 THEN 8
+								WHEN ROUND((TO_NUMBER(REPLACE(A.STOCK_CLOSE, ',', '')) - TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', ''))) / NULLIF(TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', '')),0) * 100, 2) BETWEEN 5 AND 12 THEN 4
+								WHEN ROUND((TO_NUMBER(REPLACE(A.STOCK_CLOSE, ',', '')) - TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', ''))) / NULLIF(TO_NUMBER(REPLACE(A.STOCK_SMA20_PRICE, ',', '')),0) * 100, 2) BETWEEN -3 AND 0 THEN 4
+								ELSE 0
+							  END)
+							/* 컨센 */
+							+ (CASE NVL(C.SALES_TREND,'') WHEN 'UP' THEN 3 WHEN 'DOWN' THEN -2 ELSE 0 END)
+							+ (CASE NVL(C.OP_TREND,'') WHEN 'UP' THEN 3 WHEN 'DOWN' THEN -2 ELSE 0 END)
+							+ (CASE NVL(C.EPS_TREND,'') WHEN 'UP' THEN 3 WHEN 'DOWN' THEN -2 ELSE 0 END)
+						))
+					END) AS SCORE_NUM
+				FROM TB_S_INTEREST_STOCK S
+				JOIN TB_S_STOCK_ANALYSIS A
+				  ON S.STOCK_CODE = A.STOCK_CODE
+				 AND A.USE_DIV = 'Y'
+				LEFT JOIN TB_S_STOCK_30MINANALYSIS B
+				  ON S.STOCK_CODE = B.STOCK_CODE
+				LEFT JOIN TB_S_STOCK_CONSENSUS C
+				  ON S.STOCK_CODE = C.STOCK_CODE
+				 AND NVL(C.USE_DIV,'Y') = 'Y'
+				WHERE 1=1
+				  AND S.USE_DIV = 'Y'				  
+				  AND (
+						(#{market} = 'N' AND S.STOCK_COUNTRY_CODE = 'KR')
+						OR (#{market} = 'A' AND S.STOCK_COUNTRY_CODE != 'KR')
+					  )
+					  AND (
+							#{market} != 'N'
+							OR #{domMarket} = 'ALL'
+							OR (#{domMarket} = 'KOSPI' AND S.STOCK_MARKET = 'STK')
+							OR (#{domMarket} = 'KOSDAQ' AND S.STOCK_MARKET = 'KSQ')
+						  )
+			) X
+		) Y
+	  ) Z
+	 WHERE 1=1
+	   AND Z.RECO_RANK = (CASE #{minGrade}
+			WHEN 'STRONG_BUY' THEN 6
+			WHEN 'BUY' THEN 5
+			WHEN 'WEAK_BUY' THEN 4
+			WHEN 'HOLD' THEN 3
+			WHEN 'WEAK_SELL' THEN 2
+			WHEN 'SELL' THEN 1
+			ELSE 0
+	   END)
+		<if test="priceMin != null and priceMin != ''">
+		   AND Z.DAILY_CLOSE_NUM &gt;= TO_NUMBER(#{priceMin})
+		</if>
+		<if test="priceMax != null and priceMax != ''">
+		   AND Z.DAILY_CLOSE_NUM &lt;= TO_NUMBER(#{priceMax})
+		</if>
+	 ORDER BY TO_NUMBER(Z.RECO_SCORE) DESC, Z.MODIFY_DATE DESC
+	 FETCH FIRST #{limit} ROWS ONLY
+	</select>
+
+</mapper>

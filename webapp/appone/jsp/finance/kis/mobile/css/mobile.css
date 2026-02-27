@@ -1,0 +1,1301 @@
+/* KIS Mobile Chart - 모바일 전용 스타일 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #fff;
+  color: #333;
+  overflow-x: hidden;
+}
+
+.mobile-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: #2f80ed;
+  z-index: 99999;
+  opacity: 0;
+  transition: width .22s ease, opacity .2s ease;
+}
+
+body.theme-dark .mobile-progress {
+  background: #5ea5ff;
+}
+
+/* 상단 툴바 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.stock-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f0f0f0;
+}
+
+.logo.logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #123a78, #0a2040);
+}
+
+.name-code {
+  display: flex;
+  flex-direction: column;
+}
+
+.stock-name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stock-code {
+  font-size: 12px;
+  color: #888;
+}
+
+.actions {
+  display: flex;
+  gap: 16px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  position: relative;
+}
+
+.mi.material-symbols-outlined {
+  font-size: 26px;
+  line-height: 1;
+  color: #111;
+}
+
+.icon-btn.alarm .alarm-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f44336;
+  right: 4px;
+  top: 5px;
+}
+
+/* 현재가 */
+.price-area {
+  padding: 4px 16px 6px;
+  display: block;
+}
+
+.price-main { min-width: 0; }
+
+.current-price {
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.change {
+  display: flex;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.trade-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trade-btn {
+  min-width: 96px;
+  padding: 14px 0;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.trade-btn.buy { background: #e53935; }
+.trade-btn.sell { background: #1e88e5; }
+
+.change.up { color: #e53935; }
+.change.down { color: #1e88e5; }
+
+/* 기능 버튼 */
+.features {
+  display: flex;
+  padding: 0 16px;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+}
+
+.feature-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.feature-btn + .feature-btn {
+  border-left: 1px solid #eee;
+}
+
+.feature-btn .mi.material-symbols-outlined {
+  font-size: 18px;
+}
+
+.feature-btn .label {
+  color: #222;
+}
+
+/* 이평선 */
+.ma-info {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.ma-label {
+  color: #666;
+  margin-right: 4px;
+}
+
+.ma {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.ma5 { color: #ff6b6b; background: #ffe0e0; }
+.ma20 { color: #4dabf7; background: #e7f5ff; }
+.ma60 { color: #51cf66; background: #e8f8e8; }
+.ma120 { color: #9775fa; background: #f3f0ff; }
+.ma240 { color: #ff8c00; background: #fff3e0; }
+
+/* 차트 */
+.chart-container {
+  padding: 0;
+}
+
+.chart {
+  width: 100%;
+  height: 300px;
+}
+
+.chart.volume {
+  height: 120px;
+}
+
+body.theme-dark {
+  background: #0b0c0f;
+  color: #f1f3f5;
+}
+
+body.theme-dark .toolbar,
+body.theme-dark .wl-controls,
+body.theme-dark .timeframe,
+body.theme-dark .bottom-nav,
+body.theme-dark .options-panel,
+body.theme-dark .ma-info,
+body.theme-dark .features,
+body.theme-dark .wl-actionbar,
+body.theme-dark .wl-item,
+body.theme-dark .feature-btn,
+body.theme-dark .price-area,
+body.theme-dark .chart-container {
+  background: #0b0c0f;
+  border-color: #1f2228;
+}
+
+body.theme-dark .stock-code,
+body.theme-dark .wl-sub,
+body.theme-dark .wl-event,
+body.theme-dark .ma-label,
+body.theme-dark .nav-btn {
+  color: #9aa0aa;
+}
+
+body.theme-dark .stock-name,
+body.theme-dark .wl-name,
+body.theme-dark .nav-btn.active,
+body.theme-dark .feature-btn .label {
+  color: #f1f3f5;
+}
+
+body.theme-dark #wlGroup,
+body.theme-dark #w1Group {
+  background: #12141a;
+  border-color: #2a2f38;
+  color: #f1f3f5;
+}
+
+body.theme-dark .icon-btn .mi.material-symbols-outlined,
+body.theme-dark .feature-btn .mi.material-symbols-outlined,
+body.theme-dark .tf-btn .mi.material-symbols-outlined,
+body.theme-dark .nav-btn .mi.material-symbols-outlined {
+  color: #e5e7eb;
+}
+
+body.theme-dark .tf-btn {
+  background: #12141a;
+  border-color: #2a2f38;
+  color: #e5e7eb;
+}
+
+body.theme-dark .tf-btn.active {
+  background: #e53935;
+  border-color: #e53935;
+  color: #fff;
+}
+
+body.theme-dark .current-price {
+  color: #4ea3ff;
+}
+
+body.theme-dark .search-modal-content,
+body.theme-dark .quick-menu-sheet,
+body.theme-dark .options-block,
+body.theme-dark .options-content label,
+body.theme-dark .range-content {
+  background: #111319;
+  color: #f1f3f5;
+}
+
+body.theme-dark .range-content input[type="date"] {
+  background: #0b0c0f;
+  color: #f1f3f5;
+  border-color: #2a2f38;
+}
+
+body.theme-dark .search-modal-header,
+body.theme-dark .search-result-item,
+body.theme-dark .quick-menu-item {
+  border-color: #222733;
+}
+
+body.theme-dark .search-modal-input,
+body.theme-dark .quick-menu-item {
+  background: transparent;
+  color: #f1f3f5;
+}
+
+/* 검색 모달 */
+.search-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+}
+
+.search-modal.active { display: flex; }
+
+.search-modal-content {
+  background: #fff;
+  width: 90%;
+  max-width: 500px;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-modal-input {
+  flex: 1;
+  border: none;
+  font-size: 16px;
+  outline: none;
+}
+
+.search-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-modal-results {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+}
+
+.search-result-item:hover, .search-result-item:active {
+  background: #f9f9f9;
+}
+
+.search-result-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #1976d2;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-name {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-code {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.search-result-price {
+  font-size: 16px;
+  font-weight: 700;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.search-result-price.up { color: #e53935; }
+.search-result-price.down { color: #1e88e5; }
+.search-result-price.flat { color: #777; }
+
+.search-modal-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+
+.search-result-name mark {
+  background: #ffe8e8;
+  color: #d32f2f;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.quick-menu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  align-items: flex-end;
+}
+
+.quick-menu-modal.active {
+  display: flex;
+}
+
+.quick-menu-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 14px 14px 0 0;
+  overflow: hidden;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.quick-menu-item {
+  width: 100%;
+  border: 0;
+  background: #fff;
+  padding: 16px;
+  text-align: left;
+  font-size: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.quick-menu-item:active {
+  background: #f8f8f8;
+}
+
+.quick-menu-item.close {
+  text-align: center;
+  font-weight: 700;
+}
+
+/* 공통 시장 스위치 */
+.market-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 16px 2px;
+  border-bottom: 1px solid #eee;
+}
+
+.market-price-inline {
+  font-size: 34px;
+  font-weight: 800;
+  color: #e53935;
+  line-height: 1;
+}
+
+.market-change-inline {
+  font-size: 16px;
+  font-weight: 700;
+  color: #666;
+  line-height: 1;
+  margin-left: 8px;
+}
+
+.market-change-inline.up { color: #e53935; }
+.market-change-inline.down { color: #1e88e5; }
+
+.market-btn {
+  border: 2px solid #cfd4dc;
+  background: #fff;
+  color: #333;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.market-btn .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cfd4dc;
+}
+
+.market-btn.active {
+  border-color: #f5a623;
+}
+
+.market-btn.active .dot {
+  background: #6acb2f;
+}
+
+body.theme-dark .market-switch { border-color: #1f2228; }
+body.theme-dark .market-btn {
+  background: #3b3f47;
+  color: #f5f5f5;
+  border-color: #f5a623;
+}
+
+/* 관심종목 */
+.wl-controls {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.wl-actionbar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid #eee;
+}
+
+.action-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  font-size: 13px;
+  border-right: 1px solid #eee;
+}
+
+.action-btn:last-child { border-right: 0; }
+.action-btn.active { color: #e53935; font-weight: 700; }
+.action-btn .mi.material-symbols-outlined { font-size: 18px; }
+
+.wl-controls {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+#w1Group, #wlGroup {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 15px;
+  background: #fff;
+}
+
+.wl-list {
+  padding: 0;
+}
+
+.wl-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.wl-remove {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 0;
+  background: #ef5350;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.wl-list.edit-mode .wl-remove {
+  display: inline-flex;
+}
+
+.wl-list.edit-mode .wl-item {
+  cursor: default;
+}
+
+.wl-left { flex: 1; min-width: 0; }
+.wl-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wl-sub { font-size: 12px; color: #888; margin-top: 2px; }
+.wl-event { font-size: 12px; color: #666; margin-top: 6px; line-height: 1.2; max-height: 2.4em; overflow: hidden; }
+
+.wl-right { text-align: right; min-width: 88px; }
+.wl-price { font-size: 16px; font-weight: 700; }
+.wl-diff, .wl-rate { font-size: 12px; margin-top: 2px; }
+
+.wl-price.up, .wl-diff.up, .wl-rate.up { color: #e53935; }
+.wl-price.down, .wl-diff.down, .wl-rate.down { color: #1e88e5; }
+.wl-price.flat, .wl-diff.flat, .wl-rate.flat { color: #777; }
+
+@keyframes wlFlashUp {
+  0% { background-color: rgba(229,57,53,0.00); }
+  35% { background-color: rgba(229,57,53,0.18); }
+  100% { background-color: rgba(229,57,53,0.00); }
+}
+
+@keyframes wlFlashDown {
+  0% { background-color: rgba(30,136,229,0.00); }
+  35% { background-color: rgba(30,136,229,0.18); }
+  100% { background-color: rgba(30,136,229,0.00); }
+}
+
+.wl-item.wl-flash-up { animation: wlFlashUp .52s ease-out; }
+.wl-item.wl-flash-down { animation: wlFlashDown .52s ease-out; }
+
+/* 타임프레임 */
+.timeframe {
+  display: flex;
+  padding: 5px 8px;
+  gap: 4px;
+  border-top: 1px solid #eee;
+  overflow: hidden;
+  align-items: center;
+  background: #fff;
+  position: fixed;
+  bottom: 62px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+.tf-btn {
+  flex: 1;
+  flex-shrink: 1;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #d5d9e0;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  min-width: 0;
+  text-align: center;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.tf-btn .mi.material-symbols-outlined {
+  font-size: 17px;
+}
+
+.tf-btn.active {
+  background: #1976d2;
+  color: #fff;
+  border-color: #1976d2;
+}
+
+.tf-btn.settings {
+  flex: 0 0 34px;
+  background: #f5f5f5;
+  padding: 0;
+}
+
+/* 하단 네비게이션 */
+.bottom-nav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #eee;
+  padding: 8px 0 8px;
+  z-index: 100;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: #666;
+  padding: 4px;
+}
+
+.nav-btn .icon {
+  font-size: 20px;
+}
+
+.nav-btn .mi.material-symbols-outlined {
+  font-size: 20px;
+}
+
+.nav-btn.active {
+  color: #e53935;
+}
+
+.nav-btn.active .icon {
+  font-size: 22px;
+}
+
+.nav-btn.active .mi.material-symbols-outlined {
+  font-size: 22px;
+}
+
+/* 차트 옵션 패널 */
+.options-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 2px solid #ddd;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px 20px;
+  z-index: 200;
+  transform: translateY(0);
+  transition: transform 0.3s;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.options-panel.hidden {
+  transform: translateY(100%);
+}
+
+.options-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.options-panel h3 {
+  font-size: 18px;
+}
+
+.options-panel .close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.options-block {
+  border: 1px solid #e6e9ef;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.options-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.options-content label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 1px solid #e8ebf0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.options-content input[type="checkbox"],
+.options-block input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+.range-content {
+  margin-top: 12px;
+  border: 1px solid #e6e9ef;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.range-content label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #666;
+}
+
+.range-content input[type="date"] {
+  border: 1px solid #d5d9e0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.range-apply-btn {
+  border: 0;
+  border-radius: 10px;
+  background: #2f80ed;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+/* 발굴분석 */
+.analysis-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #1f2228;
+  overflow-x: auto;
+}
+
+.analysis-tab {
+  border: 0;
+  background: transparent;
+  color: #9aa0aa;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 8px 2px;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+
+.analysis-tab.active {
+  color: #f1f3f5;
+  border-bottom-color: #f1f3f5;
+}
+
+.analysis-panel { display: none; padding: 14px 16px; }
+.analysis-panel.active { display: block; }
+
+.analysis-card {
+  background: #12141a;
+  border: 1px solid #252a33;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.analysis-card.buy { border-color: #3b2a2a; }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.analysis-card p {
+  color: #b7bec9;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.analysis-card .cta {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: #e85050;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.ai-stock-box {
+  border: 1px solid #252a33;
+  border-radius: 10px;
+  background: #0e1015;
+  padding: 12px;
+}
+
+.ai-stock-title { font-size: 14px; color: #c5ccd6; margin-bottom: 6px; }
+.ai-price { font-size: 34px; font-weight: 800; color: #4ea3ff; line-height: 1; }
+.ai-price-sub { margin-top: 6px; color: #9aa0aa; font-size: 15px; }
+.ai-price-sub.up { color: #ff6b6b; }
+.ai-price-sub.down { color: #5ea5ff; }
+
+.ai-opinion {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c5ccd6;
+}
+
+.ai-opinion strong {
+  border-radius: 999px;
+  background: #2a2f38;
+  padding: 4px 10px;
+  color: #ffd166;
+}
+
+.ai-opinion .yield { color: #ff7b7b; font-weight: 700; margin-left: auto; }
+
+.signal-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mini-row {
+  width: 100%;
+  border: 1px solid #252a33;
+  background: #0e1015;
+  color: #f1f3f5;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto auto;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.mini-row .rank { color: #9aa0aa; }
+.mini-row .name { font-weight: 700; }
+.mini-row .price { color: #d7dbe3; }
+.mini-row .rate.up { color: #ff7b7b; }
+.mini-row .rate.down { color: #5ea5ff; }
+.mini-row .badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #2a2f38;
+}
+
+.mini-row.buy .badge { background: #4b2222; color: #ff9b9b; }
+.mini-row.sell .badge { background: #1f3352; color: #8fc0ff; }
+.mini-row.hold .badge { background: #3a3a2a; color: #f2de8b; }
+
+.mini-empty {
+  padding: 14px;
+  border: 1px dashed #2a2f38;
+  border-radius: 10px;
+  color: #9aa0aa;
+  text-align: center;
+}
+
+/* 여백 (하단 네비 고려) */
+body {
+  padding-bottom: 76px;
+}
+
+/* ================================================================
+   차트 옵션 패널 — 확장 스타일 (Feature Toggles / Cross / MA Rows)
+   ================================================================ */
+
+/* opt-block: 섹션 카드 */
+.opt-block {
+  border: 1px solid #e6e9ef;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+/* opt-row: 항목 행 */
+.opt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 15px;
+  border-bottom: 1px solid #f0f2f5;
+  gap: 8px;
+}
+.opt-row:last-of-type { border-bottom: none; }
+
+/* Toggle Switch */
+.opt-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.opt-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.opt-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #ccc;
+  border-radius: 24px;
+  transition: background .3s;
+}
+.opt-slider:before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .3s;
+}
+.opt-switch input:checked + .opt-slider { background: #2196F3; }
+.opt-switch input:checked + .opt-slider:before { transform: translateX(20px); }
+
+/* opt-hint: 안내 텍스트 */
+.opt-hint {
+  font-size: 11px;
+  color: #888;
+  margin: 6px 0 0;
+}
+
+/* Cross Signal 레이아웃 */
+.opt-cross-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.opt-cross-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.opt-cross-pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.opt-select {
+  border: 1px solid #d5d9e0;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  background: #fff;
+}
+.opt-cross-hint {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* MA Row 목록 */
+.ma-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f2f5;
+  flex-wrap: nowrap;
+}
+.ma-row:last-child { border-bottom: none; }
+
+.ma-enabled {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ma-order {
+  font-size: 12px;
+  color: #888;
+  min-width: 26px;
+  flex-shrink: 0;
+}
+.ma-label {
+  flex: 1;
+  min-width: 50px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 13px;
+}
+.ma-period {
+  width: 50px;
+  flex-shrink: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 13px;
+  text-align: center;
+}
+.ma-width {
+  width: 42px;
+  flex-shrink: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 색상 선택 버튼 */
+.ma-colorbtn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: transparent;
+  padding: 0;
+}
+.ma-swatch {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+.ma-color-picker {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+}
+
+/* 삭제 버튼 */
+.btn-delete-ma {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #888;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.btn-delete-ma:active { background: #f5f5f5; }
+
+/* MA 라인 추가 버튼 */
+.btn-add-ma {
+  display: block;
+  width: 100%;
+  margin: 6px 0 12px;
+  padding: 9px 14px;
+  font-size: 14px;
+  border: 1px dashed #aaa;
+  border-radius: 8px;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+  text-align: center;
+}
+.btn-add-ma:active { background: #f5f5f5; }
+
+/* 하단 버튼 영역 */
+.opt-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.opt-btn {
+  flex: 1;
+  padding: 11px 8px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.opt-btn-primary {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #2f80ed;
+  font-weight: 700;
+}
+.opt-btn:active { opacity: .85; }
+
+/* ── Dark Mode ── */
+body.theme-dark .opt-block {
+  border-color: #2a2f38;
+}
+body.theme-dark .opt-row {
+  border-color: #1f2228;
+  color: #f1f3f5;
+}
+body.theme-dark .opt-hint {
+  color: #6b7280;
+}
+body.theme-dark .opt-slider {
+  background: #555;
+}
+body.theme-dark .opt-select {
+  background: #111319;
+  color: #f1f3f5;
+  border-color: #2a2f38;
+}
+body.theme-dark .opt-cross-hint {
+  color: #6b7280;
+}
+body.theme-dark .ma-row {
+  border-color: #1f2228;
+}
+body.theme-dark .ma-label,
+body.theme-dark .ma-period,
+body.theme-dark .ma-width {
+  background: #111319;
+  color: #f1f3f5;
+  border-color: #2a2f38;
+}
+body.theme-dark .ma-colorbtn {
+  border-color: #2a2f38;
+}
+body.theme-dark .btn-delete-ma {
+  background: #111319;
+  color: #9aa0aa;
+  border-color: #2a2f38;
+}
+body.theme-dark .btn-delete-ma:active { background: #1f2228; }
+body.theme-dark .btn-add-ma {
+  color: #9aa0aa;
+  border-color: #2a2f38;
+}
+body.theme-dark .btn-add-ma:active { background: #111319; }
+body.theme-dark .opt-btn {
+  background: #111319;
+  color: #f1f3f5;
+  border-color: #2a2f38;
+}
+body.theme-dark .opt-btn-primary {
+  background: #2f80ed;
+  color: #fff;
+  border-color: #2f80ed;
+}

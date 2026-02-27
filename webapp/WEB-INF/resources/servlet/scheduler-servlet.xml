@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans 
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/task 
+           http://www.springframework.org/schema/task/spring-task.xsd">
+
+    <!-- =========================================== Controller 정의 ============================================== -->
+    
+    
+    <!-- Main  -->
+    <import resource="classpath:/service/mainService.xml"/>
+	<!-- Management -->
+	<import resource="classpath:/service/mngtService.xml"/>
+	<!-- Finance -->
+    <import resource="classpath:/service/financeService.xml"/>
+	
+	<!-- File Download -->
+	<bean id="download" class="com.scheduler.comm.util.DownloadView"/>
+	
+	<!-- File Download ViewResolver -->
+	<bean class="org.springframework.web.servlet.view.BeanNameViewResolver">
+     	<property name="order" value="0"/>
+	</bean>
+	
+   <!-- File Upload Resolver(Admin WAS에 배포시 주석처리 해야한다. 공토으로 쓰는 Bean ID이기 때문에 이미 어드민에서 사용하는 스프링에 등록되어 있음..) -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver"/> 
+	
+	<!-- springframework ViewResoler -->
+	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		 <property name="prefix" value="/appone/jsp/" />
+		 <property name="suffix" value=".jsp" />
+		 <property name="contentType" value="text/html;charset=UTF-8" />
+	</bean>
+	
+	<task:annotation-driven/>	<!-- @Async를 활성화하는 역할로, @EnableAsync와 동일한 기능을 수행  -->
+</beans>

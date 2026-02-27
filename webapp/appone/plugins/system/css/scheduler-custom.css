@@ -1,0 +1,74 @@
+.navbar-nav>.user-menu>.dropdown-menu {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    padding: 0;
+    width: 240px;
+    position: absolute;
+    right: -5px;
+    left: auto;
+    border-radius: 15%;
+}
+.navbar-nav>.user-menu .user-image {
+    float: none;
+    line-height: 10px;
+    margin-right: .4rem;
+    margin-top: 2px;
+    cursor: pointer;
+}
+.navbar-nav>.user-menu>.dropdown-menu>.user-body {
+    border-bottom: 1px solid #49505700;
+    border-top: 1px solid #dee2e6;
+    padding: 15px;
+}
+.user-img-bordered-sm {
+    border: 2px solid #adb5bd;
+    padding: 2px;
+    width: 2.5em;
+    cursor: pointer;
+}
+.btn-app {
+    border-radius: 50%;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    color: #6c757d;
+    font-size: 10px;
+    height: 38px;
+    left: -8px;
+    line-height: 40px;
+    min-width: 40px;
+    padding: 8px 4px;
+    position: relative;
+    text-align: center;
+}
+
+.profile-app {
+    border-radius: 50%;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    color: #6c757d;
+    font-size: 10px;
+    height: 38px;
+    left: -8px;
+    line-height: 40px;
+    min-width: 40px;
+    padding: 8px 4px;
+    position: relative;
+    text-align: center;
+}
+.profile-badge {
+	border-radius: 50%;
+	background-color: #f8f9fa;
+	border: 1px solid #ddd;
+    font-size: 12px;
+    font-weight: 400;
+    position: absolute;
+    line-height: 25px;
+    min-width: 25px;
+    right: 65px;
+    top: 80px;
+    cursor: pointer;
+}
+
+.content-wrapper {
+    background-color: #f8f9fa;
+}

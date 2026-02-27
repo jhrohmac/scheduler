@@ -1,0 +1,283 @@
+/* =========================================================
+   kisFinance.mobileFix.css
+   - Mobile/Responsive overrides for kisFinance
+   - Keep desktop styles in kisFinance.css
+   - Load this file AFTER kisFinance.css
+   ========================================================= */
+
+/* 기본은 숨김 (PC) */
+.mobile-panel-buttons,
+.mobile-panel-backdrop {
+  display: none;
+}
+
+/* =========================================================
+   Mobile Layout (<= 860px)
+   - 화면 스크롤 잠금 + center-panel 내부만 스크롤
+   - 관심종목/시장요약 버튼을 상단(종목검색 아래)에 고정
+   - 오버레이 패널/모달/검색자동완성 z-index 충돌 방지
+   ========================================================= */
+@media (max-width: 860px) {
+
+  /* ===== Page scroll lock (mobile) ===== */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* topbar 높이는 기존과 동일하게 사용(54px). 전체 레이아웃을 뷰포트에 고정 */
+  .dash-shell {
+    flex-direction: column;
+    height: calc(100vh - 54px);
+    overflow: hidden;
+  }
+
+  /* center-panel 내부만 스크롤 허용 */
+  .center-panel {
+    width: 100%;
+    min-width: auto;
+    height: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    padding-top: 0px; /* 상단 고정 버튼 영역 확보 */
+  }
+
+  /* left-panel은 wg-drawer(관심그룹 관리)가 absolute 기준으로 사용하므로 relative 유지 */
+  .left-panel {
+    width: auto;
+    min-width: auto;
+    max-width: none;
+    position: relative;
+  }
+
+  /* right-panel은 모바일 기본 레이아웃에서 일반 패널처럼 보이게(오버레이 전환은 아래에서 fixed로 처리) */
+  .right-panel {
+    width: auto;
+    min-width: auto;
+    max-width: none;
+    position: static;
+    transform: none !important;
+    box-shadow: none;
+    height: auto;
+    min-height: unset;
+  }
+
+  .right-toggle-btn {
+    display: none;
+  }
+
+  /* ===== Mobile Panel Buttons (top, under search) ===== */
+  .mobile-panel-buttons {
+    display: flex;
+    gap: 8px;    
+    left: 8px;
+    right: 8px;
+    z-index: 10030;
+    margin: 0;
+    padding: 4px 15px;
+    border-radius: 14px;
+    background: rgba(246,247,251,0);
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+  }
+
+  .mobile-panel-buttons .mpb-btn {
+    flex: 1 1 0;
+    height: 32px;
+    border-radius: 12px;
+    border: 1px solid #e6e9f2;
+    background: #ffffff;
+    font-weight: 800;
+    font-size: 12px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+  }
+
+  /* ===== Backdrop ===== */
+  .mobile-panel-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 10010;
+  }
+
+  /* ===== Off-canvas overlay panels ===== */
+  .left-panel,
+  .right-panel {
+    position: fixed !important;
+    left: 10px;
+    right: 10px;
+    top: 104px;               /* topbar(54) + 버튼영역(약 44) + gap */
+    bottom: 12px;
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    z-index: 10020;
+
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  /* ===== Panel internal scroll (watchlist/summary full visible) ===== */
+  #leftPanel .left-body,
+  #rightPanel .right-body {
+    height: calc(100% - 44px); /* panel-head height */
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #leftPanel .watchlist {
+    max-height: none;
+    overflow: auto;
+  }
+
+  /* ===== Open state ===== */
+  body.mobile-open-left #mobilePanelBackdrop,
+  body.mobile-open-right #mobilePanelBackdrop {
+    display: block;
+  }
+
+  body.mobile-open-left #leftPanel,
+  body.mobile-open-right #rightPanel {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* ===== Modal open: prevent overlay from covering modal ===== */
+  body.modal-open .mobile-panel-buttons,
+  body.modal-open #mobilePanelButtons,
+  body.modal-open #mobilePanelBackdrop {
+    display: none !important;
+  }
+
+  body.modal-open #leftPanel,
+  body.modal-open #rightPanel {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(16px) !important;
+  }
+
+  /* =========================================================
+     Mobile Search Suggest overlay fix
+     - top-suggest가 모바일 버튼에 가려지는 문제 해결
+     ========================================================= */
+  .top-suggest {
+    z-index: 10060; /* above mobile buttons/panels */
+    margin-top: 44px; /* 버튼 영역만큼 아래로 */
+  }
+
+  body.modal-open .top-suggest {
+    display: none !important;
+  }
+}
+
+/* =========================================================
+   Small screens (<= 576px): Modal body scroll + footer wrap
+   ========================================================= */
+@media (max-width: 576px) {
+  #chartOptionsModal .modal-dialog {
+    width: calc(100% - 16px);
+    margin: 8px auto;
+  }
+
+  #chartOptionsModal .modal-body {
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #chartOptionsModal .modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  #chartOptionsModal .modal-footer .btn {
+    min-width: 88px;
+  }
+}
+
+/* =========================================================
+   Extra small (<= 420px): MA option row grid reflow
+   ========================================================= */
+@media (max-width: 420px) {
+  .ma-row2 {
+    grid-template-columns: 38px 52px 1fr;
+    gap: 8px;
+    padding: 10px 10px;
+  }
+
+  .ma-row2 .ma-check {
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+  }
+
+  .ma-row2 .ma-order {
+    font-size: 12px;
+  }
+
+  .ma-row2 input.ma-label {
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .ma-row2 .ma-period {
+    grid-column: 1 / 3;
+    height: 32px;
+  }
+  .ma-row2 .ma-width {
+    grid-column: 1 / 3;
+    height: 32px;
+  }
+
+  .ma-row2 .ma-colorbtn {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .ma-row2 .btn-delete-ma {
+    grid-column: 1 / 4;
+    height: 32px;
+    border-radius: 10px;
+  }
+
+  /* ===== Mobile Watchlist Item Optimization ===== */
+  .wl-item {
+    gap: 8px;
+    padding: 8px 8px;
+  }
+
+  .wl-left {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .wl-name {
+    font-size: 12px;
+  }
+
+  .wl-code {
+    font-size: 10px;
+  }
+
+  .wl-right {
+    flex-shrink: 0;
+  }
+
+  .wl-price {
+    font-size: 12px;
+  }
+
+  .wl-sub .wl-rate,
+  .wl-sub .wl-diff {
+    font-size: 11px;
+  }
+}

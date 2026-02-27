@@ -1,0 +1,13 @@
+<svg height="150" viewBox="0 0 302 150" width="302" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs>
+<path d="M0 0h248v119H0z" id="a"></path>
+</defs>
+<g fill="none" fill-rule="evenodd" transform="translate(27 16)">
+<mask fill="#fff" id="b">
+<use href="#a"></use>
+</mask>
+<path d="M183 20h-21.59v33.92L121.592 69.6V20H100v99h21.591V89.653l39.82-15.687V119H183V20M197 119h21V49l-21 8.344V119M68.285 69.785c0 17.537-11.992 29.555-29.77 29.555H21.727V39.659h16.79c17.777 0 29.77 12.305 29.77 29.84v.286zM38.515 20H0v99h38.516C69.557 119 91 97.36 91 69.5v-.28C91 41.354 69.557 20 38.516 20z" fill="#152B51" mask="url(#b)"></path>
+<path d="M247 0l-51 19.99V40l51-19.996V0" fill="#55B046" mask="url(#b)"></path>
+<path d="M232 119h-.71v-3.34h-.02l-1.407 3.34h-.449l-1.408-3.34h-.02V119h-.711v-4h1.097l1.282 3.039 1.261-3.039H232v4zm-5.6-3.465h-1.346V119h-.709v-3.465H223V115h3.4v.535z" fill="#152B51" mask="url(#b)"></path>
+</g>
+</svg>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sql.ItemCode">
+	<select id="selectItemCode" parameterType="hashmap" resultType="itemCodeVo">
+		<if test='itemALL == "Y"'>
+	        SELECT 'ALL' AS CODE,
+	               '' AS VALUE,
+	               'N' AS FLAG
+	        FROM DUAL
+	        UNION ALL
+	    </if>
+	    SELECT CODE
+	    	  ,VALUE
+	    	  ,FLAG
+	    FROM (
+	        SELECT
+	            CODE_ID AS CODE,
+	            CODE_VALUE AS VALUE,
+	            DEFAULT_FLAG AS FLAG
+	        FROM TB_M_CODE_MANAGEMENT
+	        WHERE 1=1
+	          AND PARENT_ID = #{itemName} -- 'ROLE'
+	          AND USE_FLAG ='Y'
+	        ORDER BY TO_NUMBER(SORT_ORDER) ASC
+	    )
+	</select>
+</mapper>

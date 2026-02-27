@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.finance.sql.SignalEvent">
+
+    <!-- Upsert signal event (dedupe):
+         동일 (STOCK_CODE, TIMEFRAME, SIGNAL_TYPE, EVENT_TIME) 는 1건만 유지
+         - 테이블에 유니크 제약을 걸지 않고도 중복을 방지(안전)
+         - 이미 존재하면 MESSAGE/JSON_PARAMS 등을 최신으로 업데이트
+     -->
+    <insert id="insertSignalEvent" parameterType="hashmap">
+        /*mergeSignalEvent*/
+        MERGE INTO TB_S_SIGNAL_EVENT T
+        USING (
+            SELECT
+                #{stock_code} AS stock_code,
+                NVL(#{country_code}, 'KR') AS country_code,
+                #{timeframe} AS timeframe,
+                #{signal_type} AS signal_type,
+                NVL(#{signal_grade}, 'INFO') AS signal_grade,
+                NVL(TO_NUMBER(#{score_delta}), 0) AS score_delta,
+                (CASE
+                    WHEN #{event_time} IS NULL OR #{event_time} = '' THEN SYSDATE
+                    WHEN LENGTH(#{event_time}) = 10 THEN TO_DATE(#{event_time}, 'YYYY-MM-DD')
+                    ELSE TO_DATE(SUBSTR(#{event_time},1,19), 'YYYY-MM-DD HH24:MI:SS')
+                 END) AS event_time,
+                <choose>
+                  <when test="price_ref != null and price_ref != ''">TO_NUMBER(#{price_ref})</when>
+                  <otherwise>NULL</otherwise>
+                </choose> AS price_ref,
+                #{json_params} AS json_params,
+                #{message} AS message,
+                #{source_job_id} AS source_job_id
+            FROM DUAL
+        ) S
+        ON (
+            T.STOCK_CODE = S.STOCK_CODE
+            AND T.TIMEFRAME = S.TIMEFRAME
+            AND T.SIGNAL_TYPE = S.SIGNAL_TYPE
+            AND T.EVENT_TIME = S.EVENT_TIME
+        )
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.COUNTRY_CODE = S.COUNTRY_CODE,
+                T.SIGNAL_GRADE = S.SIGNAL_GRADE,
+                T.SCORE_DELTA = S.SCORE_DELTA,
+                T.PRICE_REF = S.PRICE_REF,
+                T.JSON_PARAMS = S.JSON_PARAMS,
+                T.MESSAGE = S.MESSAGE,
+                T.SOURCE_JOB_ID = S.SOURCE_JOB_ID
+        WHEN NOT MATCHED THEN
+            INSERT (
+                STOCK_CODE,
+                COUNTRY_CODE,
+                TIMEFRAME,
+                SIGNAL_TYPE,
+                SIGNAL_GRADE,
+                SCORE_DELTA,
+                EVENT_TIME,
+                PRICE_REF,
+                JSON_PARAMS,
+                MESSAGE,
+                SOURCE_JOB_ID,
+                CREATE_DATE
+            ) VALUES (
+                S.STOCK_CODE,
+                S.COUNTRY_CODE,
+                S.TIMEFRAME,
+                S.SIGNAL_TYPE,
+                S.SIGNAL_GRADE,
+                S.SCORE_DELTA,
+                S.EVENT_TIME,
+                S.PRICE_REF,
+                S.JSON_PARAMS,
+                S.MESSAGE,
+                S.SOURCE_JOB_ID,
+                SYSDATE
+            )
+    </insert>
+
+</mapper>

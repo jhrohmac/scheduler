@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+	<!-- Finance -->
+	<bean id="stockCodeInfoController" class="com.scheduler.finance.controller.StockCodeInfoController">
+		<property name="stockCodeInfoDao" ref="stockCodeInfoDaoImpl"></property>
+	</bean>
+	<bean id="stockCodeInfoDaoImpl" class="com.scheduler.finance.dao.impl.StockCodeInfoDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<bean id="stockManagementController" class="com.scheduler.finance.controller.StockManagementController">
+		<property name="stockManagementDao" ref="stockManagementDaoImpl"></property>
+	</bean>
+	<bean id="stockManagementDaoImpl" class="com.scheduler.finance.dao.impl.StockManagementDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<bean id="stockAnalysisController" class="com.scheduler.finance.controller.StockAnalysisController">
+		<property name="stockAnalysisDao" ref="stockAnalysisDaoImpl"></property>
+	</bean>
+	<bean id="stockAnalysisDaoImpl" class="com.scheduler.finance.dao.impl.StockAnalysisDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	 									      
+	<bean id="StockUtilController" class="com.scheduler.finance.controller.StockUtilController">
+		<property name="StockUtilDao" ref="StockUtilDaoImpl"></property>
+	</bean>
+	<bean id="StockUtilDaoImpl" class="com.scheduler.finance.dao.impl.StockUtilDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="codeManageController" class="com.scheduler.finance.controller.CodeManageController">
+		<property name="codeManageDao" ref="codeManagerDaoImpl"></property>
+	</bean>
+	<bean id="codeManagerDaoImpl" class="com.scheduler.finance.dao.impl.CodeManagerDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<bean id="chartOptionManageController" class="com.scheduler.finance.controller.ChartOptionManageController">
+		<property name="chartOptionManageDao" ref="chartOptionManageDaoImpl"></property>
+	</bean>
+	<bean id="chartOptionManageDaoImpl" class="com.scheduler.finance.dao.impl.ChartOptionManageDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<bean id="stockChartOptionController" class="com.scheduler.finance.controller.StockChartOptionController">
+		<property name="stockChartOptionDao" ref="stockChartOptionDaoImpl"></property>
+	</bean>
+	<bean id="stockChartOptionDaoImpl" class="com.scheduler.finance.dao.impl.StockChartOptionDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<bean id="marketSummaryController" class="com.scheduler.finance.controller.MarketSummaryController">
+		<property name="marketSummaryDao" ref="marketSummaryDaoImpl"></property>
+	</bean>
+	<bean id="marketSummaryDaoImpl" class="com.scheduler.finance.dao.impl.MarketSummaryDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>	
+	
+	<bean id="interestWatchlistController" class="com.scheduler.finance.controller.InterestWatchlistController">
+		<property name="stockCodeInfoDao" ref="stockCodeInfoDaoImpl"></property>
+	</bean>
+	<!-- batch -->
+	<bean id="batchJobCtrlController" class="com.scheduler.finance.controller.BatchJobCtrlController">
+		<property name="batchJobCtrlDao" ref="batchJobCtrlDaoImpl"></property>
+	</bean>
+	<bean id="batchJobCtrlDaoImpl" class="com.scheduler.finance.dao.impl.BatchJobCtrlDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+		<property name="signalEventDao" ref="signalEventDaoImpl"></property>
+	</bean>	
+
+	<!-- signal event -->
+	<bean id="signalEventDaoImpl" class="com.scheduler.finance.dao.impl.SignalEventDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<!-- WF-2-4: 보유종목 관리 -->
+	<bean id="positionController" class="com.scheduler.finance.controller.PositionController">
+		<property name="positionDao" ref="positionDaoImpl"></property>
+	</bean>
+	<bean id="positionDaoImpl" class="com.scheduler.finance.dao.impl.PositionDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+</beans>

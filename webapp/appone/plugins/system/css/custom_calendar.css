@@ -1,0 +1,47 @@
+
+/* 1) Header 툴바 여백: p-1, mb-1 */
+#calendar .fc-header-toolbar {
+  padding: .25rem !important;       /* Bootstrap p-1 */
+  margin-bottom: .25rem !important; /* Bootstrap mb-1 */
+}
+
+/* 2) 툴바 버튼 전체 덮어쓰기 */
+#calendar .fc-toolbar-chunk button {
+  /* Bootstrap btn-default */
+  background-color: #f8f9fa !important;
+  color:            #444     !important;
+  border:           1px solid #ddd   !important;
+
+  /* Bootstrap btn-sm */
+  padding:       .25rem .5rem !important;
+  font-size:     .875rem       !important;
+  line-height:   1.5           !important;
+  border-radius: .2rem         !important;
+
+  /* pointer 보장 */
+  cursor: pointer !important;
+}
+
+/* (선택) 비활성화 Today 버튼도 동일하게 보이도록 하려면 */
+#calendar .fc-today-button[disabled] {
+  opacity: .65;  /* Bootstrap 기본 disabled opacity */
+}
+/* 툴바 버튼 hover 시 회색 배경 */
+#calendar .fc-toolbar-chunk button:hover {
+  background-color: #e9ecef !important;
+}
+/* month view(dayGrid)에서 날짜 번호 색상 설정 */
+.fc .fc-daygrid-day.fc-day-sat .fc-daygrid-day-number {
+  color: blue !important;
+}
+.fc .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number {
+  color: red !important;
+}
+
+/* timeGrid(주간/일간) 뷰에서 축(axis) 라벨 색상 설정 */
+.fc .fc-axis.fc-day-sat {
+  color: blue !important;
+}
+.fc .fc-axis.fc-day-sun {
+  color: red !important;
+}

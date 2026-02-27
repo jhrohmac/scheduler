@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="sql.StockUtil">
+
+	<!-- 종목 검색 -->
+	<select id="selectStockInfo" parameterType="string"  resultType="stockInfoVo">
+		/*selectStockInfo*/
+		SELECT 
+			 STOCK_SEQ
+			,STOCK_ID
+	        ,STOCK_CODE
+	        ,STOCK_KO_NAME
+	        ,STOCK_EN_NAME
+	        ,STOCK_MARKET
+	        ,STOCK_TIMEZONE
+	        ,STOCK_SECTOR
+	        ,STOCK_DESC
+	        ,STOCK_URL
+	        ,STOCK_COUNTRY_CODE		        
+	        ,STOCK_TYPE
+	        ,STOCK_TYPE_SPECS
+	        ,STOCK_CURRENCY
+	        ,STOCK_ALIASES
+	        ,COUNT(*) OVER() TOTAL_COUNT
+		FROM TB_S_INTEREST_STOCK
+		WHERE STOCK_CODE = #{stock_code}
+  	</select>
+  	
+	<select id="selectModalOptions" parameterType="string"  resultType="codeVo">
+		/*selectModalOptions*/
+          SELECT  CODE_ID
+          		 ,CODE_NM
+                 ,CODE_VALUE
+                 ,DEFAULT_YN
+          FROM TB_M_FINANCE_CONFIG
+          WHERE PARENT_ID = (  SELECT CODE_SEQ
+                                FROM TB_M_FINANCE_CONFIG
+                                WHERE CODE_ID LIKE '%'||#{modal_id})
+            AND USE_FLAG ='Y'
+            ORDER BY SORT_ORDER
+  	</select>
+  	
+  	<!-- Modal Option Default Reset  -->
+  	<update id="resetModalOptions"  parameterType="hashmap">
+  		/*resetModalOptions*/
+		 UPDATE TB_M_FINANCE_CONFIG
+		 SET DEFAULT_YN ='N'     
+		  WHERE PARENT_ID = (  SELECT CODE_SEQ
+		                FROM TB_M_FINANCE_CONFIG
+		                WHERE CODE_ID LIKE '%'||#{modal_id})
+		  
+  	</update>
+  	<!-- Modal Option Default Update -->
+  	<update id="saveModalOptions"  parameterType="hashmap">
+  		/*saveModalOptions*/
+		 UPDATE TB_M_FINANCE_CONFIG
+		 SET CODE_VALUE =#{code_value}
+		     ,DEFAULT_YN ='Y'
+		 WHERE PARENT_ID = (  SELECT CODE_SEQ
+		                FROM TB_M_FINANCE_CONFIG
+		                WHERE CODE_ID LIKE '%'||#{modal_id})
+		  AND CODE_ID =#{code_id}
+  	</update>
+  	
+  	<!-- 종목분석 리스트에서 제외  -->
+  	<update id="delAnalysis"  parameterType="hashmap">
+  		/*delAnalysis*/
+  		  UPDATE TB_S_STOCK_ANALYSIS
+            SET USE_DIV ='N'
+            WHERE STOCK_CODE = #{code}
+  	</update>
+  	
+  	<!-- 종목분석 리스트에서 제외  -->
+  	<update id="updateInterestStock"  parameterType="hashmap">
+  		/*delAnalysis*/
+  		  UPDATE TB_S_INTEREST_STOCK
+            SET STOCK_ALIASES =#{stock_Aliases}
+            WHERE STOCK_CODE = #{stock_code}
+  	</update>
+</mapper>

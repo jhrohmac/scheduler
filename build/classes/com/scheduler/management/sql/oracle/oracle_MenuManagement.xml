@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sql.MenuManage">
+
+	<select id="selectMenuList" resultType="MenuVo">
+		WITH mgmtMenuListPage AS(
+        SELECT * 
+          FROM (
+            SELECT * 
+              FROM (
+                SELECT A.*
+                      ,ROWNUM AS RNUM
+                  FROM(
+                    SELECT COUNT(*) OVER() total_count
+                    			,MENU_SEQ
+                                ,MENU_ID
+                                ,MENU_NM
+                                ,MENU_NM_ENG
+                                ,MENU_DESC
+                                ,MENU_ICON   
+                                ,PARENT_ID
+                    			,TO_NUMBER(SORT_ORDER) AS SORT_ORDER
+                                ,URL
+                                ,USE_FLAG
+                                ,POPUP_FLAG
+                                ,CREATE_USER
+                                ,CREATE_DATE
+                                ,MODIFY_USER
+                                ,MODIFY_DATE
+                           FROM TB_M_MENUCFG           
+                           WHERE 1=1               
+                          	<if test="sel_menuDiv == 'main'">
+                            	AND PARENT_ID IS NULL
+                          	</if>
+                          	<if test="sel_menuDiv == 'sub'">
+	                          		<if test="sel_parentId != ''">
+	                            	AND PARENT_ID = #{sel_parentId}
+	                          		</if>
+                          	</if>
+                          	<if test="sel_user != ''">
+                            AND MENU_SEQ IN (
+                            		SELECT MENU_SEQ
+									FROM  TB_M_MENU_SUBSCRIBE
+									WHERE USER_ID IN (
+										SELECT USER_ID 
+										FROM TB_M_USERINFO 
+										WHERE USE_YN = 'Y' 
+										AND USER_ID = #{sel_user} OR USER_NM = #{sel_user}))                            
+                          	</if>   
+                          	<if test="sel_menuName != ''">
+                            AND MENU_NM = #{sel_menuName}
+                          	</if>
+	                          <if test="sel_useYn != ''">
+	                            AND USE_FLAG = #{sel_useYn}
+	                          </if>
+                          ORDER BY SORT_ORDER
+                      ) A
+                   ) WHERE <![CDATA[RNUM <= ${totalPagesize}]]> 
+                ) WHERE RNUM > ${currentPageSize}
+           )
+        SELECT *
+          FROM mgmtMenuListPage
+  	</select>
+  	
+  	<select id="selectOneCnt" resultType="int">
+  		SELECT count(*) FROM TB_M_MENUCFG
+		WHERE MENU_ID =	#{in_menuId}
+  	</select>
+  	
+  	<select id="selectMenuSeq" resultType="MenuVo">
+        SELECT (CASE WHEN MAX(TO_NUMBER(SORT_ORDER)) > 0 THEN MAX(TO_NUMBER(SORT_ORDER)) ELSE TO_NUMBER(0) END) + 1 AS MENU_SEQ
+          FROM TB_M_MENUCFG
+        WHERE 1=1
+        <if test="in_gridDiv == 'main'">
+        	AND PARENT_ID IS NULL
+        </if>
+        <if test="in_gridDiv != 'main'">
+        	AND PARENT_ID = #{in_parentId}
+        </if>
+  	</select>
+  	
+  	<select id="selectMenuGroupList" resultType="ItemCodeVo">
+  		SELECT MENU_SEQ AS VALUE
+			  ,MENU_NM AS CODE
+		FROM TB_M_MENUCFG
+		WHERE 1=1
+		AND PARENT_ID IS NULL
+		ORDER BY TO_NUMBER(SORT_ORDER)
+  	</select>
+  	
+  	<select id="selectAccessUserList" resultType="UserVo">
+		SELECT 
+	    	USER_ID
+	    	,ROLE
+	    FROM TB_M_USERINFO
+		WHERE 1=1
+		 <if test="in_menuAccess != null and in_menuAccess != ''">
+			AND ROLE IN 
+			<foreach collection="in_menuAccess" item="item" index="index" separator="," open="(" close=")">#{item}</foreach>
+		</if>
+  	</select>
+  	
+  	<select id="selectNewSeq" resultType="MenuVo">
+		SELECT 
+	    	*
+	    FROM TB_M_MENUCFG
+		WHERE 1=1
+		 <if test="in_menuId != null and in_menuId != ''">
+			AND menu_id = #{in_menuId} OR menu_seq = #{in_menuSeq}
+		</if>
+  	</select>
+  	
+  	<insert id="saveMenu">
+	    INSERT INTO TB_M_MENUCFG
+    		(	 MENU_SEQ, MENU_ID, MENU_NM, MENU_NM_ENG, MENU_DESC, MENU_ICON
+    			,USE_FLAG, POPUP_FLAG, URL, PARENT_ID, SORT_ORDER, MODIFY_USER
+    			,MODIFY_DATE  ,CREATE_USER ,CREATE_DATE
+    		)VALUES(
+    			  menu_sequence.nextval ,#{in_menuId}, #{in_menuName}, #{in_menuNameEng}, #{in_menuDesc}, #{in_menuIcon}
+    			 ,#{in_useYn},#{in_popUp},  #{in_menuUrl},  #{in_menuParent},  #{in_sortOrder},#{in_userId}
+    			 ,sysdate,#{in_userId},sysdate
+   			)
+  	</insert>
+  	  	
+ 	<update id="updateMenu" >
+  	 	UPDATE TB_M_MENUCFG
+  	 	   SET
+  	 	   	   MENU_ID = #{in_menuId} 
+  	 	   	  ,MENU_NM = #{in_menuName}
+  	 	 	  ,MENU_NM_ENG = #{in_menuNameEng}
+  	 	      ,MENU_DESC = #{in_menuDesc}
+  	 	      ,MENU_ICON = #{in_menuIcon}
+  	 	      ,USE_FLAG = #{in_useYn}
+  	 	      ,POPUP_FLAG = #{in_popUp}
+  	 	      ,URL = #{in_menuUrl}
+  	 	      ,PARENT_ID = #{in_menuParent}
+  	 	      ,SORT_ORDER = #{in_sortOrder}
+  	 	      ,MODIFY_USER = #{in_userId}
+  	 	      ,MODIFY_DATE = sysdate
+  	 	WHERE MENU_SEQ = #{in_menuSeq}
+  	</update>
+  	
+  	<select id="selectMenuSort" resultType="MenuVo">
+	  	SELECT MENU_SEQ 
+			, PARENT_ID 
+			, SORT_ORDER
+		FROM TB_M_MENUCFG
+		WHERE 1=1
+		<if test="in_parentId == ''">
+        	AND PARENT_ID IS NULL
+        </if>
+        <if test="in_parentId != ''">
+        	AND PARENT_ID = #{in_parentId}
+        </if>
+        AND SORT_ORDER !=#{in_oldOrder}
+		ORDER BY SORT_ORDER
+  	</select>
+  	
+  	<select id="selectMenuAccessUsers" resultType="UserVo">
+  		/*selectMenuAccessUsers*/
+		SELECT 
+		    CASE 
+		        WHEN USER_ID IN (SELECT USER_ID FROM TB_M_MENU_SUBSCRIBE WHERE MENU_SEQ = #{in_menuSeq}) THEN '2'
+		        ELSE '1'
+		    END AS pageAccess,
+		    ROLE,
+		    USER_ID,
+		    USER_ID || ' (' || USER_NM || ')' AS USER_NM
+		FROM TB_M_USERINFO
+		ORDER BY USER_ID
+  	</select>
+  	
+  	<select id="checkMenuAccessUsers" resultType="UserVo">
+		SELECT '1' AS pageAccess,
+			ROLE, 
+        	USER_ID,
+           	USER_ID || ' (' || USER_NM || ')' AS USER_NM
+        FROM TB_M_USERINFO
+        WHERE 1=1
+        AND USER_ID NOT IN(SELECT USER_ID FROM TB_M_MENU_SUBSCRIBE WHERE MENU_SEQ = #{in_menuSeq})         
+        UNION ALL         
+        SELECT
+        	'2' AS pageAccess,
+        	ROLE,
+            USER_ID,
+            USER_ID || ' (' || USER_NM || ')' AS USER_NM
+        FROM TB_M_USERINFO
+        WHERE 1=1
+        AND USER_ID IN(SELECT USER_ID FROM TB_M_MENU_SUBSCRIBE WHERE MENU_SEQ = #{in_menuSeq})
+        ORDER BY USER_ID
+  	</select>
+  	  	
+  	<select id="selectChildrenMenuList" resultType="MenuVo">
+	  	SELECT MENU_SEQ
+		FROM TB_M_MENUCFG
+		WHERE 1=1
+       	AND PARENT_ID = #{in_menuSeq}
+       	AND USE_FLAG = 'Y'
+  	</select>
+  	
+  	<insert id="saveMenuAccessUsers">
+	    INSERT INTO TB_M_MENU_SUBSCRIBE
+    		(	 MENU_SEQ, USER_ID
+    		)VALUES(
+    			 #{in_menuSeq}, #{in_userId}
+   			)
+  	</insert>
+  	
+	<!-- oracle_TradeMenuAccMng.xml -->
+	<delete id="deleteMenuAccessUsers" parameterType="hashmap">
+	  DELETE FROM TB_M_MENU_SUBSCRIBE
+	  WHERE 1=1
+	  <choose>
+	    <when test='"Y".equals(in_accessAll)'>
+	      AND MENU_SEQ IN (
+	        SELECT MENU_SEQ
+	          FROM TB_M_MENUCFG
+	         WHERE PARENT_ID = #{in_menuSeq}
+	            OR MENU_SEQ   = #{in_menuSeq}
+	      )
+	    </when>
+	    <otherwise>
+	      <!-- in_accessAll이 'N'이거나 null인 경우 기본적으로 단일 MENU_ID만 삭제 -->
+	      AND MENU_SEQ = #{in_menuSeq}
+	    </otherwise>
+	  </choose>
+	  <if test="in_userId != null and in_userId != ''">
+	    AND USER_ID = #{in_userId}
+	  </if>
+	</delete>
+  	
+ 	<update id="saveMenuOrder" parameterType="hashmap">
+  	 	UPDATE TB_M_MENUCFG
+  	 	   SET SORT_ORDER = #{in_newOrder}
+  	 	      ,MODIFY_USER = #{in_userId}
+  	 	      ,MODIFY_DATE = sysdate
+  	 	WHERE 1=1
+  	 	<if test="in_parentId !=''">
+  	 		AND PARENT_ID = #{in_parentId}
+  	 	</if>
+  	 	<if test="in_parentId ==''">
+  	 		AND PARENT_ID IS NULL
+  	 	</if>
+  	 		AND MENU_SEQ = #{in_menuSeq}
+  	 		AND SORT_ORDER = #{in_sortOrder}
+  	</update>
+  	
+ 	<delete id="deleteMenu">
+	  	DELETE 
+	  	  FROM TB_M_MENUCFG
+	  	 WHERE 1=1
+	  	 AND MENU_SEQ =#{in_menuSeq}
+	  	 OR PARENT_ID =#{in_menuSeq}
+  	</delete>
+  	
+	<!-- ===== [TREE VIEW INTEGRATION] ===== -->
+	<select id="selectTreeViewUsers" resultType="UserVo">
+		SELECT ROLE AS role,
+		       USER_ID AS user_id,
+		       USER_NM AS user_nm
+		  FROM TB_M_USERINFO
+		 WHERE USE_YN = 'Y'
+		 ORDER BY USER_NM
+	</select>
+
+	<select id="selectAllMenus" resultType="MenuVo">
+		SELECT MENU_SEQ,  
+		       PARENT_ID, 
+		       MENU_NM,   
+		       USE_FLAG,  
+		       SORT_ORDER
+		  FROM TB_M_MENUCFG
+		 WHERE USE_FLAG = 'Y'
+		 ORDER BY NVL(PARENT_ID, MENU_SEQ), SORT_ORDER, MENU_SEQ
+	</select>
+
+	<select id="selectUserMenuAuth" parameterType="hashmap" resultType="MenuVo">
+		SELECT MENU_SEQ AS menu_seq
+		  FROM TB_M_MENU_SUBSCRIBE
+		 WHERE USER_ID = #{in_userId}
+	</select>
+
+	<delete id="deleteUserMenuAuth" parameterType="hashmap">
+		DELETE FROM TB_M_MENU_SUBSCRIBE
+		 WHERE USER_ID = #{in_userId}
+	</delete>
+
+	<insert id="insertUserMenuAuth" parameterType="hashmap">
+		INSERT INTO TB_M_MENU_SUBSCRIBE (MENU_SEQ, USER_ID)
+		VALUES (#{in_menuSeq}, #{in_userId})
+	</insert>
+</mapper>	

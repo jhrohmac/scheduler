@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sql.MarketSummary">
+
+  <select id="selectWatchlistGroups" parameterType="hashmap" resultType="hashmap">
+  
+
+		SELECT GROUP_ID
+              ,GROUP_NAME
+              ,USE_FLAG
+              ,GROUP_MARKET
+              ,COUNT(TSIW.STOCK_CODE) AS STOCK_COUNT
+              ,GROUP_SEQ
+              ,TSIG.CREATE_DATE AS CREATE_DATE
+        FROM TB_S_INTEREST_GROUP TSIG LEFT JOIN TB_S_INTEREST_WATCHLIST TSIW
+        ON TSIG.GROUP_ID = TSIW.STOCK_GROUP
+		WHERE 1=1		
+			AND USE_FLAG ='Y'
+			<if test="market != null and market != ''">
+        		AND GROUP_MARKET = #{market}
+      		</if>
+		GROUP BY GROUP_ID, GROUP_NAME, USE_FLAG, GROUP_MARKET, GROUP_SEQ, TSIG.CREATE_DATE
+		ORDER BY CREATE_DATE DESC
+  </select>
+
+  <select id="selectWatchlistItems" parameterType="hashmap" resultType="hashmap">
+    SELECT
+      W.STOCK_SEQ,
+      W.STOCK_CODE,
+      W.STOCK_GROUP,
+      W.STOCK_GROUP_DIV,
+      W.STOCK_CLOSE,
+      S.STOCK_KO_NAME,
+      S.STOCK_EN_NAME,
+      S.STOCK_MARKET,
+      S.STOCK_COUNTRY_CODE,
+      A.STOCK_MACD_SIGNAL AS RECO_SIGNAL_CODE,
+      NVL((
+        SELECT LISTAGG(E.MESSAGE, ' / ') WITHIN GROUP (ORDER BY E.EVENT_TIME DESC)
+        FROM (
+          SELECT MESSAGE, EVENT_TIME
+          FROM (
+            SELECT E1.MESSAGE, E1.EVENT_TIME,
+                   ROW_NUMBER() OVER (ORDER BY E1.EVENT_TIME DESC) AS RN
+            FROM TB_S_SIGNAL_EVENT E1
+            WHERE E1.STOCK_CODE = W.STOCK_CODE
+          )
+          WHERE RN <![CDATA[<=]]> 1
+        ) E
+      ),
+      ('일봉 MACD:'||NVL(A.STOCK_MACD_SIGNAL,'-')
+       ||' / 월봉:'||NVL(A.STOCK_MON,'-')
+       ||' / 정배열:'||NVL(A.STOCK_SMA_LINES,'-'))
+      ) AS RECO_EVENT_SUMMARY
+    FROM TB_S_INTEREST_WATCHLIST W
+    LEFT JOIN TB_S_INTEREST_STOCK S
+      ON W.STOCK_CODE = S.STOCK_CODE
+    LEFT JOIN TB_S_STOCK_ANALYSIS A
+      ON W.STOCK_CODE = A.STOCK_CODE
+    WHERE 1=1
+      <if test="groupId != null and groupId != ''">
+        AND W.STOCK_GROUP = #{groupId}
+      </if>
+      <if test="market != null and market != ''">
+        AND (
+          (#{market} = 'N' AND S.STOCK_COUNTRY_CODE = 'KR')
+          OR (#{market} = 'A' AND S.STOCK_COUNTRY_CODE != 'KR')
+          OR W.STOCK_GROUP_DIV = #{market}
+        )
+      </if>
+    ORDER BY W.STOCK_SEQ ASC
+  </select>
+
+
+  <!-- 관심(☆) 버튼: 그룹에 종목 추가 (없으면 INSERT / 있으면 MODIFY_DATE 갱신 + (옵션) 종가 갱신) -->
+  <insert id="insertWatchlistItem" parameterType="hashmap">
+    MERGE INTO TB_S_INTEREST_WATCHLIST T
+    USING (
+      SELECT
+        #{groupId} AS STOCK_GROUP,
+        #{stockCode} AS STOCK_CODE,
+        #{stockClose} AS STOCK_CLOSE
+      FROM DUAL
+    ) S
+    ON (T.STOCK_GROUP = S.STOCK_GROUP AND T.STOCK_CODE = S.STOCK_CODE)
+    WHEN MATCHED THEN
+      UPDATE SET
+        T.MODIFY_DATE = SYSDATE,
+        T.STOCK_CLOSE = NVL(S.STOCK_CLOSE, T.STOCK_CLOSE),
+        T.STOCK_GROUP_DIV = NVL(T.STOCK_GROUP_DIV, 'normal')
+    WHEN NOT MATCHED THEN
+      INSERT (
+        STOCK_SEQ,
+        STOCK_CODE,
+        STOCK_GROUP,
+        STOCK_GROUP_DIV,
+        STOCK_CLOSE,
+        STOCK_30MIN_SMA_LINES,
+        STOCK_SMA_LINES,
+        MODIFY_DATE,
+        CREATE_DATE
+      )
+      VALUES (
+        (SELECT NVL(MAX(STOCK_SEQ), 0) + 1 FROM TB_S_INTEREST_WATCHLIST),
+        S.STOCK_CODE,
+        S.STOCK_GROUP,
+        'normal',
+        S.STOCK_CLOSE,
+        NULL,
+        NULL,
+        SYSDATE,
+        SYSDATE
+      )
+  </insert>
+
+  <!-- 관심 토글: 존재 여부 확인 -->
+  <select id="selectWatchlistItemCount" parameterType="hashmap" resultType="int">
+    SELECT COUNT(1)
+    FROM TB_S_INTEREST_WATCHLIST
+    WHERE STOCK_GROUP = #{groupId}
+      AND STOCK_CODE = #{stockCode}
+  </select>
+
+  <!-- 관심 토글: 관심 해제(삭제) -->
+  <delete id="deleteWatchlistItem" parameterType="hashmap">
+    DELETE FROM TB_S_INTEREST_WATCHLIST
+    WHERE STOCK_GROUP = #{groupId}
+      AND STOCK_CODE = #{stockCode}
+  </delete>
+
+</mapper>

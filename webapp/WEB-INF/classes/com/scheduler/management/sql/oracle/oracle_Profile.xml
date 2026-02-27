@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sql.Profile">
+
+	<select id="selectUserInfo" parameterType="hashmap" resultType="userVo">
+		    SELECT  
+		      A.USER_ID
+		     ,A.PW
+		     ,A.USER_NM
+		     ,A.DESK_DIV
+		     ,A.EMAIL
+		     ,A.HP_NO
+		     ,A.ROLE
+		     ,A.POSITION
+		     ,A.MAIL_YN
+		     ,A.SMS_YN
+		     ,A.USE_YN
+		     ,A.USER_COLOR
+		     ,A.USER_AVATAR
+		     ,A.LANG
+		     ,A.DEFAULTPAGE
+		     ,B.MENU_NM
+		     ,A.USE_STA_DATE
+	 		 ,A.USE_END_DATE
+		     ,TO_CHAR(A.EXTENSION_DATE,'YYYY-MM-dd') AS EXTENSION_DATE
+		     ,TO_CHAR(A.EMPLOYMENT_DATE,'YYYY-MM-dd') AS EMPLOYMENT_DATE
+		     ,A.CREATE_USER
+		     ,A.CREATE_DATE
+		     ,A.MODIFY_USER
+		     ,A.MODIFY_DATE
+		     ,COUNT(*) OVER() AS TOTAL_COUNT
+		      FROM  TB_M_USERINFO A LEFT JOIN TB_M_MENUCFG B
+		      	ON A.DEFAULTPAGE = B.MENU_ID
+		     WHERE USER_ID = #{in_userId}
+  	</select>
+  	  	
+  	<insert id="insertUserHistory" parameterType="hashmap">
+	  	INSERT INTO TB_M_USERINFO_H
+				   (  USER_ID
+				    , USER_NM
+				    , OPCODE
+				    , DESK_DIV
+				    , EMAIL
+				    , HP_NO
+				    , DEFAULTPAGE
+				    , LANG
+				    , CREATE_USER
+				    , CREATE_DATE						    
+				   )
+			 VALUES
+				   (
+				      #{in_userId}
+				    , #{in_userName}
+				    , #{in_eventDiv}
+				    , #{in_userDesk}
+				    , #{in_userEmail}
+				    , #{in_userPhone}
+				    , #{in_userStartPage}
+				    , 'KOR'
+				    , #{in_loginId}
+				    , SYSDATE
+				   )
+  	</insert>
+  	
+  	<update id="updateUser" parameterType="hashmap">
+  	 
+	  	UPDATE  TB_M_USERINFO
+		   SET  MODIFY_USER = #{in_userId}
+			  , MODIFY_DATE = SYSDATE
+		   	  <if test="in_userName != ''">
+			  , USER_NM 	= #{in_userName}
+			  </if>
+			  <if test="in_userDesk != ''">
+			  , DESK_DIV 	= #{in_userDesk}
+			  </if>
+			  <if test="in_userEmail != ''">
+			  , EMAIL 		= #{in_userEmail}
+			  </if>
+			  <if test="in_userPhone != ''">
+			  , HP_NO 		= #{in_userPhone}
+			  </if>
+			  , LANG 		= 'KOR'			  
+			  <if test="in_userColor != ''">
+			  , USER_COLOR 	= #{in_userColor}
+			  </if>
+			  <if test="in_userAvatar != ''">
+			  , USER_AVATAR	= #{in_userAvatar}
+			  </if>
+  			  <if test="in_userStartPage != ''">
+			  , DEFAULTPAGE	= #{in_userStartPage}
+			  </if>
+		 WHERE USER_ID = #{in_userId}
+  	
+  	</update>
+  	  	
+ 	<update id="updatePw" parameterType="hashmap">
+	  	UPDATE TB_M_USERINFO
+	  		SET MODIFY_USER 	= #{in_userId}
+			  , MODIFY_DATE 	= SYSDATE
+		   	  ,	PW  = #{in_userPwd}
+		 WHERE user_id = #{in_userId}
+  	</update>
+  	
+</mapper>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.finance.sql.Position">
+
+    <select id="selectPositionList" parameterType="hashmap" resultType="positionVo">
+        SELECT POSITION_ID, STOCK_GROUP, STOCK_CODE, MARKET_CODE, TOTAL_QTY, AVG_PRICE,
+               CLOSE_FLAG, STATE_CODE, LAST_TXN_ID, MODIFY_DATE, CREATE_USER, CREATE_DATE
+          FROM TB_S_POSITION
+         WHERE 1=1
+           <if test="stockGroup != null and stockGroup != ''">AND STOCK_GROUP = #{stockGroup}</if>
+           <if test="closeFlag != null and closeFlag != ''">AND CLOSE_FLAG = #{closeFlag}</if>
+           <if test="marketCode != null and marketCode != ''">AND MARKET_CODE = #{marketCode}</if>
+         ORDER BY MODIFY_DATE DESC
+    </select>
+
+    <select id="selectPosition" parameterType="hashmap" resultType="positionVo">
+        SELECT POSITION_ID, STOCK_GROUP, STOCK_CODE, MARKET_CODE, TOTAL_QTY, AVG_PRICE,
+               CLOSE_FLAG, STATE_CODE, LAST_TXN_ID, MODIFY_DATE, CREATE_USER, CREATE_DATE
+          FROM TB_S_POSITION
+         WHERE 1=1
+           <if test="positionId != null and positionId != ''">AND POSITION_ID = #{positionId}</if>
+           <if test="stockGroup != null and stockGroup != ''">AND STOCK_GROUP = #{stockGroup}</if>
+           <if test="stockCode != null and stockCode != ''">AND STOCK_CODE = #{stockCode}</if>
+    </select>
+
+    <insert id="insertPosition" parameterType="positionVo">
+        INSERT INTO TB_S_POSITION (
+            STOCK_GROUP, STOCK_CODE, MARKET_CODE, TOTAL_QTY, AVG_PRICE,
+            CLOSE_FLAG, STATE_CODE, CREATE_USER, CREATE_DATE, MODIFY_DATE
+        ) VALUES (
+            #{stockGroup}, #{stockCode}, #{marketCode}, #{totalQty}, #{avgPrice},
+            NVL(#{closeFlag}, 'N'), NVL(#{stateCode}, 'HOLD'), #{createUser}, SYSDATE, SYSDATE
+        )
+    </insert>
+
+    <update id="updatePosition" parameterType="positionVo">
+        UPDATE TB_S_POSITION
+           SET TOTAL_QTY = #{totalQty},
+               AVG_PRICE = #{avgPrice},
+               MODIFY_DATE = SYSDATE,
+               STATE_CODE = NVL(#{stateCode}, STATE_CODE)
+         WHERE POSITION_ID = #{positionId}
+    </update>
+
+    <update id="deletePosition" parameterType="hashmap">
+        UPDATE TB_S_POSITION
+           SET CLOSE_FLAG = 'Y',
+               STATE_CODE = 'CLOSED',
+               MODIFY_DATE = SYSDATE
+         WHERE POSITION_ID = #{positionId}
+    </update>
+
+    <update id="averageDownPosition" parameterType="hashmap">
+        UPDATE TB_S_POSITION
+           SET TOTAL_QTY = TOTAL_QTY + TO_NUMBER(#{addQty}),
+               AVG_PRICE = ((TOTAL_QTY * AVG_PRICE) + (TO_NUMBER(#{addQty}) * TO_NUMBER(#{addPrice}))) / (TOTAL_QTY + TO_NUMBER(#{addQty})),
+               MODIFY_DATE = SYSDATE
+         WHERE POSITION_ID = #{positionId}
+    </update>
+
+    <insert id="insertPositionTxn" parameterType="positionTxnVo">
+        INSERT INTO TB_S_POSITION_TXN (
+            POSITION_ID, STOCK_GROUP, STOCK_CODE, ACTION_TYPE, QTY, PRICE,
+            BEFORE_QTY, BEFORE_AVG, AFTER_QTY, AFTER_AVG, REASON_TEXT, JSON_PARAMS,
+            CREATE_USER, CREATE_DATE
+        ) VALUES (
+            #{positionId}, #{stockGroup}, #{stockCode}, #{actionType},
+            NVL(#{qty},0), NVL(#{price},0), #{beforeQty}, #{beforeAvg}, #{afterQty}, #{afterAvg},
+            #{reasonText}, #{jsonParams}, #{createUser}, SYSDATE
+        )
+    </insert>
+
+    <select id="selectPositionTxnList" parameterType="hashmap" resultType="positionTxnVo">
+        SELECT TXN_ID, POSITION_ID, STOCK_GROUP, STOCK_CODE, ACTION_TYPE, QTY, PRICE,
+               BEFORE_QTY, BEFORE_AVG, AFTER_QTY, AFTER_AVG, REASON_TEXT, JSON_PARAMS,
+               CREATE_USER, CREATE_DATE
+          FROM TB_S_POSITION_TXN
+         WHERE 1=1
+           <if test="positionId != null and positionId != ''">AND POSITION_ID = #{positionId}</if>
+           <if test="stockCode != null and stockCode != ''">AND STOCK_CODE = #{stockCode}</if>
+         ORDER BY CREATE_DATE DESC
+    </select>
+
+    <insert id="insertPositionEvent" parameterType="positionEventVo">
+        INSERT INTO TB_S_POSITION_EVENT (
+            POSITION_ID, STOCK_GROUP, STOCK_CODE, EVENT_TYPE, EVENT_LEVEL,
+            EVENT_TIME, MESSAGE, JSON_PARAMS, SOURCE_TXN_ID, CREATE_DATE
+        ) VALUES (
+            #{positionId}, #{stockGroup}, #{stockCode}, #{eventType}, NVL(#{eventLevel}, 'INFO'),
+            NVL(#{eventTime}, SYSDATE), #{message}, #{jsonParams}, #{sourceTxnId}, SYSDATE
+        )
+    </insert>
+
+    <select id="selectPositionEventList" parameterType="hashmap" resultType="positionEventVo">
+        SELECT EVENT_ID, POSITION_ID, STOCK_GROUP, STOCK_CODE, EVENT_TYPE, EVENT_LEVEL,
+               EVENT_TIME, MESSAGE, JSON_PARAMS, SOURCE_TXN_ID, CREATE_DATE
+          FROM TB_S_POSITION_EVENT
+         WHERE 1=1
+           <if test="positionId != null and positionId != ''">AND POSITION_ID = #{positionId}</if>
+           <if test="stockCode != null and stockCode != ''">AND STOCK_CODE = #{stockCode}</if>
+         ORDER BY EVENT_TIME DESC
+    </select>
+
+</mapper>
