@@ -2190,6 +2190,26 @@ function fmtYmdToPlain(ymd) {
   var MA_LINEWIDTH_MIN = 0.5;
   var MA_LINEWIDTH_MAX = 6;
 
+  function openChartOptionsPanel() {
+    var $panel = $("#chartOptionsModal");
+    var $backdrop = $("#chartOptBackdrop");
+    if (!$panel.length) return;
+    $panel.addClass("open").attr("aria-hidden", "false");
+    $backdrop.addClass("open");
+    $("body").addClass("chart-opt-open");
+    $("#btnChartOptions").addClass("active");
+    $panel.trigger("show.bs.modal");
+  }
+
+  function closeChartOptionsPanel() {
+    var $panel = $("#chartOptionsModal");
+    var $backdrop = $("#chartOptBackdrop");
+    $panel.removeClass("open").attr("aria-hidden", "true");
+    $backdrop.removeClass("open");
+    $("body").removeClass("chart-opt-open");
+    $("#btnChartOptions").removeClass("active");
+  }
+
   function normalizeMaLineWidth(v) {
     var n = parseFloat(v);
     if (isNaN(n)) n = MA_LINEWIDTH_DEFAULT;
@@ -2416,7 +2436,7 @@ function applyMaOptionsToChart(list) {
     }
   }
 
-  function loadMaOptionsFromDb(forceDefault, showModal) {
+  function loadMaOptionsFromDb(forceDefault, showPanel) {
     $.ajax({
       url: window.__URLS.kisItemchartpriceOptionData,
       type: "GET",
@@ -2443,8 +2463,8 @@ function applyMaOptionsToChart(list) {
         }
         applyMaOptionsToChart(list);
 
-        if (showModal) {
-          $("#chartOptionsModal").modal("show");
+        if (showPanel) {
+          openChartOptionsPanel();
         }
       },
       error: function () {
@@ -2497,7 +2517,7 @@ function applyMaOptionsToChart(list) {
         }
         applyMaOptionsToChart(list);
       if (closeAfter === true) {
-        $("#chartOptionsModal").modal("hide");
+        closeChartOptionsPanel();
       }
       },
       error: function () {
@@ -2536,8 +2556,8 @@ function scheduleMaAutoSave() {
           return;
         }
         applyMaOptionsToChart(list);
-        $("#chartOptionsModal").modal("hide");
-      },
+	        closeChartOptionsPanel();
+	      },
       error: function () {
         alert("차트 옵션 저장 중 오류가 발생했습니다.");
       }
@@ -2788,15 +2808,23 @@ function applyCrossFromUi(shouldRender) {
 // 페이지 로드시 DB 로드 -> 차트 옵션 적용
 loadCrossOptionsFromDb(false, true);
 
-// 모달 오픈 시 DB 기준으로 동기화
+// 옵션 패널 오픈 시 DB 기준으로 동기화
 $("#chartOptionsModal").off("show.bs.modal.cross").on("show.bs.modal.cross", function () {
   loadCrossOptionsFromDb(false, false);
 });
 
 
-// 이동평균선(MA) 옵션 설정 모달
+// 이동평균선(MA) 옵션 설정 패널
 $("#btnChartOptions").on("click", function () {
   loadMaOptionsFromDb(false, true);
+});
+
+$("#btnChartOptClose, #chartOptBackdrop").on("click", function () {
+  closeChartOptionsPanel();
+});
+
+$(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
+  if (e.key === "Escape") closeChartOptionsPanel();
 });
 
 function kisEsc(s) {

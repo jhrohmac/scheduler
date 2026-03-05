@@ -34,8 +34,8 @@
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/maScript.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/doubleMonthChartScript.js?v=20260203-7"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisDashboardChartRenderer.js?v=20260305-1"></script>
-<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartScript.js?v=20260213-3"></script>
-<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartFeatureToggle.js"></script>
+<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartScript.js?v=20260305-1"></script>
+<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartFeatureToggle.js?v=20260305-1"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartCrossSignals.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/stockSearch.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/recommendStocks.js?v=20260212-1"></script>
@@ -400,114 +400,129 @@
 		</div>
 
 
-	<!-- ========================================= -->
-	<!-- 이동평균선(MA) 옵션 설정 모달 (chartTest_vs3.jsp 기능 이식) -->
-	<!-- ========================================= -->
+		<div class="chart-opt-backdrop" id="chartOptBackdrop"></div>
+		<div id="chartOptionsModal" class="chart-opt-panel" aria-hidden="true">
+			<div class="opt-panel-hdr">
+				<span class="opt-panel-title">⚙ 차트 옵션</span>
+				<button type="button" class="opt-close-btn" id="btnChartOptClose" aria-label="닫기">×</button>
+			</div>
 
-	
-	<div id="chartOptionsModal" class="modal fade" tabindex="-1"
-		role="dialog" aria-hidden="true">
-		<div class="modal-dialog modal-lg">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h4 class="modal-title">이동평균선(MA) 옵션 설정</h4>
-					<button type="button" class="close" data-dismiss="modal"
-						aria-label="Close">
-						<span aria-hidden="true">&times;</span>
-					</button>
+			<div class="opt-section">
+				<div class="opt-sec-hdr">
+					<span class="opt-sec-title">이동평균선</span>
+					<button type="button" class="opt-add-btn" id="btnAddMaLine">+ 추가</button>
 				</div>
-				<div class="modal-body">
+				<div id="maRowList" class="opt-ma-list"></div>
+			</div>
 
-					<div class="card" style="margin-bottom: 5px;">
-						<div class="card-body" style="padding: 10px 12px;">
-							<div class="row">
-								<div class="col-md-6">
-									<div class="custom-control custom-switch">
-										<input type="checkbox" class="custom-control-input"
-											id="optVolume"> <label class="custom-control-label"
-											for="optVolume">거래량</label>
-									</div>
-									<div class="custom-control custom-switch"
-										style="margin-top: 8px;">
-										<input type="checkbox" class="custom-control-input"
-											id="optDoubleChart"> <label
-											class="custom-control-label" for="optDoubleChart">월봉 오버레이(더블차트)</label>
-									</div>
-								</div>
-								<div class="col-md-6">
-									<div class="custom-control custom-switch">
-										<input type="checkbox" class="custom-control-input"
-											id="optMonthLines"> <label
-											class="custom-control-label" for="optMonthLines">월/년 구분선</label>
-									</div>
-									<div class="custom-control custom-switch"
-										style="margin-top: 8px;">
-										<input type="checkbox" class="custom-control-input"
-											id="optHighLow"> <label class="custom-control-label"
-											for="optHighLow">전고/전저</label>
-									</div>
-									<div class="custom-control custom-switch"
-										style="margin-top: 8px;">
-										<input type="checkbox" class="custom-control-input"
-											id="optMaSr"> <label class="custom-control-label"
-											for="optMaSr">MA 지지/저항</label>
-									</div>
-								</div>
-							</div>
-							<div class="text-muted" style="margin-top: 8px; font-size: 12px;">
-								체크 상태는 DB에 즉시 저장되어 유지됩니다.</div>
-						</div>
+			<div class="opt-section">
+				<div class="opt-toggle-row">
+					<div class="opt-toggle-info">
+						<div class="opt-toggle-lbl">전고 / 전저점</div>
+						<div class="opt-toggle-sub">화면 범위의 최고가 · 최저가 수평선</div>
 					</div>
-					<div class="card" style="margin-bottom: 5px;">
-						<div class="card-body" style="padding: 10px 12px;">
-							<div class="row">
-								<div class="col-md-12">
-									
-										<label class="checkbox-inline" style="margin-right: 5px;">
-											<input type="checkbox" id="optCrossSignals" /> 골든/데드
-										</label> 
-											<span class="cross-pair-wrap" style="display: inline-flex; align-items: center; gap: 6px;">
-											<select id="optCrossShort" class="form-control input-sm"
-												style="width: 74px; display: inline-block;">
-												<option value="5">5</option>
-												<option value="10">10</option>
-												<option value="20">20</option>
-												<option value="60">60</option>
-												<option value="120">120</option>
-												<option value="240">240</option>
-											</select>
-											<span style="opacity: 0.7;">/</span> 
-											<select id="optCrossLong"
-												class="form-control input-sm"
-												style="width: 74px; display: inline-block;">
-												<option value="5">5</option>
-												<option value="10">10</option>
-												<option value="20">20</option>
-												<option value="60">60</option>
-												<option value="120">120</option>
-												<option value="240">240</option>
-											</select> 
-											<span id="crossPairLabel"
-												style="margin-left: 6px; font-size: 12px; opacity: 0.7;">(5/20)</span>
-										</span>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div id="maRowList"></div>
-					<button type="button" class="btn btn-default btn-sm"
-						id="btnAddMaLine">MA 라인 추가</button>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-default btn-sm" id="btnMaDefault">기본값</button>
-					<button type="button" class="btn btn-default btn-sm" data-dismiss="modal">취소</button>
-					<button type="button" class="btn btn-primary btn-sm" id="btnApplyMaOptions">적용</button>
+					<label class="toggle-sw">
+						<input type="checkbox" id="optHighLow">
+						<span class="toggle-sl"></span>
+					</label>
 				</div>
 			</div>
-		</div>
-	</div>
 
-	<script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js?v=20260214-1" defer></script>
+			<div class="opt-section">
+				<div class="opt-toggle-row">
+					<div class="opt-toggle-info">
+						<div class="opt-toggle-lbl">거래량</div>
+						<div class="opt-toggle-sub">하단 거래량 바 차트 표시</div>
+					</div>
+					<label class="toggle-sw">
+						<input type="checkbox" id="optVolume">
+						<span class="toggle-sl"></span>
+					</label>
+				</div>
+			</div>
+
+			<div class="opt-section">
+				<div class="opt-toggle-row">
+					<div class="opt-toggle-info">
+						<div class="opt-toggle-lbl">틱푸시</div>
+						<div class="opt-toggle-sub">실시간 틱 기반 차트 갱신</div>
+					</div>
+					<label class="toggle-sw">
+						<input type="checkbox" id="optTickPushEnabled" disabled>
+						<span class="toggle-sl"></span>
+					</label>
+				</div>
+			</div>
+
+			<div class="opt-section">
+				<div class="opt-toggle-info" style="margin-bottom:8px;">
+					<div class="opt-toggle-lbl">더블차트</div>
+					<div class="opt-toggle-sub">일봉 위에 월봉 미니차트 표시</div>
+				</div>
+				<input type="checkbox" id="optDoubleChart" style="display:none;">
+				<div class="opt-radio-row">
+					<label><input type="radio" name="optDoubleChartMode" value="off"> off</label>
+					<label><input type="radio" name="optDoubleChartMode" value="recent"> 최근월봉</label>
+					<label><input type="radio" name="optDoubleChartMode" value="all"> 전체월봉</label>
+				</div>
+			</div>
+
+			<div class="opt-section" style="display:none;">
+				<div class="opt-toggle-row">
+					<div class="opt-toggle-info">
+						<div class="opt-toggle-lbl">월/년 구분선</div>
+					</div>
+					<label class="toggle-sw">
+						<input type="checkbox" id="optMonthLines">
+						<span class="toggle-sl"></span>
+					</label>
+				</div>
+			</div>
+
+			<div class="opt-section" style="display:none;">
+				<div class="opt-toggle-row">
+					<div class="opt-toggle-info">
+						<div class="opt-toggle-lbl">MA 지지/저항</div>
+					</div>
+					<label class="toggle-sw">
+						<input type="checkbox" id="optMaSr">
+						<span class="toggle-sl"></span>
+					</label>
+				</div>
+			</div>
+
+			<div class="opt-section">
+				<label class="checkbox-inline" style="margin-right: 5px;">
+					<input type="checkbox" id="optCrossSignals" /> 골든/데드
+				</label>
+				<span class="cross-pair-wrap" style="display:inline-flex; align-items:center; gap:6px;">
+					<select id="optCrossShort" class="form-control input-sm" style="width:74px; display:inline-block;">
+						<option value="5">5</option>
+						<option value="10">10</option>
+						<option value="20">20</option>
+						<option value="60">60</option>
+						<option value="120">120</option>
+						<option value="240">240</option>
+					</select>
+					<span style="opacity:0.7;">/</span>
+					<select id="optCrossLong" class="form-control input-sm" style="width:74px; display:inline-block;">
+						<option value="5">5</option>
+						<option value="10">10</option>
+						<option value="20">20</option>
+						<option value="60">60</option>
+						<option value="120">120</option>
+						<option value="240">240</option>
+					</select>
+					<span id="crossPairLabel" style="margin-left:6px; font-size:12px; opacity:0.7;">(5/20)</span>
+				</span>
+			</div>
+
+			<div class="opt-panel-footer">
+				<button type="button" class="btn btn-default btn-sm" id="btnMaDefault">기본값</button>
+				<button type="button" class="btn btn-primary btn-sm" id="btnApplyMaOptions">적용</button>
+			</div>
+		</div>
+
+	<script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js?v=20260305-1" defer></script>
 </body>
 </html>
-

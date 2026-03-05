@@ -421,6 +421,7 @@ var ChartScript = (function () {
     var options = {
         volumeEnabled: true,
         doubleChartEnabled: true,
+        doubleChartMode: "all", // off | recent | all
         monthLinesEnabled: true,
         highLowEnabled: false,
         maSrEnabled: true,
@@ -1441,7 +1442,9 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         var times = [];
         var closes = [];
         var upperPeriod = (periodDivCode || "").toUpperCase();
-        var doubleChartActive = !!options.doubleChartEnabled && upperPeriod === "D";
+        var doubleChartMode = (options.doubleChartMode || (options.doubleChartEnabled ? "all" : "off"));
+        doubleChartMode = String(doubleChartMode).toLowerCase();
+        var doubleChartActive = (doubleChartMode !== "off") && upperPeriod === "D";
         var axisPeriod = upperPeriod || ($("#periodDivCode").val() || "D").toUpperCase();
 
         for (var i = 0; i < rows.length; i++) {
@@ -1510,6 +1513,9 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         // 월봉 오버레이 + 월 경계선 생성 (DoubleMonthChartScript 사용)
         var monthlyInfo = DoubleMonthChartScript.buildMonthlyOverlayFromDaily(ohlc);
         monthBoundaryTimes = monthlyInfo.boundaries || [];
+        if (doubleChartMode === "recent" && monthBoundaryTimes.length >= 2) {
+            monthBoundaryTimes = monthBoundaryTimes.slice(-2);
+        }
 
         var yAxis = [{
             labels: {
@@ -1553,6 +1559,9 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
 
         if (doubleChartActive) {
             var monthOverlay = monthlyInfo.overlay || [];
+            if (doubleChartMode === "recent" && monthOverlay.length) {
+                monthOverlay = [monthOverlay[monthOverlay.length - 1]];
+            }
             if (monthOverlay.length) {
                 series.push({
                     type: "candlestick",
@@ -2467,7 +2476,16 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         if (!next || typeof next !== "object") return;
 
         if (typeof next.volumeEnabled === "boolean") options.volumeEnabled = next.volumeEnabled;
-        if (typeof next.doubleChartEnabled === "boolean") options.doubleChartEnabled = next.doubleChartEnabled;
+        if (typeof next.doubleChartEnabled === "boolean") {
+            options.doubleChartEnabled = next.doubleChartEnabled;
+            options.doubleChartMode = next.doubleChartEnabled ? "all" : "off";
+        }
+        if (typeof next.doubleChartMode === "string") {
+            var m = String(next.doubleChartMode).toLowerCase();
+            if (m !== "off" && m !== "recent" && m !== "all") m = "all";
+            options.doubleChartMode = m;
+            options.doubleChartEnabled = (m !== "off");
+        }
         if (typeof next.monthLinesEnabled === "boolean") options.monthLinesEnabled = next.monthLinesEnabled;
         if (typeof next.highLowEnabled === "boolean") options.highLowEnabled = next.highLowEnabled;
         if (typeof next.maSrEnabled === "boolean") {

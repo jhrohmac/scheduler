@@ -578,14 +578,20 @@ body {
 }
 
 .kis-toolbar #btnChartOptions {
-  font-weight: 800;  
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
+  font-weight: 800;
+  background: #fff;
+  color: #111827;
+  border-color: #dfe3ee;
 }
 
-.kis-toolbar #btnChartOptions:hover {
-  opacity: 0.92;
+.kis-toolbar #btnChartOptions:hover,
+.kis-toolbar #btnChartOptions:active,
+.kis-toolbar #btnChartOptions.active,
+.kis-toolbar #btnChartOptions:focus {
+  background: #fff;
+  color: #111827;
+  border-color: #dfe3ee;
+  opacity: 1;
 }
 
 .ai-recheck-btn {

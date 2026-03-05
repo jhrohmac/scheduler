@@ -304,14 +304,14 @@
       function xCandle(i) {
         return marginL + ((i + 0.5) / Math.max(1, rows.length)) * chartW;
       }
-      var candleW = Math.max(2, chartW / Math.max(1, rows.length) * 0.58);
+      var candleW = Math.max(0.8, chartW / Math.max(1, rows.length) * 0.58);
 
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#dcdcdc';
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
       ctx.strokeStyle = 'rgba(70,78,90,0.25)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.4;
       var grid = 6;
       for (var g = 0; g <= grid; g++) {
         var gy = marginT + (mainH / grid) * g;
@@ -338,7 +338,8 @@
         }
       }
 
-      if (s.periodDivCode === 'D' && s.options.doubleChartEnabled) {
+      var doubleMode = String(s.options.doubleChartMode || (s.options.doubleChartEnabled ? 'all' : 'off')).toLowerCase();
+      if (s.periodDivCode === 'D' && doubleMode !== 'off') {
         var segStart = 0;
         var segs = [];
         for (var si = 1; si < rows.length; si++) {
@@ -351,7 +352,8 @@
         }
         segs.push({ start: segStart, end: rows.length - 1 });
 
-        segs.forEach(function (seg) {
+        var targetSegs = (doubleMode === 'recent') ? segs.slice(-1) : segs;
+        targetSegs.forEach(function (seg) {
           var mRows = rows.slice(seg.start, seg.end + 1);
           if (!mRows.length) return;
           var mOpen = mRows[0].o;
@@ -394,7 +396,7 @@
         var xLine = xCandle(bi) - candleW * 0.65;
         ctx.setLineDash([3, 5]);
         ctx.strokeStyle = 'rgba(90,90,90,0.38)';
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = 0.4;
         ctx.beginPath();
         ctx.moveTo(xLine, marginT);
         ctx.lineTo(xLine, marginT + mainH);
@@ -424,6 +426,7 @@
 
       if (s.options.highLowEnabled && rows.length > 1) {
         var lookback = rows.slice(0, rows.length - 1);
+        var currentClose = Number(rows[rows.length - 1].c);
         var hiIdx = 0, loIdx = 0;
         for (var hk = 1; hk < lookback.length; hk++) {
           if (lookback[hk].h > lookback[hiIdx].h) hiIdx = hk;
@@ -433,25 +436,44 @@
         function drawHLLabel(ix, price, label, color, up) {
           var xh = xCandle(ix);
           var yh = yPrice(price);
-          ctx.setLineDash([4, 3]);
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 0.8;
-          ctx.beginPath();
-          ctx.moveTo(marginL, yh);
-          ctx.lineTo(W - marginR, yh);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          var by = up ? (yh - 24) : (yh + 24);
+          var p = Number(price);
+          var priceText = (Math.abs(p - Math.round(p)) > 1e-9)
+            ? p.toLocaleString('ko-KR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+            : Math.round(p).toLocaleString('ko-KR');
+          var pct = (Number.isFinite(currentClose) && p !== 0) ? (((currentClose - p) / p) * 100) : NaN;
+          var pctText = Number.isFinite(pct) ? (pct.toFixed(2) + '%') : '-';
+          var dt = new Date(lookback[ix].t);
+          var mm = String(dt.getMonth() + 1).padStart(2, '0');
+          var dd = String(dt.getDate()).padStart(2, '0');
+          var txt = priceText + '(' + pctText + ', ' + mm + '/' + dd + ')';
 
-          var by = up ? (yh - 18) : (yh + 18);
-          var txt = label + ' ' + Math.round(price).toLocaleString('ko-KR');
-          var w = Math.max(58, txt.length * 6.2);
-          ctx.fillStyle = color + '2e';
-          Renderer._drawRoundRect(ctx, xh - w / 2, by - 9, w, 16, 3);
-          ctx.fill();
+          ctx.font = '700 11px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+          ctx.textAlign = 'left';
+          var tw = ctx.measureText(txt).width;
+          var tx = Math.max(marginL + 14, Math.min(xh - (tw / 2), W - marginR - tw - 4));
+          var arrowX = Math.max(marginL + 6, Math.min(xh, W - marginR - 6));
+          var arrowY = up ? (yh - 12) : (yh + 12);
+
+          // Anchor arrow must sit on the candle/high-low point.
           ctx.fillStyle = color;
-          ctx.font = 'bold 9px JetBrains Mono, monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(txt, xh, by + 3);
+          ctx.beginPath();
+          if (up) {
+            ctx.moveTo(arrowX, arrowY);
+            ctx.lineTo(arrowX - 4, arrowY + 7);
+            ctx.lineTo(arrowX + 4, arrowY + 7);
+          } else {
+            ctx.moveTo(arrowX, arrowY);
+            ctx.lineTo(arrowX - 4, arrowY - 7);
+            ctx.lineTo(arrowX + 4, arrowY - 7);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.lineWidth = 2.2;
+          ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+          ctx.strokeText(txt, tx, by);
+          ctx.fillStyle = color;
+          ctx.fillText(txt, tx, by);
         }
 
         drawHLLabel(hiIdx, lookback[hiIdx].h, '전고', '#ef4444', true);
@@ -463,7 +485,7 @@
         var isUp = r.c >= r.o;
         var color = isUp ? '#ef4444' : '#2563eb';
 
-        ctx.strokeStyle = 'rgba(80,80,80,0.65)';
+        ctx.strokeStyle = color;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, yPrice(r.h));
@@ -499,7 +521,7 @@
 
       ctx.setLineDash([6, 4]);
       ctx.strokeStyle = cpColor;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(marginL, cpY);
       ctx.lineTo(W - marginR, cpY);
@@ -512,16 +534,26 @@
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px JetBrains Mono, monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(Math.round(last.c).toLocaleString('ko-KR'), W - marginR + 38, cpY + 4);
+      var lastPriceText = (Math.abs(last.c - Math.round(last.c)) > 1e-9)
+        ? Number(last.c).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : Math.round(last.c).toLocaleString('ko-KR');
+      ctx.fillText(lastPriceText, W - marginR + 38, cpY + 4);
 
       ctx.fillStyle = '#51607a';
       ctx.font = '10px JetBrains Mono, monospace';
       ctx.textAlign = 'center';
       var step = Math.max(1, Math.floor(rows.length / 8));
+      var prevLabelYear = null;
       for (var di = 0; di < rows.length; di += step) {
         var d = new Date(rows[di].t);
-        var t = (d.getMonth() + 1) + '/' + d.getDate();
+        var m = d.getMonth() + 1;
+        var y = d.getFullYear();
+        var t = m + '/' + d.getDate();
+        if (prevLabelYear !== null && y !== prevLabelYear && m === 1) {
+          t = y + '/' + m;
+        }
         ctx.fillText(t, xCandle(di), H - 10);
+        prevLabelYear = y;
       }
 
       if (s.hoverIndex >= 0 && s.rows[s.hoverIndex]) {

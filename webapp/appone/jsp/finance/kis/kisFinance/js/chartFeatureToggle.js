@@ -5,6 +5,7 @@ var ChartFeatureToggle = (function () {
     var defaults = {
         volumeEnabled: true,
         doubleChartEnabled: true,
+        doubleChartMode: "all",
         monthLinesEnabled: true,
         highLowEnabled: true,
         maSrEnabled: true
@@ -53,6 +54,7 @@ var ChartFeatureToggle = (function () {
         var out = {
             volumeEnabled: defaults.volumeEnabled,
             doubleChartEnabled: defaults.doubleChartEnabled,
+            doubleChartMode: defaults.doubleChartMode,
             monthLinesEnabled: defaults.monthLinesEnabled,
             highLowEnabled: defaults.highLowEnabled,
             maSrEnabled: defaults.maSrEnabled
@@ -66,7 +68,15 @@ var ChartFeatureToggle = (function () {
             var yn = (it.enabledYn || "").toString();
 
             if (k === "volumeEnabled") out.volumeEnabled = toBoolYn(yn);
-            if (k === "doubleChartEnabled") out.doubleChartEnabled = toBoolYn(yn);
+            if (k === "doubleChartEnabled") {
+                out.doubleChartEnabled = toBoolYn(yn);
+                out.doubleChartMode = out.doubleChartEnabled ? "all" : "off";
+            }
+            if (k === "doubleChartMode") {
+                var p = parseInt(it.seriesPeriod || 0, 10);
+                out.doubleChartMode = (p === 1 ? "recent" : (p === 2 ? "all" : "off"));
+                out.doubleChartEnabled = out.doubleChartMode !== "off";
+            }
             if (k === "monthLinesEnabled") out.monthLinesEnabled = toBoolYn(yn);
             if (k === "highLowEnabled") out.highLowEnabled = toBoolYn(yn);
             if (k === "maSrEnabled") out.maSrEnabled = toBoolYn(yn);
@@ -78,7 +88,8 @@ var ChartFeatureToggle = (function () {
         state = state || defaults;
         return [
             { seriesKey: "volumeEnabled", seriesLabel: "거래량 표시", seriesPeriod: 0, seriesColor: null, enabledYn: state.volumeEnabled ? "Y" : "N", displayOrder: 1 },
-            { seriesKey: "doubleChartEnabled", seriesLabel: "월봉 오버레이(월봉차트)", seriesPeriod: 0, seriesColor: null, enabledYn: state.doubleChartEnabled ? "Y" : "N", displayOrder: 2 },
+            { seriesKey: "doubleChartEnabled", seriesLabel: "월봉 오버레이(월봉차트)", seriesPeriod: 0, seriesColor: null, enabledYn: state.doubleChartMode === "off" ? "N" : "Y", displayOrder: 2 },
+            { seriesKey: "doubleChartMode", seriesLabel: "더블차트 모드", seriesPeriod: state.doubleChartMode === "recent" ? 1 : (state.doubleChartMode === "all" ? 2 : 0), seriesColor: null, enabledYn: state.doubleChartMode === "off" ? "N" : "Y", displayOrder: 3 },
             { seriesKey: "monthLinesEnabled", seriesLabel: "월봉구분선", seriesPeriod: 0, seriesColor: null, enabledYn: state.monthLinesEnabled ? "Y" : "N", displayOrder: 3 },
             { seriesKey: "highLowEnabled", seriesLabel: "전고/전저 표시", seriesPeriod: 0, seriesColor: null, enabledYn: state.highLowEnabled ? "Y" : "N", displayOrder: 4 },
             { seriesKey: "maSrEnabled", seriesLabel: "MA 지지/저항 표시", seriesPeriod: 0, seriesColor: null, enabledYn: state.maSrEnabled ? "Y" : "N", displayOrder: 5 }
@@ -92,6 +103,7 @@ var ChartFeatureToggle = (function () {
             ChartScript.setOptions({
                 volumeEnabled: !!state.volumeEnabled,
                 doubleChartEnabled: !!state.doubleChartEnabled,
+                doubleChartMode: state.doubleChartMode || (state.doubleChartEnabled ? "all" : "off"),
                 monthLinesEnabled: !!state.monthLinesEnabled,
                 highLowEnabled: !!state.highLowEnabled,
                 maSrEnabled: !!state.maSrEnabled
@@ -107,7 +119,8 @@ var ChartFeatureToggle = (function () {
     function readModal() {
         return {
             volumeEnabled: $("#optVolume").is(":checked"),
-            doubleChartEnabled: $("#optDoubleChart").is(":checked"),
+            doubleChartEnabled: (($("input[name='optDoubleChartMode']:checked").val() || "off") !== "off"),
+            doubleChartMode: ($("input[name='optDoubleChartMode']:checked").val() || ($("#optDoubleChart").is(":checked") ? "all" : "off")),
             monthLinesEnabled: $("#optMonthLines").is(":checked"),
             highLowEnabled: $("#optHighLow").is(":checked"),
             maSrEnabled: $("#optMaSr").is(":checked")
@@ -117,7 +130,10 @@ var ChartFeatureToggle = (function () {
     function writeModal(state) {
         state = state || defaults;
         $("#optVolume").prop("checked", !!state.volumeEnabled);
-        $("#optDoubleChart").prop("checked", !!state.doubleChartEnabled);
+        var mode = state.doubleChartMode || (state.doubleChartEnabled ? "all" : "off");
+        if (mode !== "off" && mode !== "recent" && mode !== "all") mode = "all";
+        $("#optDoubleChart").prop("checked", mode !== "off");
+        $("input[name='optDoubleChartMode'][value='" + mode + "']").prop("checked", true);
         $("#optMonthLines").prop("checked", !!state.monthLinesEnabled);
         $("#optHighLow").prop("checked", !!state.highLowEnabled);
         $("#optMaSr").prop("checked", !!state.maSrEnabled);
@@ -166,13 +182,13 @@ var ChartFeatureToggle = (function () {
         refreshFromDb(false, true);
 
         // 紐⑤떖 ?대┫ ??DB 湲곗??쇰줈 ?숆린??        
-		$("#chartOptionsModal").on("show.bs.modal", function () {
+        $("#chartOptionsModal").on("show.bs.modal", function () {
             if (loadInFlight) return;
             refreshFromDb(false, false);
         });
 
         // 泥댄겕 蹂寃?利됱떆 李⑦듃 諛섏쁺 + DB ????붾컮?댁뒪)
-        $(document).off("change.chartFeatureToggle").on("change.chartFeatureToggle", "#optVolume,#optDoubleChart,#optMonthLines,#optHighLow,#optMaSr", function () {
+        $(document).off("change.chartFeatureToggle").on("change.chartFeatureToggle", "#optVolume,#optDoubleChart,#optMonthLines,#optHighLow,#optMaSr,input[name='optDoubleChartMode']", function () {
             var state = readModal();
             lastState = state;
             apply(state, true);
