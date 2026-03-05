@@ -1,0 +1,25 @@
+.kis-dashboard-chart-host {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  background: #dcdcdc;
+}
+
+.kis-dashboard-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .kis-dashboard-canvas {
+    touch-action: pan-y;
+    cursor: grab;
+  }
+  .kis-dashboard-canvas:active {
+    cursor: grabbing;
+  }
+}

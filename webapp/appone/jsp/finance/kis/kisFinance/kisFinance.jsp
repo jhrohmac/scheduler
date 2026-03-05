@@ -29,9 +29,11 @@
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.css?v=20260214-1" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/common.css" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css" />
+<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css?v=20260305-1" />
 
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/maScript.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/doubleMonthChartScript.js?v=20260203-7"></script>
+<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisDashboardChartRenderer.js?v=20260305-1"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartScript.js?v=20260213-3"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartFeatureToggle.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartCrossSignals.js"></script>
@@ -508,5 +510,4 @@
 	<script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js?v=20260214-1" defer></script>
 </body>
 </html>
-
 

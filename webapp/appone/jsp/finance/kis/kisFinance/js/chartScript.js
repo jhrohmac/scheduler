@@ -1452,6 +1452,61 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
             closes.push(r.c);
         }
 
+        // Dashboard canvas renderer 우선 사용 (요청사항: 대시보드 차트 + 더블차트)
+        if (window.KisDashboardChartRenderer && typeof window.KisDashboardChartRenderer.render === "function") {
+            try {
+                if (chart && typeof chart.destroy === "function") {
+                    chart.destroy();
+                }
+            } catch (ignoreDestroy) {}
+            chart = null;
+
+            var maSeriesForCanvas = MaScript.buildMaSeries(options, times, closes);
+            var pdc = (periodDivCode || "D").toUpperCase();
+
+            function updateHeaderByRow(r, prevCloseValue) {
+                if (!r) return;
+                var prevClose = prevCloseValue;
+                if (prevClose === null || prevClose === undefined || isNaN(prevClose)) {
+                    prevClose = r.o;
+                }
+                updateOhlcHeader(r.t, r.o, r.h, r.l, r.c, pdc, prevClose);
+                updateTradeHeader(r.v, r.a);
+            }
+
+            var lastRowForCanvas = rows[rows.length - 1];
+            var prevCloseForCanvas = (rows.length > 1) ? rows[rows.length - 2].c : lastRowForCanvas.o;
+            updateHeaderByRow(lastRowForCanvas, prevCloseForCanvas);
+
+            window.KisDashboardChartRenderer.render({
+                containerId: "kisChartContainer",
+                rows: rows,
+                periodDivCode: pdc,
+                options: options,
+                maSeries: maSeriesForCanvas,
+                onHover: function (row, idx) {
+                    var prevClose = (idx > 0 && rows[idx - 1]) ? rows[idx - 1].c : row.o;
+                    updateHeaderByRow(row, prevClose);
+                },
+                onLeave: function () {
+                    updateHeaderByRow(lastRowForCanvas, prevCloseForCanvas);
+                }
+            });
+
+            try {
+                var sc2 = (lastQuery && lastQuery.stockCode) ? lastQuery.stockCode : ($("#stockCode").val() || "");
+                if (sc2) {
+                    if (isIndexCode(sc2)) {
+                        applyIndexHeaderStatic(sc2);
+                    } else {
+                        fetchStockMeta(sc2);
+                        fetchCurrentPrice(sc2);
+                    }
+                }
+            } catch (ignoreMeta) {}
+            return;
+        }
+
         // 월봉 오버레이 + 월 경계선 생성 (DoubleMonthChartScript 사용)
         var monthlyInfo = DoubleMonthChartScript.buildMonthlyOverlayFromDaily(ohlc);
         monthBoundaryTimes = monthlyInfo.boundaries || [];

@@ -1,0 +1,10 @@
+:root{--bg:#060a12;--panel:#111b2e;--line:#223455;--txt:#eef3fb;--sub:#8da0c0;--up:#ff5252;--dn:#448aff;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:'Noto Sans KR',sans-serif}
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+.logo{font-size:11px;letter-spacing:3px;color:#18ffff;font-weight:800}.title-wrap{display:flex;gap:10px;align-items:baseline}
+.stock-name{font-size:20px;font-weight:900}.stock-code{font-size:12px;color:var(--sub)}
+.search-wrap{display:flex;gap:8px}#symbolInput{padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--txt)}#btnLoad{padding:7px 14px;border-radius:8px;border:1px solid #1c91a0;background:rgba(24,255,255,.1);color:#18ffff;cursor:pointer}
+.summary{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+.price-box{display:flex;align-items:baseline;gap:10px}.price{font-size:30px;font-weight:900}.change.up,.price.up{color:var(--up)}.change.dn,.price.dn{color:var(--dn)}.time{font-size:11px;color:var(--sub)}
+.controls{display:flex;gap:12px;align-items:center}select{padding:6px;border-radius:6px;background:var(--panel);color:var(--txt);border:1px solid var(--line)}
+.main{padding:12px 14px}.chart-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;height:72vh;min-height:420px;padding:8px}#mainChart{width:100%;height:100%}

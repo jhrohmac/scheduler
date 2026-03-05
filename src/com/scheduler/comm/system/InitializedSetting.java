@@ -151,9 +151,15 @@ public class InitializedSetting implements ServletContextListener {
     
 	@Override
 	public void contextDestroyed(ServletContextEvent arg0) {
-		 // Connection 해제
-        try {
-            conn.close();
-        } catch (SQLException e) { }
+		// Connection 해제 (null-safe)
+		try {
+			if (conn != null && !conn.isClosed()) {
+				conn.close();
+			}
+		} catch (SQLException e) {
+			System.err.println("InitializedSetting.contextDestroyed() DB close error: " + e.getMessage());
+		} finally {
+			conn = null;
+		}
 	}
 }

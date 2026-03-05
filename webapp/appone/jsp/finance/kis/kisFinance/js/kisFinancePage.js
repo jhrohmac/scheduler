@@ -2126,6 +2126,9 @@ function fmtYmdToPlain(ymd) {
           ChartScript.setOptions(opt);
         }
 
+        if (window.KisDashboardChartRenderer && typeof window.KisDashboardChartRenderer.render === "function") {
+          return Promise.resolve();
+        }
         return ensureHighstockLoaded();
       })
       .then(function () {
