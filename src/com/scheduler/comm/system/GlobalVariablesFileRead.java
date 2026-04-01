@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -13,6 +14,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Properties;
 
+import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.xml.parsers.DocumentBuilder;
@@ -275,29 +277,20 @@ public class GlobalVariablesFileRead implements ServletContextListener {
 	 *  Initializing Configurable
 	 ********************************************************************************/	
 	public static void filePropertySet(){
+		filePropertySet(null);
+	}
+
+	public static void filePropertySet(ServletContext servletContext){
 		
 		System.err.println("==========property Start filePropertySet================");
-		String os_path ="webapps";
 		String filepath ="file.os.order.root";
         // 운영체제 구분 (windows 가 아니면 무조건 linux 로 판단)
 		 if (System.getProperty("os.name").indexOf("Windows") > -1) {
-			 os_path = "wtpwebapps";
 			 filepath ="file.os.win.root";
 		 }
 		 
-		Properties prop = new Properties();		
-		FileReader resources= null;
-		
-    	File catalinaBase = new File( System.getProperty( "catalina.base" ) ).getAbsoluteFile();
-    	File propertyFile = new File( catalinaBase, os_path+"/scheduler/WEB-INF/resources/config/repository/file.properties" );
-			try {
-				resources= new FileReader(propertyFile);
-				prop.load(resources);
-			} catch (FileNotFoundException e) {
-				System.err.println("filePropertySet() Method : "+e.getMessage());
-			} catch (IOException e) {
-				System.err.println("filePropertySet() Method : "+e.getMessage());
-			}
+		Properties prop = new Properties();
+		loadProperties(prop, servletContext);
 			
 		// Root Info
 		if (prop.getProperty(filepath) == null) {
@@ -482,6 +475,63 @@ public class GlobalVariablesFileRead implements ServletContextListener {
 
 	@Override
 	public void contextInitialized(ServletContextEvent arg0) {
-		filePropertySet();
+		filePropertySet(arg0.getServletContext());
+	}
+
+	private static void loadProperties(Properties prop, ServletContext servletContext) {
+		File propertyFile = resolvePropertyFile(servletContext,
+				"/WEB-INF/resources/config/repository/file.properties",
+				"config/repository/file.properties");
+		if (propertyFile != null && propertyFile.isFile()) {
+			try (InputStream in = new java.io.FileInputStream(propertyFile)) {
+				prop.load(in);
+				return;
+			} catch (FileNotFoundException e) {
+				System.err.println("filePropertySet() Method : " + e.getMessage());
+			} catch (IOException e) {
+				System.err.println("filePropertySet() Method : " + e.getMessage());
+			}
+		}
+
+		try (InputStream in = GlobalVariablesFileRead.class.getClassLoader()
+				.getResourceAsStream("config/repository/file.properties")) {
+			if (in != null) {
+				prop.load(in);
+			}
+		} catch (IOException e) {
+			System.err.println("filePropertySet() Method : " + e.getMessage());
+		}
+	}
+
+	private static File resolvePropertyFile(ServletContext servletContext, String webInfPath, String classpathResource) {
+		if (servletContext != null) {
+			String realPath = servletContext.getRealPath(webInfPath);
+			if (realPath != null) {
+				File realFile = new File(realPath);
+				if (realFile.isFile()) {
+					return realFile;
+				}
+			}
+		}
+
+		File classpathFile = resolveClasspathFile(classpathResource);
+		if (classpathFile != null && classpathFile.isFile()) {
+			return classpathFile;
+		}
+
+		String osPath = System.getProperty("os.name").indexOf("Windows") > -1 ? "wtpwebapps" : "webapps";
+		File catalinaBase = new File(System.getProperty("catalina.base")).getAbsoluteFile();
+		return new File(catalinaBase, osPath + "/scheduler/WEB-INF/resources/config/repository/file.properties");
+	}
+
+	private static File resolveClasspathFile(String classpathResource) {
+		try {
+			java.net.URL url = GlobalVariablesFileRead.class.getClassLoader().getResource(classpathResource);
+			if (url != null && "file".equals(url.getProtocol())) {
+				return new File(url.toURI());
+			}
+		} catch (Exception ignore) {
+		}
+		return null;
 	}
 }

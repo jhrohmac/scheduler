@@ -33,6 +33,10 @@ if [ ! -d "$CATALINA_HOME" ]; then
     exit 1
 fi
 
+# macOS(Homebrew) 기본값은 USE_NOHUP=false 여서 비대화형 셸에서 daemon start 후
+# 부모 셸 종료와 함께 Tomcat 이 같이 내려갈 수 있다.
+export USE_NOHUP="true"
+
 CONTEXT_DIR="$CATALINA_HOME/conf/Catalina/localhost"
 CONTEXT_FILE="$CONTEXT_DIR/scheduler.xml"
 
@@ -41,7 +45,8 @@ setup_context() {
     mkdir -p "$CONTEXT_DIR"
     cat > "$CONTEXT_FILE" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<Context docBase="$WEBAPP_DIR" reloadable="true">
+<Context docBase="$WEBAPP_DIR" reloadable="false">
+    <!-- Tyrus/KIS websocket client는 hot reload 중 classloader leak를 만들 수 있어 수동 재시작 기준으로 운영 -->
     <!-- Oracle DB가 없는 경우 에러가 발생할 수 있지만 Tomcat은 기동됩니다 -->
 </Context>
 EOF

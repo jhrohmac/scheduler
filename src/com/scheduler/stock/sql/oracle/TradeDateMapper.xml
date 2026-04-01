@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.TradeDate">
+
+    <update id="mergeTradeDate" parameterType="hashmap">
+        MERGE INTO TB_TRADE_CALENDAR T
+        USING (
+            SELECT
+                TO_DATE(#{tradeDt}, 'YYYY-MM-DD') AS TRADE_DT,
+                #{mktCd}                          AS MKT_CD,
+                #{tradeYn}                        AS TRADE_YN
+            FROM DUAL
+        ) S
+        ON (T.TRADE_DT = S.TRADE_DT AND T.MKT_CD = S.MKT_CD)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.TRADE_YN = S.TRADE_YN
+        WHEN NOT MATCHED THEN
+            INSERT (
+                TRADE_DT, MKT_CD, TRADE_YN, CREATED_AT
+            )
+            VALUES (
+                S.TRADE_DT, S.MKT_CD, S.TRADE_YN, SYSDATE
+            )
+    </update>
+
+    <select id="selectEffectiveBaseDate" parameterType="hashmap" resultType="string">
+        SELECT TO_CHAR(MAX(TRADE_DT), 'YYYY-MM-DD')
+          FROM TB_TRADE_CALENDAR
+         WHERE MKT_CD = #{mktCd}
+           AND TRADE_YN = 'Y'
+           AND TRADE_DT &lt;= TO_DATE(#{inputBaseDt}, 'YYYY-MM-DD')
+    </select>
+
+    <select id="selectTradingDateByOffset" parameterType="hashmap" resultType="string">
+        SELECT TO_CHAR(TRADE_DT, 'YYYY-MM-DD')
+          FROM (
+                SELECT TRADE_DT,
+                       ROW_NUMBER() OVER (ORDER BY TRADE_DT ASC) - 1 AS RN
+                  FROM TB_TRADE_CALENDAR
+                 WHERE MKT_CD = #{mktCd}
+                   AND TRADE_YN = 'Y'
+                   AND TRADE_DT &gt;= TO_DATE(#{baseDt}, 'YYYY-MM-DD')
+          )
+         WHERE RN = TO_NUMBER(#{offset})
+    </select>
+
+    <select id="selectTradingDaysBetween" parameterType="hashmap" resultType="int">
+        SELECT COUNT(*)
+          FROM TB_TRADE_CALENDAR
+         WHERE MKT_CD = #{mktCd}
+           AND TRADE_YN = 'Y'
+           AND TRADE_DT BETWEEN TO_DATE(#{fromDt}, 'YYYY-MM-DD') AND TO_DATE(#{toDt}, 'YYYY-MM-DD')
+    </select>
+
+    <select id="selectTradingDateListBetween" parameterType="hashmap" resultType="string">
+        SELECT TO_CHAR(TRADE_DT, 'YYYY-MM-DD')
+          FROM TB_TRADE_CALENDAR
+         WHERE MKT_CD = #{mktCd}
+           AND TRADE_YN = 'Y'
+           AND TRADE_DT BETWEEN TO_DATE(#{fromDt}, 'YYYY-MM-DD') AND TO_DATE(#{toDt}, 'YYYY-MM-DD')
+         ORDER BY TRADE_DT ASC
+    </select>
+
+</mapper>

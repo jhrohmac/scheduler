@@ -16,6 +16,14 @@ public class PositionVo {
     private String closeFlag;
     private String stateCode;
     private Long lastTxnId;
+    private Long sourcePickId;
+    private Date buyDate;
+    private Double targetPrice;
+    private Double stopPrice;
+    private Double tp1Price;
+    private String sellGuideState;
+    private String lastSellSignalCode;
+    private Date lastTrackDate;
     private Date modifyDate;
     private String createUser;
     private Date createDate;
@@ -92,6 +100,70 @@ public class PositionVo {
     
     public void setLastTxnId(Long lastTxnId) {
         this.lastTxnId = lastTxnId;
+    }
+
+    public Long getSourcePickId() {
+        return sourcePickId;
+    }
+
+    public void setSourcePickId(Long sourcePickId) {
+        this.sourcePickId = sourcePickId;
+    }
+
+    public Date getBuyDate() {
+        return buyDate;
+    }
+
+    public void setBuyDate(Date buyDate) {
+        this.buyDate = buyDate;
+    }
+
+    public Double getTargetPrice() {
+        return targetPrice;
+    }
+
+    public void setTargetPrice(Double targetPrice) {
+        this.targetPrice = targetPrice;
+    }
+
+    public Double getStopPrice() {
+        return stopPrice;
+    }
+
+    public void setStopPrice(Double stopPrice) {
+        this.stopPrice = stopPrice;
+    }
+
+    public Double getTp1Price() {
+        return tp1Price;
+    }
+
+    public void setTp1Price(Double tp1Price) {
+        this.tp1Price = tp1Price;
+    }
+
+    public String getSellGuideState() {
+        return sellGuideState;
+    }
+
+    public void setSellGuideState(String sellGuideState) {
+        this.sellGuideState = sellGuideState;
+    }
+
+    public String getLastSellSignalCode() {
+        return lastSellSignalCode;
+    }
+
+    public void setLastSellSignalCode(String lastSellSignalCode) {
+        this.lastSellSignalCode = lastSellSignalCode;
+    }
+
+    public Date getLastTrackDate() {
+        return lastTrackDate;
+    }
+
+    public void setLastTrackDate(Date lastTrackDate) {
+        this.lastTrackDate = lastTrackDate;
     }
     
     public Date getModifyDate() {

@@ -29,14 +29,11 @@ import com.scheduler.finance.dao.StockAnalysisDao;
 import com.scheduler.finance.dao.StockManagementDao;
 import com.scheduler.finance.vo.CodeVo;
 import com.scheduler.finance.vo.StockInfoVo;
-import com.scheduler.finance.vo.StockRecommendVo;
 import com.scheduler.login.service.UserSession;
 import com.scheduler.util.handler.RequestHandler;
 import com.scheduler.util.handler.ResponseHandler;
 
 import net.sf.json.JSONObject;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
@@ -45,10 +42,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.UUID;
 import java.util.logging.Logger;
-import com.scheduler.finance.kis.config.KisClientFactory;
-import com.scheduler.kis_api.api.rest.quotations.InquirePriceApi;
-import com.scheduler.kis_api.api.rest.quotations.InquirePriceResult;
-import com.scheduler.kis_client.KisClient;
 import com.scheduler.finance.module.BullishMomentumDetector;
 import com.scheduler.finance.module.PositionRuleEngine;
 import com.scheduler.finance.module.IndexTrendRuleModule;
@@ -61,27 +54,8 @@ import com.scheduler.finance.vo.StockDataVo;
 public class StockAnalysisController
 {
     public StockAnalysisDao stockAnalysisDao;
-
     private static final Logger LOG = Logger.getLogger(StockAnalysisController.class.getName());
     private static final long EVAL_PLAN_TIMEOUT_MS = 8000L;
-    
-    // 추천목록 현재가(KIS) 호출 캐시 (TTL 5초)
-    private static final Map<String, PriceCacheItem> NOW_PRICE_CACHE = new ConcurrentHashMap<String, PriceCacheItem>();
-    private static final long NOW_PRICE_CACHE_TTL_MS = 5000L;
-
-    private static class PriceCacheItem {
-        private long ts;
-        private String now_price;
-        private String now_diff;
-        private String now_pct;
-
-        public PriceCacheItem(long ts, String now_price, String now_diff, String now_pct) {
-            this.ts = ts;
-            this.now_price = now_price;
-            this.now_diff = now_diff;
-            this.now_pct = now_pct;
-        }
-    }
 
     public StockAnalysisDao getStockAnalysisDao() {
         return this.stockAnalysisDao;
@@ -123,119 +97,6 @@ public class StockAnalysisController
 	    }
     }
 
-
-    
-    @SuppressWarnings("unchecked")
-    @RequestMapping({ "/finance/selectRecommendStocks.do" })
-    public void c_selectRecommendStocks(HttpServletRequest req, HttpServletResponse res) throws SchedulerException, IOException {
-        HashMap<String, String> map = RequestHandler.extractParameters(req);
-
-        String market = StringUtil.nvl(req.getParameter("market"), "N");                 // N=국내, A=해외
-        String minGrade = StringUtil.nvl(req.getParameter("minGrade"), "WEAK_BUY");     // STRONG_BUY/BUY/WEAK_BUY/HOLD/...
-        String domMarket = StringUtil.nvl(req.getParameter("domMarket"), "ALL");        // ALL/KOSPI/KOSDAQ (국내만)
-        String priceMin = StringUtil.nvl(req.getParameter("priceMin"), "");             // 숫자
-        String priceMax = StringUtil.nvl(req.getParameter("priceMax"), "");             // 숫자
-        String onePick = StringUtil.nvl(req.getParameter("onePick"), "N");              // Y면 limit=1
-        String includeNow = StringUtil.nvl(req.getParameter("includeNow"), "N");        // Y면 KIS 현재가 합치기(국내만)
-        String nowLimit = StringUtil.nvl(req.getParameter("nowLimit"), "20");           // 상위 N개만 KIS 호출
-        String limit = StringUtil.nvl(req.getParameter("limit"), "50");
-
-        // server-side guard
-        int limitInt = 50;
-        try {
-            limitInt = Integer.parseInt(limit);
-        } catch (Exception e) {
-            limitInt = 50;
-        }
-        if ("Y".equalsIgnoreCase(onePick)) {
-            limitInt = 1;
-        }
-        if (limitInt < 1) limitInt = 1;
-        if (limitInt > 200) limitInt = 200;
-
-        int nowLimitInt = 20;
-        try {
-            nowLimitInt = Integer.parseInt(nowLimit);
-        } catch (Exception e) {
-            nowLimitInt = 20;
-        }
-        if (nowLimitInt < 1) nowLimitInt = 1;
-        if (nowLimitInt > 50) nowLimitInt = 50;
-
-        map.put("market", market);
-        map.put("minGrade", minGrade);
-        map.put("domMarket", domMarket);
-        map.put("priceMin", priceMin);
-        map.put("priceMax", priceMax);
-        map.put("limit", String.valueOf(limitInt));
-
-        try {
-            List<StockRecommendVo> list = (List<StockRecommendVo>) stockAnalysisDao.selectRecommendStocks(map);
-
-            // 국내 + includeNow=Y 인 경우, 추천 상위 N개만 KIS 현재가 조회
-            if ("N".equalsIgnoreCase(market) && "Y".equalsIgnoreCase(includeNow) && list != null && !list.isEmpty()) {
-                int max = Math.min(nowLimitInt, list.size());
-                for (int i = 0; i < max; i++) {
-                    StockRecommendVo vo = list.get(i);
-                    if (vo == null) continue;
-                    String stockCode = vo.getStock_code();
-                    if (stockCode == null || stockCode.trim().isEmpty()) continue;
-
-                    PriceCacheItem cached = NOW_PRICE_CACHE.get(stockCode);
-                    long now = System.currentTimeMillis();
-                    if (cached != null && (now - cached.ts) <= NOW_PRICE_CACHE_TTL_MS) {
-                        vo.setNow_price(cached.now_price);
-                        vo.setNow_diff(cached.now_diff);
-                        vo.setNow_pct(cached.now_pct);
-                        continue;
-                    }
-
-                    try {
-                        InquirePriceResult result = callInquirePrice(stockCode);
-                        InquirePriceResult.Output out = (result == null) ? null : result.getOutput();
-                        if (out != null) {
-                            String p = StringUtil.nvl(out.getStckPrpr());
-                            String d = StringUtil.nvl(out.getPrdyVrss());
-                            String s = StringUtil.nvl(out.getPrdyVrssSign());
-                            String pct = StringUtil.nvl(out.getPrdyCtrt());
-
-                            // sign 보정 (음수 표시가 없는 경우)
-                            if ("5".equals(s) || "2".equals(s)) { // 하락(표준: 5), 일부 응답: 2
-                                if (d != null && d.length() > 0 && d.charAt(0) != '-') d = "-" + d;
-                                if (pct != null && pct.length() > 0 && pct.charAt(0) != '-') pct = "-" + pct;
-                            }
-
-                            vo.setNow_price(p);
-                            vo.setNow_diff(d);
-                            vo.setNow_pct(pct);
-
-                            NOW_PRICE_CACHE.put(stockCode, new PriceCacheItem(now, p, d, pct));
-                        }
-                    } catch (Exception ignore) {
-                        // KIS 오류가 있어도 추천 목록은 내려간다.
-                    }
-                }
-            }
-
-            DataTableSettingVo resultVo = new DataTableSettingVo();
-            resultVo.setData(list);
-            resultVo.setResult_code(ResultMsg.SUCCESS_CODE);
-            resultVo.setResult_msg(ResultMsg.SUCCESS_MSG);
-
-            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
-        } catch (Exception e) {
-            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
-        }
-    }
-
-    private InquirePriceResult callInquirePrice(String stockCode) throws Exception {
-        KisClient client = KisClientFactory.getClient();
-        InquirePriceApi api = new InquirePriceApi();
-        api.setFidInputIscd(stockCode.trim());
-        return client.execute(api);
-    }
-
-    
     @RequestMapping({ "/stockAnalysis/updateStockCode.do" })
     public ModelAndView c_saveCode(HttpServletRequest req, HttpServletResponse res) throws SchedulerException {
     	 ModelAndView mav = new ModelAndView();

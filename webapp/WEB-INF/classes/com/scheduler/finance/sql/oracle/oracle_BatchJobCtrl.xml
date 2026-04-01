@@ -248,6 +248,14 @@
          KOSPI200 Interest Sync (KIS ETF component holdings)
          ========================================================= -->
 
+    <update id="normalizeInterestStockCountryCodeKr" parameterType="hashmap">
+        /*normalizeInterestStockCountryCodeKr*/
+        UPDATE TB_S_INTEREST_STOCK
+           SET STOCK_COUNTRY_CODE = 'KR'
+         WHERE STOCK_COUNTRY_CODE IS NULL
+            OR TRIM(STOCK_COUNTRY_CODE) IS NULL
+    </update>
+
     <update id="disableTaggedInterestStock" parameterType="hashmap">
         /*disableTaggedInterestStock*/
         UPDATE TB_S_INTEREST_STOCK
@@ -272,7 +280,6 @@
         WHEN MATCHED THEN
             UPDATE SET
                 T.STOCK_KO_NAME = NVL(#{stock_ko_name}, T.STOCK_KO_NAME)
-              , T.STOCK_COUNTRY_CODE = #{stock_country_code}
               , T.STOCK_TIMEZONE = NVL(#{stock_timezone}, T.STOCK_TIMEZONE)
               , T.STOCK_CURRENCY = NVL(#{stock_currency}, T.STOCK_CURRENCY)
               , T.USE_DIV = 'Y'

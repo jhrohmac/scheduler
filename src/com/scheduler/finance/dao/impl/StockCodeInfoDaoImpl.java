@@ -37,8 +37,6 @@ import com.scheduler.kis_api.api.rest.quotations.InquireDailyPriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyPriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResult.Output2;
-import com.scheduler.kis_api.api.rest.quotations.InquireDailyPriceApi;
-import com.scheduler.kis_api.api.rest.quotations.InquireDailyPriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyPriceResult.Output1;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyIndexchartpriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyIndexchartpriceResult;
@@ -46,12 +44,16 @@ import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyChartPriceA
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyChartPriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyPriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyPriceResult;
+import com.scheduler.kis_api.api.rest.quotations.InquireOverseasTimeIndexchartpriceApi;
+import com.scheduler.kis_api.api.rest.quotations.InquireOverseasTimeIndexchartpriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasTimeItemchartpriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasTimeItemchartpriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquirePriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquirePriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireTimeDailychartpriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireTimeDailychartpriceResult;
+import com.scheduler.kis_api.api.rest.quotations.InquireTimeIndexchartpriceApi;
+import com.scheduler.kis_api.api.rest.quotations.InquireTimeIndexchartpriceResult;
 import com.scheduler.kis_api.api.rest.quotations.SearchInfoApi;
 import com.scheduler.kis_api.api.rest.quotations.SearchInfoResult;
 import com.scheduler.kis_api.api.rest.quotations.SearchInfoResult.Output;
@@ -607,10 +609,10 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         }
         
         // 6) 결과 출력
-        System.out.println("=== InquirePriceResult ===");
-        System.out.println("rt_cd  = " + result.getRtCd());
-        System.out.println("msg_cd = " + result.getMsgCd());
-        System.out.println("msg1   = " + result.getMsg1());
+        // System.out.println("=== InquirePriceResult ===");
+        // System.out.println("rt_cd  = " + result.getRtCd());
+        // System.out.println("msg_cd = " + result.getMsgCd());
+        // System.out.println("msg1   = " + result.getMsg1());
 
         if (!"0".equals(result.getRtCd())) {
             String msg = "KIS API 오류 rtCd=" + result.getRtCd()
@@ -665,10 +667,10 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
             throw new IllegalStateException("KIS 응답이 null 입니다.");
         }
 
-        System.out.println("=== InquirePriceResult ===");
-        System.out.println("rt_cd  = " + result.getRtCd());
-        System.out.println("msg_cd = " + result.getMsgCd());
-        System.out.println("msg1   = " + result.getMsg1());
+        // System.out.println("=== InquirePriceResult ===");
+        // System.out.println("rt_cd  = " + result.getRtCd());
+        // System.out.println("msg_cd = " + result.getMsgCd());
+        // System.out.println("msg1   = " + result.getMsg1());
 
         if (!"0".equals(result.getRtCd())) {
             String msg = "KIS API 오류 rtCd=" + result.getRtCd()
@@ -998,6 +1000,12 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
                 return getOverseasFxDailyChartData(trimmedCode, startDate, endDate, period);
             }
             if (minuteInterval != null) {
+                validateIntradayRange(startDate, endDate, MAX_OVERSEAS_INTRADAY_DAYS, "해외");
+            }
+            if (minuteInterval != null && isIndexLike(trimmedCode, stockMarket)) {
+                return getOverseasTimeIndexchartpriceNMin(trimmedCode, startDate, endDate, minuteInterval);
+            }
+            if (minuteInterval != null) {
                 return getOverseasTimeItemchartpriceNMin(trimmedCode, stockMarket, stockCountry, startDate, endDate, minuteInterval);
             }
             if (isIndexLike(trimmedCode, stockMarket)) {
@@ -1007,7 +1015,11 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         }
 
         if (isDomesticIndexCode(trimmedCode)) {
-            String indexPeriod = (minuteInterval != null) ? "D" : period;
+            if (minuteInterval != null) {
+                validateIntradayRange(startDate, endDate, MAX_INTRADAY_DAYS, "국내");
+                return getDomesticTimeIndexchartpriceNMin(trimmedCode, startDate, endDate, minuteInterval);
+            }
+            String indexPeriod = period;
             List<StockDataVo> indexList = null;
             try {
                 indexList = getDomesticIndexChartData(trimmedCode, startDate, endDate, indexPeriod);
@@ -1021,7 +1033,8 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         }
 
         if (minuteInterval != null) {
-            return getInquireTimeDailychartpriceNMin(trimmedCode, startDate, endDate, minuteInterval);
+            validateIntradayRange(startDate, endDate, MAX_INTRADAY_DAYS, "국내");
+            return getInquireTimeDailychartpriceNMin(trimmedCode, stockMarket, startDate, endDate, minuteInterval);
         }
 
         KisClient client = KisClientFactory.getClient();
@@ -1158,15 +1171,38 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
 
     private static final int MAX_INTRADAY_DAYS = 365;
     private static final int MAX_OVERSEAS_INTRADAY_DAYS = 30;
+    private static final int MAX_INDEX_INTRADAY_PAGES = 1200;
+    private static final String DOMESTIC_INDEX_BASE_INTERVAL_CODE = "60";
 
-    private List<StockDataVo> getInquireTimeDailychartpriceNMin(String stockCode, LocalDate startDate, LocalDate endDate, int minuteInterval) throws Exception {
+    private static final class DomesticIndexIntradayFetch {
+        private final String marketDiv;
+        private final InquireTimeIndexchartpriceResult result;
+
+        private DomesticIndexIntradayFetch(String marketDiv, InquireTimeIndexchartpriceResult result) {
+            this.marketDiv = marketDiv;
+            this.result = result;
+        }
+    }
+
+    private static final class OverseasIndexIntradayFetch {
+        private final String resolvedCode;
+        private final InquireOverseasTimeIndexchartpriceResult result;
+
+        private OverseasIndexIntradayFetch(String resolvedCode, InquireOverseasTimeIndexchartpriceResult result) {
+            this.resolvedCode = resolvedCode;
+            this.result = result;
+        }
+    }
+
+    private List<StockDataVo> getInquireTimeDailychartpriceNMin(String stockCode, String stockMarket,
+            LocalDate startDate, LocalDate endDate, int minuteInterval) throws Exception {
         KisClient client = KisClientFactory.getClient();
         List<StockDataVo> all = new ArrayList<StockDataVo>();
 
         LocalDate current = endDate;
         int days = 0;
         while (!current.isBefore(startDate) && days < MAX_INTRADAY_DAYS) {
-            List<StockDataVo> oneDay = fetchNMinCandlesOneDay(client, stockCode, current, minuteInterval);
+            List<StockDataVo> oneDay = fetchNMinCandlesOneDay(client, stockCode, stockMarket, current, minuteInterval);
             if (oneDay != null && !oneDay.isEmpty()) {
                 all.addAll(oneDay);
             }
@@ -1186,7 +1222,8 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
 
     private static final int MAX_INTRADAY_PAGES = 60;
 
-    private List<StockDataVo> fetchNMinCandlesOneDay(KisClient client, String stockCode, LocalDate date, int minuteInterval) throws Exception {
+    private List<StockDataVo> fetchNMinCandlesOneDay(KisClient client, String stockCode, String stockMarket,
+            LocalDate date, int minuteInterval) throws Exception {
         String dateStr = date.format(DATE_YYYYMMDD);
         Map<Long, StockDataVo> minuteMap = new LinkedHashMap<Long, StockDataVo>();
 
@@ -1196,6 +1233,7 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
 
         while (safety++ < MAX_INTRADAY_PAGES) {
             InquireTimeDailychartpriceApi api = new InquireTimeDailychartpriceApi();
+            api.setFidCondMrktDivCode(resolveDomesticIntradayMarketDiv(stockMarket));
             api.setFidInputIscd(stockCode);
             api.setFidInputDate1(dateStr);
             api.setFidInputHour1(formatTimeForKis(cursor));
@@ -1203,8 +1241,18 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
             api.setFidFakeTickIncuYn("N");
 
             InquireTimeDailychartpriceResult result = client.execute(api);
-            if (result == null || !"0".equals(result.getRtCd())) {
-                break;
+            if (result == null) {
+                throw new IllegalStateException("KIS 국내 분봉 응답이 null 입니다. date=" + dateStr);
+            }
+            if (!"0".equals(result.getRtCd())) {
+                if (isKisNoDataMessage(result.getMsgCd(), result.getMsg1())) {
+                    return new ArrayList<StockDataVo>();
+                }
+                String msg = "KIS 국내 분봉 API 오류 rtCd=" + result.getRtCd()
+                        + ", msgCd=" + result.getMsgCd()
+                        + ", msg1=" + result.getMsg1()
+                        + ", date=" + dateStr;
+                throw new IllegalStateException(msg);
             }
 
             InquireTimeDailychartpriceResult.Output2[] arr = result.getOutput2();
@@ -1223,6 +1271,8 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
                 LocalDate d = parseDateSafe(bsop);
                 LocalTime t = parseTimeSafe(hhmmss);
                 if (d == null || t == null) continue;
+                if (!date.equals(d)) continue;
+                if (!isDomesticRegularSessionTime(t)) continue;
 
                 if (batchEarliest == null || t.isBefore(batchEarliest)) {
                     batchEarliest = t;
@@ -1261,10 +1311,121 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         return aggregateToNMin(new ArrayList<StockDataVo>(minuteMap.values()), minuteInterval);
     }
 
+    private List<StockDataVo> getDomesticTimeIndexchartpriceNMin(String stockCode, LocalDate startDate,
+            LocalDate endDate, int minuteInterval) throws Exception {
+        KisClient client = KisClientFactory.getClient();
+        Map<Long, StockDataVo> minuteMap = new LinkedHashMap<Long, StockDataVo>();
+        List<LocalDate> availableDates = new ArrayList<LocalDate>();
+
+        DomesticIndexIntradayFetch initial = fetchDomesticTimeIndexchartpriceFirstSuccess(client, stockCode,
+                DOMESTIC_INDEX_BASE_INTERVAL_CODE, "");
+        InquireTimeIndexchartpriceResult result = initial.result;
+        String marketDiv = initial.marketDiv;
+        int safety = 0;
+        LocalDate earliest = null;
+
+        while (result != null && safety++ < MAX_INDEX_INTRADAY_PAGES) {
+            List<InquireTimeIndexchartpriceResult.Output2> outputs = result.getOutput2();
+            if (outputs == null || outputs.isEmpty()) {
+                break;
+            }
+
+            LocalDate batchEarliest = null;
+            for (InquireTimeIndexchartpriceResult.Output2 o : outputs) {
+                if (o == null) {
+                    continue;
+                }
+
+                String dateStr = pickDomesticTimeIndexField(o, "stck_bsop_date", "bsop_date", "date", "xymd", "kymd");
+                LocalDate date = parseDateSafe(dateStr);
+                if (date == null) {
+                    continue;
+                }
+                rememberAvailableDate(availableDates, date);
+                if (date.isBefore(startDate) || date.isAfter(endDate)) {
+                    continue;
+                }
+
+                LocalTime time = parseTimeSafe(pickDomesticTimeIndexField(o, "stck_cntg_hour", "cntg_hour", "time", "xhms", "khms"));
+                if (time == null) {
+                    continue;
+                }
+
+                long epoch = ZonedDateTime.of(date, time, KOREA_ZONE).toInstant().toEpochMilli();
+                double close = StringUtil.parseDoubleSafe(
+                        pickDomesticTimeIndexField(o, "bstp_nmix_prpr", "close", "clpr", "prpr"));
+                if (Double.isNaN(close)) {
+                    continue;
+                }
+
+                double open = StringUtil.parseDoubleSafe(pickDomesticTimeIndexField(o, "bstp_nmix_oprc", "open", "oprc"));
+                double high = StringUtil.parseDoubleSafe(pickDomesticTimeIndexField(o, "bstp_nmix_hgpr", "high", "hgpr"));
+                double low = StringUtil.parseDoubleSafe(pickDomesticTimeIndexField(o, "bstp_nmix_lwpr", "low", "lwpr"));
+                double vol = StringUtil.parseDoubleSafe(pickDomesticTimeIndexField(o, "cntg_vol", "acml_vol", "vol"));
+
+                if (Double.isNaN(open)) open = close;
+                if (Double.isNaN(high)) high = close;
+                if (Double.isNaN(low)) low = close;
+
+                minuteMap.put(epoch, new StockDataVo(epoch, open, high, low, close, vol));
+
+                if (batchEarliest == null || date.isBefore(batchEarliest)) {
+                    batchEarliest = date;
+                }
+            }
+
+            if (batchEarliest != null && (earliest == null || batchEarliest.isBefore(earliest))) {
+                earliest = batchEarliest;
+            }
+
+            String nextTrCont = safeString(result.getTrCont()).toUpperCase();
+            if (!"M".equals(nextTrCont) && !"F".equals(nextTrCont)) {
+                break;
+            }
+            if (earliest != null && !earliest.isAfter(startDate)) {
+                break;
+            }
+
+            result = fetchDomesticTimeIndexchartprice(client, stockCode, DOMESTIC_INDEX_BASE_INTERVAL_CODE, marketDiv, "N");
+            if (result == null) {
+                throw new IllegalStateException("KIS 국내 지수 분봉 연속조회 응답이 null 입니다. marketDiv=" + marketDiv);
+            }
+            if (!"0".equals(result.getRtCd())) {
+                String msg = "KIS 국내 지수 분봉 API 오류 rtCd=" + result.getRtCd()
+                        + ", msgCd=" + result.getMsgCd()
+                        + ", msg1=" + result.getMsg1()
+                        + ", marketDiv=" + marketDiv;
+                throw new IllegalStateException(msg);
+            }
+        }
+
+        if (minuteMap.isEmpty()) {
+            throwIfCurrentSessionOnlyRangeMismatch("KIS 국내 지수 분봉은 현재 세션 데이터만 지원합니다.",
+                    availableDates, startDate, endDate);
+        }
+
+        return aggregateToNMin(new ArrayList<StockDataVo>(minuteMap.values()), minuteInterval);
+    }
+
     private String formatTimeForKis(LocalTime time) {
         int hh = (time != null) ? time.getHour() : 0;
         int mm = (time != null) ? time.getMinute() : 0;
         return String.format("%02d%02d00", hh, mm);
+    }
+
+    private String resolveDomesticIntradayMarketDiv(String stockMarket) {
+        String market = safeString(stockMarket).toUpperCase();
+        if (market.contains("NXT") || "NX".equals(market)) {
+            return "NX";
+        }
+        return "J";
+    }
+
+    private boolean isDomesticRegularSessionTime(LocalTime time) {
+        if (time == null) {
+            return false;
+        }
+        return !time.isBefore(LocalTime.of(9, 0)) && !time.isAfter(LocalTime.of(15, 30));
     }
 
     private List<StockDataVo> aggregateToNMin(List<StockDataVo> mins, int minuteInterval) {
@@ -1445,6 +1606,104 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
     private List<StockDataVo> getOverseasIndexDailyChartData(String stockCode, LocalDate startDate, LocalDate endDate,
             String period) throws Exception {
         return getOverseasDailyChartDataByMarketDiv("N", stockCode, startDate, endDate, period);
+    }
+
+    private List<StockDataVo> getOverseasTimeIndexchartpriceNMin(String stockCode, LocalDate startDate,
+            LocalDate endDate, int minuteInterval) throws Exception {
+        KisClient client = KisClientFactory.getClient();
+        Map<Long, StockDataVo> minuteMap = new LinkedHashMap<Long, StockDataVo>();
+        List<LocalDate> availableDates = new ArrayList<LocalDate>();
+
+        OverseasIndexIntradayFetch initial = fetchOverseasTimeIndexchartpriceFirstSuccess(client, stockCode, "");
+        InquireOverseasTimeIndexchartpriceResult result = initial.result;
+        String resolvedCode = initial.resolvedCode;
+        int safety = 0;
+        LocalDate earliest = null;
+
+        while (result != null && safety++ < MAX_INDEX_INTRADAY_PAGES) {
+            List<InquireOverseasTimeIndexchartpriceResult.Output2> outputs = result.getOutput2();
+            if (outputs == null || outputs.isEmpty()) {
+                break;
+            }
+
+            LocalDate batchEarliest = null;
+            for (InquireOverseasTimeIndexchartpriceResult.Output2 o : outputs) {
+                if (o == null) {
+                    continue;
+                }
+
+                LocalDate date = parseDateSafe(
+                        pickOverseasTimeIndexField(o, "stck_bsop_date", "bsop_date", "date", "xymd", "kymd"));
+                if (date == null) {
+                    continue;
+                }
+                rememberAvailableDate(availableDates, date);
+                if (date.isBefore(startDate) || date.isAfter(endDate)) {
+                    continue;
+                }
+
+                LocalTime time = parseTimeSafe(pickOverseasTimeIndexField(o, "stck_cntg_hour", "cntg_hour", "time", "xhms", "khms"));
+                if (time == null) {
+                    continue;
+                }
+
+                long epoch = ZonedDateTime.of(date, time, KOREA_ZONE).toInstant().toEpochMilli();
+                double close = StringUtil.parseDoubleSafe(
+                        pickOverseasTimeIndexField(o, "optn_prpr", "ovrs_nmix_prpr", "close", "prpr", "last", "clos"));
+                if (Double.isNaN(close)) {
+                    continue;
+                }
+
+                double open = StringUtil.parseDoubleSafe(
+                        pickOverseasTimeIndexField(o, "optn_oprc", "ovrs_prod_oprc", "open", "oprc"));
+                double high = StringUtil.parseDoubleSafe(
+                        pickOverseasTimeIndexField(o, "optn_hgpr", "ovrs_prod_hgpr", "high", "hgpr"));
+                double low = StringUtil.parseDoubleSafe(
+                        pickOverseasTimeIndexField(o, "optn_lwpr", "ovrs_prod_lwpr", "low", "lwpr"));
+                double vol = StringUtil.parseDoubleSafe(pickOverseasTimeIndexField(o, "cntg_vol", "acml_vol", "vol"));
+
+                if (Double.isNaN(open)) open = close;
+                if (Double.isNaN(high)) high = close;
+                if (Double.isNaN(low)) low = close;
+
+                minuteMap.put(epoch, new StockDataVo(epoch, open, high, low, close, vol));
+
+                if (batchEarliest == null || date.isBefore(batchEarliest)) {
+                    batchEarliest = date;
+                }
+            }
+
+            if (batchEarliest != null && (earliest == null || batchEarliest.isBefore(earliest))) {
+                earliest = batchEarliest;
+            }
+
+            String nextTrCont = safeString(result.getTrCont()).toUpperCase();
+            if (!"M".equals(nextTrCont) && !"F".equals(nextTrCont)) {
+                break;
+            }
+            if (earliest != null && !earliest.isAfter(startDate)) {
+                break;
+            }
+
+            result = fetchOverseasTimeIndexchartprice(client, resolvedCode, "N");
+            if (result == null) {
+                throw new IllegalStateException("KIS 해외 지수 분봉 연속조회 응답이 null 입니다. code=" + resolvedCode);
+            }
+            if (!"0".equals(result.getRtCd())) {
+                String msg = "KIS 해외 지수 분봉 API 오류 rtCd=" + result.getRtCd()
+                        + ", msgCd=" + result.getMsgCd()
+                        + ", msg1=" + result.getMsg1()
+                        + ", code=" + resolvedCode;
+                throw new IllegalStateException(msg);
+            }
+        }
+
+        if (minuteMap.isEmpty()) {
+            throwIfCurrentSessionOnlyRangeMismatch("KIS 해외 지수 분봉은 현재 세션 데이터만 지원합니다.",
+                    availableDates, startDate, endDate);
+        }
+
+        return aggregateToNMin(new ArrayList<StockDataVo>(minuteMap.values()), minuteInterval);
     }
 
     private List<StockDataVo> getOverseasFxDailyChartData(String stockCode, LocalDate startDate, LocalDate endDate,
@@ -1671,6 +1930,141 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         return "";
     }
 
+    private DomesticIndexIntradayFetch fetchDomesticTimeIndexchartpriceFirstSuccess(KisClient client, String stockCode,
+            String intervalCode, String trCont) {
+        String[] candidates = new String[] { "U", "UN", "J" };
+        InquireTimeIndexchartpriceResult last = null;
+        for (int i = 0; i < candidates.length; i++) {
+            String marketDiv = candidates[i];
+            InquireTimeIndexchartpriceResult result = fetchDomesticTimeIndexchartprice(client, stockCode, intervalCode,
+                    marketDiv, trCont);
+            last = result;
+            if (result != null && "0".equals(result.getRtCd())) {
+                return new DomesticIndexIntradayFetch(marketDiv, result);
+            }
+        }
+
+        if (last == null) {
+            throw new IllegalStateException("KIS 국내 지수 분봉 응답이 null 입니다.");
+        }
+
+        throw new IllegalStateException("KIS 국내 지수 분봉 API 오류 rtCd=" + last.getRtCd()
+                + ", msgCd=" + last.getMsgCd()
+                + ", msg1=" + last.getMsg1());
+    }
+
+    private InquireTimeIndexchartpriceResult fetchDomesticTimeIndexchartprice(KisClient client, String stockCode,
+            String intervalCode, String marketDiv, String trCont) {
+        try {
+            InquireTimeIndexchartpriceApi api = new InquireTimeIndexchartpriceApi();
+            api.setFidCondMrktDivCode(marketDiv);
+            api.setFidEtcClsCode("0");
+            api.setFidInputIscd(stockCode);
+            api.setFidInputHour1(intervalCode);
+            api.setFidPwDataIncuYn("Y");
+            api.setTrCont(trCont);
+            return client.execute(api);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String pickDomesticTimeIndexField(InquireTimeIndexchartpriceResult.Output2 o, String... keys) {
+        if (o == null || keys == null) {
+            return "";
+        }
+        for (int i = 0; i < keys.length; i++) {
+            String key = keys[i];
+            if (key == null || key.isEmpty()) {
+                continue;
+            }
+            Object value = o.getField(key);
+            if (value == null) {
+                continue;
+            }
+            String text = String.valueOf(value).trim();
+            if (!text.isEmpty() && !"null".equalsIgnoreCase(text)) {
+                return text;
+            }
+        }
+        return "";
+    }
+
+    private OverseasIndexIntradayFetch fetchOverseasTimeIndexchartpriceFirstSuccess(KisClient client, String stockCode,
+            String trCont) {
+        String[] candidates = getOverseasIndexCodeCandidates(stockCode);
+        InquireOverseasTimeIndexchartpriceResult last = null;
+
+        for (int i = 0; i < candidates.length; i++) {
+            String code = candidates[i];
+            InquireOverseasTimeIndexchartpriceResult result = fetchOverseasTimeIndexchartprice(client, code, trCont);
+            last = result;
+            if (result != null && "0".equals(result.getRtCd())) {
+                return new OverseasIndexIntradayFetch(code, result);
+            }
+        }
+
+        if (last == null) {
+            throw new IllegalStateException("KIS 해외 지수 분봉 응답이 null 입니다.");
+        }
+
+        throw new IllegalStateException("KIS 해외 지수 분봉 API 오류 rtCd=" + last.getRtCd()
+                + ", msgCd=" + last.getMsgCd()
+                + ", msg1=" + last.getMsg1());
+    }
+
+    private InquireOverseasTimeIndexchartpriceResult fetchOverseasTimeIndexchartprice(KisClient client, String stockCode,
+            String trCont) {
+        try {
+            InquireOverseasTimeIndexchartpriceApi api = new InquireOverseasTimeIndexchartpriceApi();
+            api.setFidCondMrktDivCode("N");
+            api.setFidInputIscd(stockCode);
+            api.setFidHourClsCode("0");
+            api.setFidPwDataIncuYn("Y");
+            api.setTrCont(trCont);
+            return client.execute(api);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String[] getOverseasIndexCodeCandidates(String stockCode) {
+        String code = safeString(stockCode).toUpperCase();
+        if (".DJI".equals(code) || "DJI".equals(code) || "DOW".equals(code)) {
+            return new String[] { "DJI", ".DJI", "DOW" };
+        }
+        if (".IXIC".equals(code) || "IXIC".equals(code) || "COMP".equals(code)
+                || ".COMP".equals(code) || "NASDAQ".equals(code)) {
+            return new String[] { "COMP", ".COMP", ".IXIC", "IXIC", "NASDAQ" };
+        }
+        if (".INX".equals(code) || "SPX".equals(code) || "S&P500".equals(code)
+                || "S&P 500".equals(code)) {
+            return new String[] { "SPX", ".INX", "S&P500" };
+        }
+        return new String[] { safeString(stockCode) };
+    }
+
+    private String pickOverseasTimeIndexField(InquireOverseasTimeIndexchartpriceResult.Output2 o, String... keys) {
+        if (o == null || keys == null) {
+            return "";
+        }
+        for (int i = 0; i < keys.length; i++) {
+            String key = keys[i];
+            if (key == null || key.isEmpty()) {
+                continue;
+            }
+            Object value = o.getField(key);
+            if (value == null) {
+                continue;
+            }
+            String text = String.valueOf(value).trim();
+            if (!text.isEmpty() && !"null".equalsIgnoreCase(text)) {
+                return text;
+            }
+        }
+        return "";
+    }
+
     private void logIndexChartAttempt(String stockCode, String period, String marketDiv,
             InquireDailyIndexchartpriceResult res) {
         if (logger == null) return;
@@ -1854,32 +2248,43 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
                 if (o == null) {
                     continue;
                 }
-                String kymd = safeString(o.getKymd());
-                String khms = safeString(o.getKhms());
-                if (kymd.isEmpty()) {
-                    kymd = safeString(o.getXymd());
+                String marketDateText = safeString(o.getXymd());
+                String marketTimeText = safeString(o.getXhms());
+                if (marketDateText.isEmpty()) {
+                    marketDateText = safeString(o.getKymd());
                 }
-                if (khms.isEmpty()) {
-                    khms = safeString(o.getXhms());
+                if (marketTimeText.isEmpty()) {
+                    marketTimeText = safeString(o.getKhms());
                 }
-                if (kymd.length() != 8 || khms.length() < 4) {
+                String localDateText = safeString(o.getKymd());
+                String localTimeText = safeString(o.getKhms());
+                if (localDateText.isEmpty()) {
+                    localDateText = marketDateText;
+                }
+                if (localTimeText.isEmpty()) {
+                    localTimeText = marketTimeText;
+                }
+                if (marketDateText.length() != 8 || marketTimeText.length() < 4
+                        || localDateText.length() != 8 || localTimeText.length() < 4) {
                     continue;
                 }
 
-                LocalDate date = parseDateSafe(kymd);
-                if (date == null) {
+                LocalDate marketDate = parseDateSafe(marketDateText);
+                if (marketDate == null) {
                     continue;
                 }
-                if (date.isBefore(startDate) || date.isAfter(endDate)) {
-                    continue;
-                }
-
-                LocalTime time = parseTimeSafe(khms);
-                if (time == null) {
+                if (marketDate.isBefore(startDate) || marketDate.isAfter(endDate)) {
                     continue;
                 }
 
-                long epoch = ZonedDateTime.of(date, time, KOREA_ZONE).toInstant().toEpochMilli();
+                LocalTime marketTime = parseTimeSafe(marketTimeText);
+                LocalDate localDate = parseDateSafe(localDateText);
+                LocalTime localTime = parseTimeSafe(localTimeText);
+                if (marketTime == null || localDate == null || localTime == null) {
+                    continue;
+                }
+
+                long epoch = ZonedDateTime.of(localDate, localTime, KOREA_ZONE).toInstant().toEpochMilli();
                 double open = StringUtil.parseDoubleSafe(o.getOpen());
                 double high = StringUtil.parseDoubleSafe(o.getHigh());
                 double low = StringUtil.parseDoubleSafe(o.getLow());
@@ -1892,8 +2297,8 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
 
                 merged.put(epoch, new StockDataVo(epoch, open, high, low, close, vol));
 
-                if (batchEarliest == null || date.isBefore(batchEarliest)) {
-                    batchEarliest = date;
+                if (batchEarliest == null || marketDate.isBefore(batchEarliest)) {
+                    batchEarliest = marketDate;
                 }
             }
 
@@ -1923,7 +2328,7 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
                 if (days >= MAX_OVERSEAS_INTRADAY_DAYS) {
                     break;
                 }
-                if (!earliest.isAfter(startDate)) {
+                if (earliest.isBefore(startDate)) {
                     break;
                 }
             }
@@ -2003,6 +2408,44 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
         }
     }
 
+    private void rememberAvailableDate(List<LocalDate> availableDates, LocalDate date) {
+        if (availableDates == null || date == null || availableDates.contains(date)) {
+            return;
+        }
+        availableDates.add(date);
+    }
+
+    private void throwIfCurrentSessionOnlyRangeMismatch(String messagePrefix, List<LocalDate> availableDates,
+            LocalDate startDate, LocalDate endDate) {
+        if (availableDates == null || availableDates.isEmpty()) {
+            return;
+        }
+
+        for (LocalDate availableDate : availableDates) {
+            if (availableDate == null) {
+                continue;
+            }
+            if (!availableDate.isBefore(startDate) && !availableDate.isAfter(endDate)) {
+                return;
+            }
+        }
+
+        List<LocalDate> sorted = new ArrayList<LocalDate>(availableDates);
+        Collections.sort(sorted);
+
+        LocalDate first = sorted.get(0);
+        LocalDate last = sorted.get(sorted.size() - 1);
+        String availableText = first.format(DATE_YYYYMMDD);
+        if (!first.equals(last)) {
+            availableText = availableText + " ~ " + last.format(DATE_YYYYMMDD);
+        }
+
+        throw new IllegalArgumentException(messagePrefix
+                + " 현재 조회 가능 일자: " + availableText
+                + ", 요청 범위: " + startDate.format(DATE_YYYYMMDD)
+                + " ~ " + endDate.format(DATE_YYYYMMDD));
+    }
+
     private Integer parseMinuteInterval(String periodCode) {
         if (periodCode == null) {
             return null;
@@ -2023,6 +2466,29 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
             return v;
         }
         return null;
+    }
+
+    private void validateIntradayRange(LocalDate startDate, LocalDate endDate, int maxDays, String marketLabel) {
+        long requestedDays = ChronoUnit.DAYS.between(startDate, endDate) + 1L;
+        if (requestedDays <= maxDays) {
+            return;
+        }
+
+        throw new IllegalArgumentException(marketLabel + " 분봉 조회는 최대 " + maxDays + "일까지 지원합니다. "
+                + "요청 범위: " + startDate.format(DATE_YYYYMMDD) + " ~ " + endDate.format(DATE_YYYYMMDD)
+                + " (" + requestedDays + "일)");
+    }
+
+    private boolean isKisNoDataMessage(String msgCd, String msg1) {
+        String code = safeString(msgCd).toUpperCase();
+        String message = safeString(msg1);
+        if ("MCA00000".equals(code)) {
+            return false;
+        }
+        return message.contains("조회할 자료가 없습니다")
+                || message.contains("조회된 자료가 없습니다")
+                || message.contains("검색된 자료가 없습니다")
+                || message.contains("데이터가 없습니다");
     }
 
     private boolean isOverseasStock(String stockCode, String market, String country) {

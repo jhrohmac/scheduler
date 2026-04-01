@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.RecPick">
+
+    <insert id="insertRecPick" parameterType="recPickDto">
+        INSERT INTO TB_S_RECO_PICK (
+            SOURCE_TYPE, SOURCE_BASE_DT, SOURCE_MKT_CD, STK_CD, STK_NM,
+            LISTING_MARKET, WATCH_GROUP_ID, PICK_STATUS, REC_RANK, REC_YN,
+            REC_GRADE, REC_REASON, GOLDEN_YN, MON_UP_YN, MON_CHG_RATE,
+            TREND_STRENGTH, AVG_TRD_VAL_20, REC_ANCHOR_PRICE, WATCH_ANCHOR_PRICE,
+            WATCH_SAVED_AT, POSITION_ID, ENTRY_RULE_CODE, SNAPSHOT_JSON, LAST_TRACK_DT,
+            CREATE_USER, CREATE_DATE, MODIFY_DATE
+        ) VALUES (
+            NVL(#{sourceType,jdbcType=VARCHAR}, 'REC_SIGNAL_V110'),
+            TO_DATE(#{sourceBaseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
+            #{sourceMktCd,jdbcType=VARCHAR},
+            #{stkCd,jdbcType=VARCHAR},
+            #{stkNm,jdbcType=VARCHAR},
+            #{listingMarket,jdbcType=VARCHAR},
+            #{watchGroupId,jdbcType=VARCHAR},
+            NVL(#{pickStatus,jdbcType=VARCHAR}, 'WATCH'),
+            #{recRank,jdbcType=NUMERIC},
+            NVL(#{recYn,jdbcType=VARCHAR}, 'Y'),
+            #{recGrade,jdbcType=VARCHAR},
+            #{recReason,jdbcType=VARCHAR},
+            #{goldenYn,jdbcType=VARCHAR},
+            #{monUpYn,jdbcType=VARCHAR},
+            #{monChgRate,jdbcType=NUMERIC},
+            #{trendStrength,jdbcType=NUMERIC},
+            #{avgTrdVal20,jdbcType=NUMERIC},
+            #{recAnchorPrice,jdbcType=NUMERIC},
+            #{watchAnchorPrice,jdbcType=NUMERIC},
+            SYSDATE,
+            #{positionId,jdbcType=NUMERIC},
+            #{entryRuleCode,jdbcType=VARCHAR},
+            #{snapshotJson,jdbcType=CLOB},
+            <choose>
+                <when test="lastTrackDt != null and lastTrackDt != ''">TO_DATE(#{lastTrackDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')</when>
+                <otherwise>NULL</otherwise>
+            </choose>,
+            #{createUser,jdbcType=VARCHAR},
+            SYSDATE,
+            SYSDATE
+        )
+    </insert>
+
+    <update id="updateRecPickBuyLink" parameterType="recPickDto">
+        UPDATE TB_S_RECO_PICK
+           SET PICK_STATUS = NVL(#{pickStatus,jdbcType=VARCHAR}, PICK_STATUS),
+               FIRST_BUY_DATE = <choose>
+                   <when test="firstBuyDate != null and firstBuyDate != ''">TO_DATE(#{firstBuyDate,jdbcType=VARCHAR}, 'YYYY-MM-DD')</when>
+                   <otherwise>FIRST_BUY_DATE</otherwise>
+               </choose>,
+               FIRST_BUY_PRICE = NVL(#{firstBuyPrice,jdbcType=NUMERIC}, FIRST_BUY_PRICE),
+               FIRST_BUY_QTY = NVL(#{firstBuyQty,jdbcType=NUMERIC}, FIRST_BUY_QTY),
+               POSITION_ID = NVL(#{positionId,jdbcType=NUMERIC}, POSITION_ID),
+               ENTRY_RULE_CODE = NVL(#{entryRuleCode,jdbcType=VARCHAR}, ENTRY_RULE_CODE),
+               MODIFY_DATE = SYSDATE
+         WHERE PICK_ID = #{pickId,jdbcType=NUMERIC}
+    </update>
+
+    <update id="updateRecPickTrackDate" parameterType="hashmap">
+        UPDATE TB_S_RECO_PICK
+           SET LAST_TRACK_DT = TO_DATE(#{lastTrackDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
+               MODIFY_DATE = SYSDATE
+         WHERE PICK_ID = #{pickId,jdbcType=NUMERIC}
+    </update>
+
+    <!--
+        ★ SELL_SIGNAL_CODE 덮어쓰기 방어 로직
+        RecPickTrackService 는 sellSignalCode = null 로 호출.
+        PositionExitSignalService 는 실제 코드 값으로 호출.
+        → null 이면 기존 DB 값 유지 (NONE 으로 초기화하지 않음)
+    -->
+    <update id="mergeRecPickDaily" parameterType="recPickDailyDto">
+        MERGE INTO TB_S_RECO_PICK_DAILY T
+        USING (
+            SELECT
+                #{pickId,jdbcType=NUMERIC} AS PICK_ID,
+                TO_DATE(#{tradeDt,jdbcType=VARCHAR}, 'YYYY-MM-DD') AS TRADE_DT,
+                #{mktCd,jdbcType=VARCHAR} AS MKT_CD,
+                #{stkCd,jdbcType=VARCHAR} AS STK_CD,
+                #{openPrice,jdbcType=NUMERIC} AS OPEN_PRICE,
+                #{highPrice,jdbcType=NUMERIC} AS HIGH_PRICE,
+                #{lowPrice,jdbcType=NUMERIC} AS LOW_PRICE,
+                #{closePrice,jdbcType=NUMERIC} AS CLOSE_PRICE,
+                #{holdDayNoFromRec,jdbcType=NUMERIC} AS HOLD_DAY_NO_FROM_REC,
+                #{holdDayNoFromWatch,jdbcType=NUMERIC} AS HOLD_DAY_NO_FROM_WATCH,
+                #{holdDayNoFromBuy,jdbcType=NUMERIC} AS HOLD_DAY_NO_FROM_BUY,
+                #{returnFromRecPct,jdbcType=NUMERIC} AS RETURN_FROM_REC_PCT,
+                #{returnFromWatchPct,jdbcType=NUMERIC} AS RETURN_FROM_WATCH_PCT,
+                #{returnFromBuyPct,jdbcType=NUMERIC} AS RETURN_FROM_BUY_PCT,
+                #{mfeFromRecPct,jdbcType=NUMERIC} AS MFE_FROM_REC_PCT,
+                #{maeFromRecPct,jdbcType=NUMERIC} AS MAE_FROM_REC_PCT,
+                #{mfeFromBuyPct,jdbcType=NUMERIC} AS MFE_FROM_BUY_PCT,
+                #{maeFromBuyPct,jdbcType=NUMERIC} AS MAE_FROM_BUY_PCT,
+                #{upDownFlag,jdbcType=VARCHAR} AS UP_DOWN_FLAG,
+                #{tp1HitYn,jdbcType=VARCHAR} AS TP1_HIT_YN,
+                #{stopHitYn,jdbcType=VARCHAR} AS STOP_HIT_YN,
+                #{sellSignalCode,jdbcType=VARCHAR} AS SELL_SIGNAL_CODE,
+                #{sellSignalText,jdbcType=VARCHAR} AS SELL_SIGNAL_TEXT,
+                NVL(#{priceSource,jdbcType=VARCHAR}, 'KIS_DAILY') AS PRICE_SOURCE
+            FROM DUAL
+        ) S
+        ON (T.PICK_ID = S.PICK_ID AND T.TRADE_DT = S.TRADE_DT)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.MKT_CD = S.MKT_CD,
+                T.STK_CD = S.STK_CD,
+                T.OPEN_PRICE = S.OPEN_PRICE,
+                T.HIGH_PRICE = S.HIGH_PRICE,
+                T.LOW_PRICE = S.LOW_PRICE,
+                T.CLOSE_PRICE = S.CLOSE_PRICE,
+                T.HOLD_DAY_NO_FROM_REC = S.HOLD_DAY_NO_FROM_REC,
+                T.HOLD_DAY_NO_FROM_WATCH = S.HOLD_DAY_NO_FROM_WATCH,
+                T.HOLD_DAY_NO_FROM_BUY = S.HOLD_DAY_NO_FROM_BUY,
+                T.RETURN_FROM_REC_PCT = S.RETURN_FROM_REC_PCT,
+                T.RETURN_FROM_WATCH_PCT = S.RETURN_FROM_WATCH_PCT,
+                T.RETURN_FROM_BUY_PCT = S.RETURN_FROM_BUY_PCT,
+                T.MFE_FROM_REC_PCT = S.MFE_FROM_REC_PCT,
+                T.MAE_FROM_REC_PCT = S.MAE_FROM_REC_PCT,
+                T.MFE_FROM_BUY_PCT = S.MFE_FROM_BUY_PCT,
+                T.MAE_FROM_BUY_PCT = S.MAE_FROM_BUY_PCT,
+                T.UP_DOWN_FLAG = S.UP_DOWN_FLAG,
+                T.TP1_HIT_YN = S.TP1_HIT_YN,
+                T.STOP_HIT_YN = S.STOP_HIT_YN,
+                -- ★ sellSignalCode: null 이면 기존 DB 값 유지 (덮어쓰기 방어)
+                T.SELL_SIGNAL_CODE = CASE
+                    WHEN S.SELL_SIGNAL_CODE IS NOT NULL THEN S.SELL_SIGNAL_CODE
+                    ELSE T.SELL_SIGNAL_CODE
+                END,
+                T.SELL_SIGNAL_TEXT = CASE
+                    WHEN S.SELL_SIGNAL_TEXT IS NOT NULL THEN S.SELL_SIGNAL_TEXT
+                    ELSE T.SELL_SIGNAL_TEXT
+                END,
+                T.PRICE_SOURCE = S.PRICE_SOURCE,
+                T.MODIFY_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (
+                PICK_ID, TRADE_DT, MKT_CD, STK_CD,
+                OPEN_PRICE, HIGH_PRICE, LOW_PRICE, CLOSE_PRICE,
+                HOLD_DAY_NO_FROM_REC, HOLD_DAY_NO_FROM_WATCH, HOLD_DAY_NO_FROM_BUY,
+                RETURN_FROM_REC_PCT, RETURN_FROM_WATCH_PCT, RETURN_FROM_BUY_PCT,
+                MFE_FROM_REC_PCT, MAE_FROM_REC_PCT, MFE_FROM_BUY_PCT, MAE_FROM_BUY_PCT,
+                UP_DOWN_FLAG, TP1_HIT_YN, STOP_HIT_YN,
+                SELL_SIGNAL_CODE, SELL_SIGNAL_TEXT, PRICE_SOURCE,
+                CREATE_DATE, MODIFY_DATE
+            )
+            VALUES (
+                S.PICK_ID, S.TRADE_DT, S.MKT_CD, S.STK_CD,
+                S.OPEN_PRICE, S.HIGH_PRICE, S.LOW_PRICE, S.CLOSE_PRICE,
+                S.HOLD_DAY_NO_FROM_REC, S.HOLD_DAY_NO_FROM_WATCH, S.HOLD_DAY_NO_FROM_BUY,
+                S.RETURN_FROM_REC_PCT, S.RETURN_FROM_WATCH_PCT, S.RETURN_FROM_BUY_PCT,
+                S.MFE_FROM_REC_PCT, S.MAE_FROM_REC_PCT, S.MFE_FROM_BUY_PCT, S.MAE_FROM_BUY_PCT,
+                S.UP_DOWN_FLAG, S.TP1_HIT_YN, S.STOP_HIT_YN,
+                NVL(S.SELL_SIGNAL_CODE, 'NONE'), S.SELL_SIGNAL_TEXT, S.PRICE_SOURCE,
+                SYSDATE, SYSDATE
+            )
+    </update>
+
+    <update id="mergeRecPickEval" parameterType="recPickEvalDto">
+        MERGE INTO TB_S_RECO_PICK_EVAL T
+        USING (
+            SELECT
+                #{pickId,jdbcType=NUMERIC} AS PICK_ID,
+                #{evalType,jdbcType=VARCHAR} AS EVAL_TYPE,
+                #{holdDays,jdbcType=NUMERIC} AS HOLD_DAYS,
+                TO_DATE(#{anchorDate,jdbcType=VARCHAR}, 'YYYY-MM-DD') AS ANCHOR_DATE,
+                <choose>
+                    <when test="targetDate != null and targetDate != ''">TO_DATE(#{targetDate,jdbcType=VARCHAR}, 'YYYY-MM-DD')</when>
+                    <otherwise>NULL</otherwise>
+                </choose> AS TARGET_DATE,
+                #{returnPct,jdbcType=NUMERIC} AS RETURN_PCT,
+                #{mfePct,jdbcType=NUMERIC} AS MFE_PCT,
+                #{maePct,jdbcType=NUMERIC} AS MAE_PCT,
+                #{winYn,jdbcType=VARCHAR} AS WIN_YN,
+                #{tp1HitYn,jdbcType=VARCHAR} AS TP1_HIT_YN,
+                #{stopHitYn,jdbcType=VARCHAR} AS STOP_HIT_YN,
+                NVL(#{calcStatus,jdbcType=VARCHAR}, 'PENDING') AS CALC_STATUS
+            FROM DUAL
+        ) S
+        ON (T.PICK_ID = S.PICK_ID AND T.EVAL_TYPE = S.EVAL_TYPE AND T.HOLD_DAYS = S.HOLD_DAYS)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.ANCHOR_DATE = S.ANCHOR_DATE,
+                T.TARGET_DATE = S.TARGET_DATE,
+                T.RETURN_PCT = S.RETURN_PCT,
+                T.MFE_PCT = S.MFE_PCT,
+                T.MAE_PCT = S.MAE_PCT,
+                T.WIN_YN = S.WIN_YN,
+                T.TP1_HIT_YN = S.TP1_HIT_YN,
+                T.STOP_HIT_YN = S.STOP_HIT_YN,
+                T.CALC_STATUS = S.CALC_STATUS,
+                T.MODIFY_DATE = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (
+                PICK_ID, EVAL_TYPE, HOLD_DAYS, ANCHOR_DATE, TARGET_DATE,
+                RETURN_PCT, MFE_PCT, MAE_PCT, WIN_YN, TP1_HIT_YN, STOP_HIT_YN,
+                CALC_STATUS, CREATE_DATE, MODIFY_DATE
+            )
+            VALUES (
+                S.PICK_ID, S.EVAL_TYPE, S.HOLD_DAYS, S.ANCHOR_DATE, S.TARGET_DATE,
+                S.RETURN_PCT, S.MFE_PCT, S.MAE_PCT, S.WIN_YN, S.TP1_HIT_YN, S.STOP_HIT_YN,
+                S.CALC_STATUS, SYSDATE, SYSDATE
+            )
+    </update>
+
+    <select id="selectRecPick" parameterType="hashmap" resultType="recPickDto">
+        SELECT PICK_ID AS pickId,
+               SOURCE_TYPE AS sourceType,
+               TO_CHAR(SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
+               SOURCE_MKT_CD AS sourceMktCd,
+               STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               LISTING_MARKET AS listingMarket,
+               WATCH_GROUP_ID AS watchGroupId,
+               PICK_STATUS AS pickStatus,
+               REC_RANK AS recRank,
+               REC_YN AS recYn,
+               REC_GRADE AS recGrade,
+               REC_REASON AS recReason,
+               GOLDEN_YN AS goldenYn,
+               MON_UP_YN AS monUpYn,
+               MON_CHG_RATE AS monChgRate,
+               TREND_STRENGTH AS trendStrength,
+               AVG_TRD_VAL_20 AS avgTrdVal20,
+               REC_ANCHOR_PRICE AS recAnchorPrice,
+               WATCH_ANCHOR_PRICE AS watchAnchorPrice,
+               TO_CHAR(WATCH_SAVED_AT, 'YYYY-MM-DD') AS watchSavedAt,
+               TO_CHAR(FIRST_BUY_DATE, 'YYYY-MM-DD') AS firstBuyDate,
+               FIRST_BUY_PRICE AS firstBuyPrice,
+               FIRST_BUY_QTY AS firstBuyQty,
+               POSITION_ID AS positionId,
+               ENTRY_RULE_CODE AS entryRuleCode,
+               SNAPSHOT_JSON AS snapshotJson,
+               TO_CHAR(LAST_TRACK_DT, 'YYYY-MM-DD') AS lastTrackDt,
+               CREATE_USER AS createUser,
+               TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') AS createDate,
+               TO_CHAR(MODIFY_DATE, 'YYYY-MM-DD') AS modifyDate
+          FROM TB_S_RECO_PICK
+         WHERE 1 = 1
+           <if test="pickId != null and pickId != ''">AND PICK_ID = TO_NUMBER(#{pickId})</if>
+           <if test="positionId != null and positionId != ''">AND POSITION_ID = TO_NUMBER(#{positionId})</if>
+         ORDER BY PICK_ID DESC
+    </select>
+
+    <select id="selectRecPickList" parameterType="hashmap" resultType="recPickDto">
+        SELECT PICK_ID AS pickId,
+               SOURCE_TYPE AS sourceType,
+               TO_CHAR(SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
+               SOURCE_MKT_CD AS sourceMktCd,
+               STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               LISTING_MARKET AS listingMarket,
+               WATCH_GROUP_ID AS watchGroupId,
+               PICK_STATUS AS pickStatus,
+               REC_RANK AS recRank,
+               REC_YN AS recYn,
+               REC_GRADE AS recGrade,
+               REC_REASON AS recReason,
+               GOLDEN_YN AS goldenYn,
+               MON_UP_YN AS monUpYn,
+               MON_CHG_RATE AS monChgRate,
+               TREND_STRENGTH AS trendStrength,
+               AVG_TRD_VAL_20 AS avgTrdVal20,
+               REC_ANCHOR_PRICE AS recAnchorPrice,
+               WATCH_ANCHOR_PRICE AS watchAnchorPrice,
+               TO_CHAR(WATCH_SAVED_AT, 'YYYY-MM-DD') AS watchSavedAt,
+               TO_CHAR(FIRST_BUY_DATE, 'YYYY-MM-DD') AS firstBuyDate,
+               FIRST_BUY_PRICE AS firstBuyPrice,
+               FIRST_BUY_QTY AS firstBuyQty,
+               POSITION_ID AS positionId,
+               ENTRY_RULE_CODE AS entryRuleCode,
+               TO_CHAR(LAST_TRACK_DT, 'YYYY-MM-DD') AS lastTrackDt,
+               CREATE_USER AS createUser,
+               TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') AS createDate,
+               TO_CHAR(MODIFY_DATE, 'YYYY-MM-DD') AS modifyDate
+          FROM TB_S_RECO_PICK
+         WHERE 1 = 1
+           <if test="pickStatus != null and pickStatus != ''">AND PICK_STATUS = #{pickStatus}</if>
+           <if test="mktCd != null and mktCd != ''">AND SOURCE_MKT_CD = #{mktCd}</if>
+           <if test="watchGroupId != null and watchGroupId != ''">AND WATCH_GROUP_ID = #{watchGroupId}</if>
+           <if test="stkCd != null and stkCd != ''">AND STK_CD = #{stkCd}</if>
+           <if test="sourceBaseDt != null and sourceBaseDt != ''">AND SOURCE_BASE_DT = TO_DATE(#{sourceBaseDt}, 'YYYY-MM-DD')</if>
+           <if test="positionId != null and positionId != ''">AND POSITION_ID = TO_NUMBER(#{positionId})</if>
+         ORDER BY WATCH_SAVED_AT DESC, PICK_ID DESC
+    </select>
+
+    <select id="selectTrackTargetPickList" parameterType="hashmap" resultType="recPickDto">
+        SELECT PICK_ID AS pickId,
+               TO_CHAR(SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
+               SOURCE_MKT_CD AS sourceMktCd,
+               STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               LISTING_MARKET AS listingMarket,
+               WATCH_GROUP_ID AS watchGroupId,
+               PICK_STATUS AS pickStatus,
+               REC_GRADE AS recGrade,
+               REC_REASON AS recReason,
+               GOLDEN_YN AS goldenYn,
+               MON_UP_YN AS monUpYn,
+               MON_CHG_RATE AS monChgRate,
+               TREND_STRENGTH AS trendStrength,
+               AVG_TRD_VAL_20 AS avgTrdVal20,
+               REC_ANCHOR_PRICE AS recAnchorPrice,
+               WATCH_ANCHOR_PRICE AS watchAnchorPrice,
+               TO_CHAR(WATCH_SAVED_AT, 'YYYY-MM-DD') AS watchSavedAt,
+               TO_CHAR(FIRST_BUY_DATE, 'YYYY-MM-DD') AS firstBuyDate,
+               FIRST_BUY_PRICE AS firstBuyPrice,
+               FIRST_BUY_QTY AS firstBuyQty,
+               POSITION_ID AS positionId,
+               ENTRY_RULE_CODE AS entryRuleCode,
+               TO_CHAR(LAST_TRACK_DT, 'YYYY-MM-DD') AS lastTrackDt
+          FROM TB_S_RECO_PICK
+         WHERE PICK_STATUS IN ('WATCH', 'BOUGHT')
+           <if test="pickId != null and pickId != ''">AND PICK_ID = TO_NUMBER(#{pickId})</if>
+           <if test="mktCd != null and mktCd != ''">AND SOURCE_MKT_CD = #{mktCd}</if>
+         ORDER BY WATCH_SAVED_AT ASC, PICK_ID ASC
+    </select>
+
+    <select id="selectProbabilityTargetPickList" parameterType="hashmap" resultType="recPickDto">
+        SELECT PICK_ID AS pickId,
+               TO_CHAR(SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
+               SOURCE_MKT_CD AS sourceMktCd,
+               STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               LISTING_MARKET AS listingMarket,
+               PICK_STATUS AS pickStatus,
+               REC_GRADE AS recGrade,
+               ENTRY_RULE_CODE AS entryRuleCode
+          FROM TB_S_RECO_PICK
+         WHERE PICK_STATUS IN ('WATCH', 'BOUGHT', 'CLOSED')
+         ORDER BY PICK_ID DESC
+    </select>
+
+    <select id="selectRecPickDailyList" parameterType="hashmap" resultType="recPickDailyDto">
+        SELECT PICK_ID AS pickId,
+               TO_CHAR(TRADE_DT, 'YYYY-MM-DD') AS tradeDt,
+               MKT_CD AS mktCd,
+               STK_CD AS stkCd,
+               OPEN_PRICE AS openPrice,
+               HIGH_PRICE AS highPrice,
+               LOW_PRICE AS lowPrice,
+               CLOSE_PRICE AS closePrice,
+               HOLD_DAY_NO_FROM_REC AS holdDayNoFromRec,
+               HOLD_DAY_NO_FROM_WATCH AS holdDayNoFromWatch,
+               HOLD_DAY_NO_FROM_BUY AS holdDayNoFromBuy,
+               RETURN_FROM_REC_PCT AS returnFromRecPct,
+               RETURN_FROM_WATCH_PCT AS returnFromWatchPct,
+               RETURN_FROM_BUY_PCT AS returnFromBuyPct,
+               MFE_FROM_REC_PCT AS mfeFromRecPct,
+               MAE_FROM_REC_PCT AS maeFromRecPct,
+               MFE_FROM_BUY_PCT AS mfeFromBuyPct,
+               MAE_FROM_BUY_PCT AS maeFromBuyPct,
+               UP_DOWN_FLAG AS upDownFlag,
+               TP1_HIT_YN AS tp1HitYn,
+               STOP_HIT_YN AS stopHitYn,
+               SELL_SIGNAL_CODE AS sellSignalCode,
+               SELL_SIGNAL_TEXT AS sellSignalText,
+               PRICE_SOURCE AS priceSource
+          FROM TB_S_RECO_PICK_DAILY
+         WHERE 1 = 1
+           <if test="pickId != null and pickId != ''">AND PICK_ID = TO_NUMBER(#{pickId})</if>
+           <if test="tradeDtFrom != null and tradeDtFrom != ''">AND TRADE_DT <![CDATA[>=]]> TO_DATE(#{tradeDtFrom}, 'YYYY-MM-DD')</if>
+           <if test="tradeDtTo != null and tradeDtTo != ''">AND TRADE_DT &lt;= TO_DATE(#{tradeDtTo}, 'YYYY-MM-DD')</if>
+         ORDER BY TRADE_DT DESC
+    </select>
+
+    <select id="selectRecPickEvalList" parameterType="hashmap" resultType="recPickEvalDto">
+        SELECT PICK_ID AS pickId,
+               EVAL_TYPE AS evalType,
+               HOLD_DAYS AS holdDays,
+               TO_CHAR(ANCHOR_DATE, 'YYYY-MM-DD') AS anchorDate,
+               TO_CHAR(TARGET_DATE, 'YYYY-MM-DD') AS targetDate,
+               RETURN_PCT AS returnPct,
+               MFE_PCT AS mfePct,
+               MAE_PCT AS maePct,
+               WIN_YN AS winYn,
+               TP1_HIT_YN AS tp1HitYn,
+               STOP_HIT_YN AS stopHitYn,
+               CALC_STATUS AS calcStatus
+          FROM TB_S_RECO_PICK_EVAL
+         WHERE 1 = 1
+           <if test="pickId != null and pickId != ''">AND PICK_ID = TO_NUMBER(#{pickId})</if>
+         ORDER BY HOLD_DAYS ASC, EVAL_TYPE ASC
+    </select>
+
+    <select id="selectProbabilityStats" parameterType="hashmap" resultType="recProbabilityDto">
+        SELECT EVAL_TYPE AS evalType,
+               HOLD_DAYS AS holdDays,
+               SOURCE_MKT_CD AS sourceMktCd,
+               LISTING_MARKET AS listingMarket,
+               REC_GRADE AS recGrade,
+               ENTRY_RULE_CODE AS entryRuleCode,
+               TREND_BUCKET AS trendBucket,
+               MONTH_BUCKET AS monthBucket,
+               SAMPLE_CNT AS sampleCnt,
+               WIN_RATE AS winRate,
+               TP1_RATE AS tp1Rate,
+               STOP_RATE AS stopRate,
+               AVG_RETURN_PCT AS avgReturnPct,
+               AVG_MFE_PCT AS avgMfePct,
+               AVG_MAE_PCT AS avgMaePct
+          FROM VW_S_RECO_PICK_STATS
+         WHERE 1 = 1
+           <if test="evalType != null and evalType != ''">AND EVAL_TYPE = #{evalType}</if>
+           <if test="holdDays != null and holdDays != ''">AND HOLD_DAYS = TO_NUMBER(#{holdDays})</if>
+           <if test="sourceMktCd != null and sourceMktCd != ''">AND SOURCE_MKT_CD = #{sourceMktCd}</if>
+           <if test="listingMarket != null and listingMarket != ''">AND LISTING_MARKET = #{listingMarket}</if>
+           <if test="recGrade != null and recGrade != ''">AND REC_GRADE = #{recGrade}</if>
+           <if test="entryRuleCode != null and entryRuleCode != ''">AND ENTRY_RULE_CODE = #{entryRuleCode}</if>
+           <if test="trendBucket != null and trendBucket != ''">AND TREND_BUCKET = #{trendBucket}</if>
+           <if test="monthBucket != null and monthBucket != ''">AND MONTH_BUCKET = #{monthBucket}</if>
+         ORDER BY SAMPLE_CNT DESC, WIN_RATE DESC
+    </select>
+
+</mapper>

@@ -6,8 +6,13 @@
 <mapper namespace="com.scheduler.finance.sql.Position">
 
     <select id="selectPositionList" parameterType="hashmap" resultType="positionVo">
-        SELECT POSITION_ID, STOCK_GROUP, STOCK_CODE, MARKET_CODE, TOTAL_QTY, AVG_PRICE,
-               CLOSE_FLAG, STATE_CODE, LAST_TXN_ID, MODIFY_DATE, CREATE_USER, CREATE_DATE
+        SELECT POSITION_ID AS positionId, STOCK_GROUP AS stockGroup, STOCK_CODE AS stockCode,
+               MARKET_CODE AS marketCode, TOTAL_QTY AS totalQty, AVG_PRICE AS avgPrice,
+               CLOSE_FLAG AS closeFlag, STATE_CODE AS stateCode, LAST_TXN_ID AS lastTxnId,
+               SOURCE_PICK_ID AS sourcePickId, BUY_DATE AS buyDate, TARGET_PRICE AS targetPrice,
+               STOP_PRICE AS stopPrice, TP1_PRICE AS tp1Price, SELL_GUIDE_STATE AS sellGuideState,
+               LAST_SELL_SIGNAL_CODE AS lastSellSignalCode, LAST_TRACK_DATE AS lastTrackDate,
+               MODIFY_DATE AS modifyDate, CREATE_USER AS createUser, CREATE_DATE AS createDate
           FROM TB_S_POSITION
          WHERE 1=1
            <if test="stockGroup != null and stockGroup != ''">AND STOCK_GROUP = #{stockGroup}</if>
@@ -17,8 +22,13 @@
     </select>
 
     <select id="selectPosition" parameterType="hashmap" resultType="positionVo">
-        SELECT POSITION_ID, STOCK_GROUP, STOCK_CODE, MARKET_CODE, TOTAL_QTY, AVG_PRICE,
-               CLOSE_FLAG, STATE_CODE, LAST_TXN_ID, MODIFY_DATE, CREATE_USER, CREATE_DATE
+        SELECT POSITION_ID AS positionId, STOCK_GROUP AS stockGroup, STOCK_CODE AS stockCode,
+               MARKET_CODE AS marketCode, TOTAL_QTY AS totalQty, AVG_PRICE AS avgPrice,
+               CLOSE_FLAG AS closeFlag, STATE_CODE AS stateCode, LAST_TXN_ID AS lastTxnId,
+               SOURCE_PICK_ID AS sourcePickId, BUY_DATE AS buyDate, TARGET_PRICE AS targetPrice,
+               STOP_PRICE AS stopPrice, TP1_PRICE AS tp1Price, SELL_GUIDE_STATE AS sellGuideState,
+               LAST_SELL_SIGNAL_CODE AS lastSellSignalCode, LAST_TRACK_DATE AS lastTrackDate,
+               MODIFY_DATE AS modifyDate, CREATE_USER AS createUser, CREATE_DATE AS createDate
           FROM TB_S_POSITION
          WHERE 1=1
            <if test="positionId != null and positionId != ''">AND POSITION_ID = #{positionId}</if>
@@ -42,6 +52,20 @@
                AVG_PRICE = #{avgPrice},
                MODIFY_DATE = SYSDATE,
                STATE_CODE = NVL(#{stateCode}, STATE_CODE)
+         WHERE POSITION_ID = #{positionId}
+    </update>
+
+    <update id="updatePositionRecoLink" parameterType="positionVo">
+        UPDATE TB_S_POSITION
+           SET SOURCE_PICK_ID = NVL(#{sourcePickId}, SOURCE_PICK_ID),
+               BUY_DATE = NVL(#{buyDate}, BUY_DATE),
+               TARGET_PRICE = NVL(#{targetPrice}, TARGET_PRICE),
+               STOP_PRICE = NVL(#{stopPrice}, STOP_PRICE),
+               TP1_PRICE = NVL(#{tp1Price}, TP1_PRICE),
+               SELL_GUIDE_STATE = NVL(#{sellGuideState}, SELL_GUIDE_STATE),
+               LAST_SELL_SIGNAL_CODE = NVL(#{lastSellSignalCode}, LAST_SELL_SIGNAL_CODE),
+               LAST_TRACK_DATE = NVL(#{lastTrackDate}, LAST_TRACK_DATE),
+               MODIFY_DATE = SYSDATE
          WHERE POSITION_ID = #{positionId}
     </update>
 

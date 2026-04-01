@@ -9,7 +9,11 @@ var ChartScript = (function () {
     var chart = null;
     var lastData = null;
     var lastQuery = null;
+    var requestSeq = 0;
     var minuteRangeExtendInFlight = false;
+    var responsiveResizeBound = false;
+    var responsiveResizeObserver = null;
+    var responsiveResizeTimer = null;
 
     var headerStatic = { name: "-", code: "-", market: "-", country: "KR" };
     var explainCache = {
@@ -61,6 +65,56 @@ var ChartScript = (function () {
             return (/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i).test(navigator.userAgent || "");
         } catch (e) {
             return false;
+        }
+    }
+
+    function scheduleChartResize(delay) {
+        if (responsiveResizeTimer) {
+            clearTimeout(responsiveResizeTimer);
+        }
+
+        responsiveResizeTimer = setTimeout(function () {
+            var container = document.getElementById("kisChartContainer");
+            var rect;
+
+            if (!chart || !container) return;
+
+            rect = container.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            try {
+                if (typeof chart.setSize === "function") {
+                    chart.setSize(Math.floor(rect.width), Math.floor(rect.height), false);
+                } else if (typeof chart.reflow === "function") {
+                    chart.reflow();
+                }
+            } catch (e) {
+                // ignore
+            }
+        }, delay || 80);
+    }
+
+    function bindResponsiveResize() {
+        var container = document.getElementById("kisChartContainer");
+
+        if (responsiveResizeBound) return;
+        responsiveResizeBound = true;
+
+        $(window).on("resize.kisChartResponsive orientationchange.kisChartResponsive", function () {
+            scheduleChartResize(100);
+        });
+
+        if (window.visualViewport && typeof window.visualViewport.addEventListener === "function") {
+            window.visualViewport.addEventListener("resize", function () {
+                scheduleChartResize(100);
+            });
+        }
+
+        if (container && typeof ResizeObserver !== "undefined") {
+            responsiveResizeObserver = new ResizeObserver(function () {
+                scheduleChartResize(60);
+            });
+            responsiveResizeObserver.observe(container);
         }
     }
 
@@ -680,6 +734,7 @@ var ChartScript = (function () {
     function extendMinuteRangeIfNeeded(ext, ohlc) {
         if (minuteRangeExtendInFlight) return;
         if (!lastQuery || !isMinuteDivCode(lastQuery.periodDivCode)) return;
+        if (isIndexCode(lastQuery.stockCode)) return;
         if (!ext || !isFinite(ext.min) || !isFinite(ext.max)) return;
         if (!ohlc || !ohlc.length) return;
 
@@ -1510,6 +1565,20 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
             return;
         }
 
+        if (typeof window.Highcharts === "undefined" || !window.Highcharts || typeof window.Highcharts.stockChart !== "function") {
+            var chartContainer = document.getElementById("kisChartContainer");
+            if (chartContainer) {
+                chartContainer.innerHTML =
+                    '<div style="padding:18px;text-align:center;color:#666;font-size:13px;">' +
+                    "차트 라이브러리 로딩에 실패했습니다. 페이지 새로고침 후 다시 시도하세요." +
+                    "</div>";
+            }
+            if (window.console && typeof window.console.error === "function") {
+                window.console.error("[ChartScript] Highcharts is not available.");
+            }
+            return;
+        }
+
         // 월봉 오버레이 + 월 경계선 생성 (DoubleMonthChartScript 사용)
         var monthlyInfo = DoubleMonthChartScript.buildMonthlyOverlayFromDaily(ohlc);
         monthBoundaryTimes = monthlyInfo.boundaries || [];
@@ -1645,13 +1714,15 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
 
         if (chart) chart.destroy();
 
+        var mobileChart = isMobileDevice();
+
         var stockOptions = {
             chart: {
                 animation: false,
                 spacingTop: 2,
-                spacingRight: 30,
+                spacingRight: mobileChart ? 56 : 30,
                 spacingBottom: 2,
-                spacingLeft: 2
+                spacingLeft: mobileChart ? 4 : 2
             },
             rangeSelector: { enabled: false },
             navigator: { enabled: false },
@@ -1853,6 +1924,8 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         } catch (e) {
             // ignore
         }
+
+        scheduleChartResize(120);
 
     }
 
@@ -2298,96 +2371,69 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         else if (cc === "KR") m = "N";
         else if (lastQuery && lastQuery.stockCode && String(lastQuery.stockCode).charAt(0) === ".") m = "A";
 
-        var url = (window.__URLS && window.__URLS.selectRecommendStocks)
-            ? window.__URLS.selectRecommendStocks
-            : "/finance/selectRecommendStocks.do";
+        Promise.all([
+            evalIndexTrend("KR", "0001", "KR", "KRX"),
+            evalIndexTrend("US", ".IXIC", "US", "NAS"),
+            evalMonthlyBull("0001", "KR", "KRX"),
+            evalMonthlyBull(".IXIC", "US", "NAS")
+        ]).then(function (arr) {
+            var krEval = arr[0];
+            var usEval = arr[1];
+            var krMon = arr[2];
+            var usMon = arr[3];
 
-        $.ajax({
-            url: url,
-            type: "GET",
-            dataType: "json",
-            data: {
-                market: m,
-                minGrade: "HOLD",
-                limit: 1,
-                onePick: "Y",
-                includeNow: "N"
-            },
-            timeout: 12000
-        }).done(function (res) {
-            var list = [];
-            if (res && res.data && $.isArray(res.data)) list = res.data;
-            else if (res && res.data && res.data.data && $.isArray(res.data.data)) list = res.data.data;
+            var krKo = krEval && krEval.stateLabelKo ? krEval.stateLabelKo : regimeTrendText(null);
+            var usKo = usEval && usEval.stateLabelKo ? usEval.stateLabelKo : regimeTrendText(null);
+            var krGuideObj = pickGuideTerm(krEval);
+            var usGuideObj = pickGuideTerm(usEval);
 
-            var row = (list && list.length) ? list[0] : null;
-            var kr = row ? (row.regime_kr_score || row.REGIME_KR_SCORE || "-") : "-";
-            var us = row ? (row.regime_us_score || row.REGIME_US_SCORE || "-") : "-";
-            explainCache.regime = { kr: kr, us: us };
+            var focusMarket = (m === "A") ? "US" : "KR";
+            var focusKo = (focusMarket === "US") ? usKo : krKo;
+            var focusGuide = (focusMarket === "US") ? usGuideObj.label : krGuideObj.label;
 
-            Promise.all([
-                evalIndexTrend("KR", "0001", "KR", "KRX"),
-                evalIndexTrend("US", ".IXIC", "US", "NAS"),
-                evalMonthlyBull("0001", "KR", "KRX"),
-                evalMonthlyBull(".IXIC", "US", "NAS")
-            ]).then(function (arr) {
-                var krEval = arr[0];
-                var usEval = arr[1];
-                var krMon = arr[2];
-                var usMon = arr[3];
+            explainCache.regime = { kr: "-", us: "-" };
+            explainCache.indexTrend = {
+                focusMarket: focusMarket,
+                krKo: krKo,
+                usKo: usKo,
+                krScore: "-",
+                usScore: "-",
+                krCode: krEval && krEval.stateCode ? krEval.stateCode : "",
+                usCode: usEval && usEval.stateCode ? usEval.stateCode : "",
+                krGuide: krGuideObj.code,
+                usGuide: usGuideObj.code,
+                krGuideLabel: krGuideObj.label,
+                usGuideLabel: usGuideObj.label,
+                krMonthlyBull: (krMon && krMon.monthlyBull === true),
+                usMonthlyBull: (usMon && usMon.monthlyBull === true)
+            };
+            renderExplainPanel();
 
-                var krKo = krEval && krEval.stateLabelKo ? krEval.stateLabelKo : regimeTrendText(kr);
-                var usKo = usEval && usEval.stateLabelKo ? usEval.stateLabelKo : regimeTrendText(us);
-                var krGuideObj = pickGuideTerm(krEval);
-                var usGuideObj = pickGuideTerm(usEval);
+            var text = "시장바람 " + focusMarket + " " + focusKo + "(" + focusGuide + ")";
 
-                var focusMarket = (m === "A") ? "US" : "KR";
-                var focusKo = (focusMarket === "US") ? usKo : krKo;
-                var focusScore = (focusMarket === "US") ? us : kr;
-                var focusGuide = (focusMarket === "US") ? usGuideObj.label : krGuideObj.label;
+            // 사용자 요청: 색기준은 월봉 기준
+            // 월봉 양봉: 분홍색, 월봉 음봉: 하늘색
+            var focusMonthlyBull = (focusMarket === "US")
+                ? (explainCache.indexTrend.usMonthlyBull === true)
+                : (explainCache.indexTrend.krMonthlyBull === true);
+            var bg = focusMonthlyBull ? "#ec4899" : "#38bdf8";
 
-                explainCache.indexTrend = {
-                    focusMarket: focusMarket,
-                    krKo: krKo,
-                    usKo: usKo,
-                    krScore: kr,
-                    usScore: us,
-                    krCode: krEval && krEval.stateCode ? krEval.stateCode : "",
-                    usCode: usEval && usEval.stateCode ? usEval.stateCode : "",
-                    krGuide: krGuideObj.code,
-                    usGuide: usGuideObj.code,
-                    krGuideLabel: krGuideObj.label,
-                    usGuideLabel: usGuideObj.label,
-                    krMonthlyBull: (krMon && krMon.monthlyBull === true),
-                    usMonthlyBull: (usMon && usMon.monthlyBull === true)
-                };
-                renderExplainPanel();
+            if (chart.kisRegimeLabel) {
+                chart.kisRegimeLabel.destroy();
+                chart.kisRegimeLabel = null;
+            }
 
-                var text = isMobileDevice()
-                    ? ("시장바람 " + focusMarket + " " + focusKo + "(" + focusGuide + ")")
-                    : ("시장바람 " + focusMarket + " " + focusKo + "(" + focusScore + ", " + focusGuide + ")");
-
-                // 사용자 요청: 색기준은 월봉 기준
-                // 월봉 양봉: 분홍색, 월봉 음봉: 하늘색
-                var focusMonthlyBull = (focusMarket === "US")
-                    ? (explainCache.indexTrend.usMonthlyBull === true)
-                    : (explainCache.indexTrend.krMonthlyBull === true);
-                var bg = focusMonthlyBull ? "#ec4899" : "#38bdf8";
-
-                if (chart.kisRegimeLabel) {
-                    chart.kisRegimeLabel.destroy();
-                    chart.kisRegimeLabel = null;
-                }
-
-                chart.kisRegimeLabel = chart.renderer
-                    .label(text, 10, 28, "rect", null, null, true)
-                    .attr({ zIndex: 9, r: 4, fill: bg, padding: 4 })
-                    .css({ color: "#fff", fontSize: "10px", fontWeight: "700" })
-                    .add();
-            });
+            chart.kisRegimeLabel = chart.renderer
+                .label(text, 10, 28, "rect", null, null, true)
+                .attr({ zIndex: 9, r: 4, fill: bg, padding: 4 })
+                .css({ color: "#fff", fontSize: "10px", fontWeight: "700" })
+                .add();
         });
     }
 
     function loadKisItemchartprice(params) {
+      var requestId = 0;
+      var skipCurrentPrice = false;
       lastQuery = {
           stockCode: $.trim(params.stockCode || "005930"),
           fromDate: $.trim(params.fromDate || ""),
@@ -2413,6 +2459,8 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
       }
       lastQuery.stockCountryCode = cc;
       lastQuery.stockMarket = mk;
+      skipCurrentPrice = params.skipCurrentPrice === true || params.skipCurrentPrice === "true" || params.skipCurrentPrice === "Y";
+      requestId = ++requestSeq;
 
         try {
             if (isIndexCode(lastQuery.stockCode)) {
@@ -2421,7 +2469,7 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
                 fetchStockMeta(lastQuery.stockCode);
                 var cc = String(lastQuery.stockCountryCode || "").toUpperCase();
                 // US는 현재가 API가 국내 포맷 0값을 반환할 수 있어 차트 현재가 라인 덮어쓰기를 방지
-                if (cc !== "US") {
+                if (cc !== "US" && !skipCurrentPrice) {
                     fetchCurrentPrice(lastQuery.stockCode);
                 }
             }
@@ -2443,6 +2491,9 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
               in_stockCountryCode: lastQuery.stockCountryCode
           },
             success: function (res) {
+                if (requestId !== requestSeq) {
+                    return;
+                }
                 if (!res) {
                     minuteRangeExtendInFlight = false;
                     alert("응답이 없습니다.");
@@ -2465,6 +2516,9 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
                 minuteRangeExtendInFlight = false;
             },
             error: function (xhr, status, err) {
+                if (requestId !== requestSeq) {
+                    return;
+                }
                 minuteRangeExtendInFlight = false;
                 console.error("kisItemchartpriceData Ajax error:", status, err);
                 alert("KIS 기간별 시세 조회 중 오류가 발생했습니다.");
@@ -2526,6 +2580,8 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         if (typeof next.crossLongPeriod === "number" && next.crossLongPeriod > 0) options.crossLongPeriod = next.crossLongPeriod;
 
     }
+
+    bindResponsiveResize();
 
     return {
         options: options,

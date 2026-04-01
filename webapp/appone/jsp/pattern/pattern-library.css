@@ -1,0 +1,23 @@
+/* ── Library Tab ── */
+.library-header{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.library-title{font-size:13px;font-weight:800;color:var(--accent)}
+.library-sub{font-size:10px;color:var(--text-subtle)}
+.group-filters{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.group-btn{padding:2px 8px;font-size:9px;font-weight:700;border-radius:20px;transition:all .12s}
+.pat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.pat-card{border-radius:8px;padding:12px;cursor:pointer;transition:all .18s;border:1px solid var(--border-color);background:var(--surface-2)}
+.pat-card.selected{background:var(--card-bg)}
+.pat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.pat-card-icon{font-size:18px}
+.pat-card-badges{display:flex;gap:4px;flex-direction:column;align-items:flex-end}
+.mod-badge{font-size:9px;padding:1px 5px;border-radius:3px;color:#FFF;font-weight:700}
+.grp-badge{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700}
+.pat-card-no{font-size:9px;color:var(--text-muted);margin-right:4px}
+.pat-card-name{font-size:11px;font-weight:800;margin-bottom:4px}
+.pat-card-desc{font-size:9px;color:var(--text-muted);margin-bottom:8px;line-height:1.5}
+.pat-card-cond{font-size:9px;color:var(--text-subtle);margin-bottom:4px}
+.pat-card-cond span{font-weight:600}
+.pat-card-footer{display:flex;justify-content:space-between;font-size:9px;border-top:1px solid var(--border-color);padding-top:5px}
+.pat-card-ma{color:#60A5FA}
+.pat-card-stats{font-weight:700}
+.pat-active-mark{margin-top:5px;font-size:9px;font-weight:700}

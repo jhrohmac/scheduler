@@ -16,7 +16,8 @@
     featureDbOptions: [],    // FEATURE 타입
     crossDbOptions: [],      // CROSS 타입
     fromDate: '',
-    endDate: ''
+    endDate: '',
+    lastChartError: ''
   };
 
   // ─── 기본값 상수 ─────────────────────────────────────────────────────────
@@ -553,29 +554,64 @@
   }
 
   function periodCode(tf) {
-    var t = (tf || 'd').toUpperCase();
+    var t = tf || 'd';
+    if (t === 'm') return 'T';
     if (t === 'M') return 'M';
-    if (t === 'W') return 'W';
-    if (t === 'Y') return 'Y';
+    if (t === 'w') return 'W';
+    if (t === 'y') return 'Y';
     return 'D';
   }
 
   function fromDateByTf(now, tf) {
     var d = new Date(now.getTime());
-    var t = (tf || 'd').toLowerCase();
-    if (t === 'm')      d.setDate(d.getDate() - 60);
+    var t = tf || 'd';
+    if (t === 'm')      d.setDate(d.getDate() - 30);
     else if (t === 'd') d.setFullYear(d.getFullYear() - 10);
     else if (t === 'w') d.setFullYear(d.getFullYear() - 15);
+    else if (t === 'M') d.setFullYear(d.getFullYear() - 15);
     else if (t === 'y') d.setFullYear(d.getFullYear() - 20);
-    else                d.setFullYear(d.getFullYear() - 15);
+    else                d.setFullYear(d.getFullYear() - 10);
     return d;
+  }
+
+  function resetChartArea() {
+    if (state.chart) {
+      try { state.chart.destroy(); } catch (e) {}
+      state.chart = null;
+    }
+    if (state.volumeChart) {
+      try { state.volumeChart.destroy(); } catch (e) {}
+      state.volumeChart = null;
+    }
+    var priceEl = document.getElementById('priceChart');
+    if (priceEl) priceEl.innerHTML = '';
+    var volumeEl = document.getElementById('volumeChart');
+    if (volumeEl) {
+      volumeEl.innerHTML = '';
+      volumeEl.style.display = 'none';
+    }
+  }
+
+  function showChartError(message) {
+    var text = (message || '차트 데이터를 불러오지 못했습니다.').trim();
+    resetChartArea();
+    if (state.lastChartError !== text) {
+      state.lastChartError = text;
+      alert(text);
+    }
   }
 
   function loadChartData() {
     var cacheKey = state.code + '|' + state.timeframe;
     if (state.chartCache[cacheKey]) {
-      patchPriceFromChart(state.chartCache[cacheKey]);
-      renderChart(state.chartCache[cacheKey]);
+      var cachedList = state.chartCache[cacheKey];
+      state.lastChartError = '';
+      patchPriceFromChart(cachedList);
+      if (!cachedList.length) {
+        resetChartArea();
+      } else {
+        renderChart(cachedList);
+      }
       setLoading(false);
       return;
     }
@@ -601,7 +637,11 @@
     fetch(url, { signal: state.chartReq.signal })
       .then(function(r){ return r.json(); })
       .then(function(json) {
+        if (!json || String(json.system_code || '') !== '0000') {
+          throw new Error((json && (json.system_msg || json.result_msg)) || '차트 데이터를 불러오지 못했습니다.');
+        }
         var list = (json && Array.isArray(json.data)) ? json.data : [];
+        state.lastChartError = '';
         state.chartCache[cacheKey] = list;
 
         if (list.length) {
@@ -623,11 +663,16 @@
         }
 
         patchPriceFromChart(list);
+        if (!list.length) {
+          resetChartArea();
+          return;
+        }
         renderChart(list);
       })
       .catch(function(err) {
         if (err && err.name === 'AbortError') return;
         console.error('차트 로드 실패', err);
+        showChartError((err && err.message) ? err.message : '차트 데이터를 불러오지 못했습니다.');
       })
       .finally(function() {
         state.chartReq = null;

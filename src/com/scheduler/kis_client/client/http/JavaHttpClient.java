@@ -166,6 +166,7 @@ public class JavaHttpClient extends com.scheduler.kis_client.client.http.HttpCli
         } catch (IOException e) {
             throw e;
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new IOException("Failed to get response from server. (InterruptedException)");
         }
 

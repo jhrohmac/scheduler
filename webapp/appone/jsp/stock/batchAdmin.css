@@ -1,0 +1,40 @@
+#div_stock_batch_admin .table td,
+#div_stock_batch_admin .table th {
+    vertical-align: middle;
+}
+
+#div_stock_batch_admin .badge {
+    font-size: 11px;
+}
+
+#tblBatchLog td,
+#tblBatchLog th {
+    font-size: 12px;
+}
+
+#edit_params_json {
+    font-family: Menlo, Monaco, Consolas, monospace;
+}
+
+#modal_batch_admin_edit .batch-tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 999px;
+    border: 1px solid #7e8a97;
+    color: #566170;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: help;
+    background: #f7f9fb;
+}
+
+#modal_batch_admin_edit .batch-tip:hover {
+    background: #e9f1f8;
+    border-color: #4e6f8f;
+    color: #30465d;
+}

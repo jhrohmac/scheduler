@@ -37,6 +37,18 @@ public class MenuManagementDaoImpl extends SqlSessionDaoSupport implements MenuM
         }
         return menuList;
     }
+
+    public MenuVo selectMenuBySeq(HashMap<String, String> param) throws Exception {
+        MenuVo menu = null;
+        try {
+            menu = getSqlSession().selectOne(NS + "selectMenuBySeq", param);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(this.getClass().getName() + e.getMessage(), e);
+        }
+        return menu;
+    }
     
     public List<MenuVo> selectMenuList(HashMap<String, String> map) throws Exception {
         List<MenuVo> menuList = null;
@@ -196,14 +208,35 @@ public class MenuManagementDaoImpl extends SqlSessionDaoSupport implements MenuM
     	int result = 0;
     	
     	try {
+    		String eventDiv = map.get("in_eventDiv");
+    		String menuId = map.get("in_menuId");
+    		String currentMenuId = "";
+    		if (menuId != null) {
+    			map.put("in_menuId", menuId.trim());
+    		}
+
+    		if ("update".equals(eventDiv)) {
+    			MenuVo currentMenu = this.selectMenuBySeq(map);
+    			if (currentMenu == null) {
+    				throw new RuntimeException("수정 대상 메뉴를 찾을 수 없습니다.");
+    			}
+    			currentMenuId = currentMenu.getMenu_id() == null ? "" : currentMenu.getMenu_id().trim();
+    		}
+
+    		if ("insert".equals(eventDiv) || ("update".equals(eventDiv) && !map.get("in_menuId").equals(currentMenuId))) {
+    			int duplicateCnt = (int) getSqlSession().selectOne(NS + "selectOneCnt", map);
+    			if (duplicateCnt > 0) {
+    				throw new RuntimeException("이미 사용 중인 메뉴 ID입니다. 메뉴 ID를 변경해주세요.");
+    			}
+    		}
     		
     		//신규 메뉴 저장
-    		if (map.get("in_eventDiv").equals("insert")) {
+    		if ("insert".equals(eventDiv)) {
     			result = getSqlSession().insert(NS+"saveMenu", map);
     		}
     		
     		// 메뉴 업데이트
-    		if (map.get("in_eventDiv").equals("update")) {
+    		if ("update".equals(eventDiv)) {
     			result = getSqlSession().insert(NS+"updateMenu", map);
     		}
     		

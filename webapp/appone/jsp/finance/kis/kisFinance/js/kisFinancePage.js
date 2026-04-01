@@ -148,9 +148,14 @@ function fmtYmdToPlain(ymd) {
     }
 
     var src = window.__HIGHCHARTS_SRC || {};
-    var highstockUrl = src.highstock || "https://code.highcharts.com/stock/highstock.js";
-    var dataUrl = src.data || "https://code.highcharts.com/stock/modules/data.js";
-    var exportingUrl = src.exporting || "https://code.highcharts.com/stock/modules/exporting.js";
+    var ctx = window.__CTX_PATH || "";
+    if (ctx && ctx.charAt(ctx.length - 1) === "/") {
+      ctx = ctx.substring(0, ctx.length - 1);
+    }
+    var localBase = ctx + "/appone/plugins/Highcharts-Stock-11.1.0/code";
+    var highstockUrl = src.highstock || (localBase + "/highstock.js");
+    var dataUrl = src.data || (localBase + "/modules/data.js");
+    var exportingUrl = src.exporting || (localBase + "/modules/exporting.js");
 
     __highstockPromise = loadScriptOnce(highstockUrl, "hc-highstock")
       .then(function () { return loadScriptOnce(dataUrl, "hc-data"); })
@@ -225,6 +230,7 @@ function fmtYmdToPlain(ymd) {
      ========================= */
   var __WL_STORE_KEY_MARKET = "KIS_WL_MARKET";
   var __WL_STORE_KEY_GROUP_PREFIX = "KIS_WL_GROUP_";
+  var __WL_STORE_KEY_GROUP_DIV_PREFIX = "KIS_WL_GROUP_DIV_";
   var __LAST_VIEW_KEY = "KIS_LAST_VIEW";
   var __LAST_SEARCHED_STOCK_CODE = "";
 
@@ -238,6 +244,18 @@ function fmtYmdToPlain(ymd) {
 
   function wlGroupKeyByMarket(marketVal) {
     return __WL_STORE_KEY_GROUP_PREFIX + (marketVal || "");
+  }
+
+  function wlGroupDivKeyByMarket(marketVal) {
+    return __WL_STORE_KEY_GROUP_DIV_PREFIX + (marketVal || "");
+  }
+
+  function normalizeWatchlistGroupDiv(groupDiv) {
+    var v = String(groupDiv || "").trim().toLowerCase();
+    if (v === "monthend") return "month";
+    if (v === "month") return "month";
+    if (v === "recommend") return "recommend";
+    return "normal";
   }
 
   function wlSaveMarket(marketVal) {
@@ -269,6 +287,25 @@ function fmtYmdToPlain(ymd) {
       return window.localStorage.getItem(wlGroupKeyByMarket(marketVal)) || "";
     } catch (e) {
       return "";
+    }
+  }
+
+  function wlSaveGroupDiv(marketVal, groupDiv) {
+    if (!wlStoreEnabled()) return;
+    try {
+      window.localStorage.setItem(
+        wlGroupDivKeyByMarket(marketVal),
+        normalizeWatchlistGroupDiv(groupDiv)
+      );
+    } catch (e) {}
+  }
+
+  function wlLoadGroupDiv(marketVal) {
+    if (!wlStoreEnabled()) return "normal";
+    try {
+      return normalizeWatchlistGroupDiv(window.localStorage.getItem(wlGroupDivKeyByMarket(marketVal)) || "");
+    } catch (e) {
+      return "normal";
     }
   }
 
@@ -310,6 +347,52 @@ function fmtYmdToPlain(ymd) {
     } else {
       syncWlMarketSwitchFromSelect();
     }
+  }
+
+  function currentWatchlistGroupDiv() {
+    return normalizeWatchlistGroupDiv($("#wlGroupDiv").val());
+  }
+
+  function syncWlGroupDivFromMarket() {
+    var $sel = $("#wlGroupDiv");
+    if (!$sel.length) return;
+    var normalized = wlLoadGroupDiv($("#wlMarket").val());
+    if (!$sel.find("option[value='" + normalized + "']").length) {
+      normalized = "normal";
+    }
+    $sel.val(normalized);
+  }
+
+  var __watchlistItemsXhr = null;
+  var __watchlistItemsRequestSeq = 0;
+
+  function currentWatchlistQuery() {
+    return {
+      market: ($("#wlMarket").val() || "").trim(),
+      groupId: ($("#wlGroup").val() || "").trim(),
+      groupDiv: currentWatchlistGroupDiv()
+    };
+  }
+
+  function isSameWatchlistQuery(query) {
+    var current = currentWatchlistQuery();
+    return current.market === (query.market || "")
+      && current.groupId === (query.groupId || "")
+      && current.groupDiv === normalizeWatchlistGroupDiv(query.groupDiv || "");
+  }
+
+  function abortPendingWatchlistItemsRequest() {
+    try {
+      if (__watchlistItemsXhr && __watchlistItemsXhr.readyState !== 4) {
+        __watchlistItemsXhr.abort();
+      }
+    } catch (e) {}
+    __watchlistItemsXhr = null;
+  }
+
+  function setWatchlistLoading(message) {
+    var msg = message || "관심종목 불러오는 중...";
+    $("#watchlist").html("<div class='mini-muted'>" + msg + "</div>");
   }
 
   function loadWatchlistGroups() {
@@ -460,16 +543,26 @@ function fmtYmdToPlain(ymd) {
 
   function loadWatchlistItems() {
     $("#wlError").hide().text("");
+    var query = currentWatchlistQuery();
+    var requestSeq = ++__watchlistItemsRequestSeq;
 
-    var market = $("#wlMarket").val();
-    var groupId = $("#wlGroup").val();
+    abortPendingWatchlistItemsRequest();
+    setWatchlistLoading();
+    try {
+      if (window.WatchlistRealtime && typeof window.WatchlistRealtime.close === "function") {
+        window.WatchlistRealtime.close(true);
+      }
+    } catch (e) {}
 
-    $.ajax({
+    __watchlistItemsXhr = $.ajax({
       url: window.__URLS.selectWatchlistItems,
       method: "GET",
       dataType: "json",
-      data: { market: market, groupId: groupId },
+      data: query,
       success: function (res) {
+        if (requestSeq !== __watchlistItemsRequestSeq || !isSameWatchlistQuery(query)) {
+          return;
+        }
         var u = unwrapList(res);
         if (!u.ok) {
           $("#wlError").show().text(u.msg || "관심종목 조회 실패");
@@ -481,12 +574,26 @@ function fmtYmdToPlain(ymd) {
           window.WatchlistRealtime.connectFromDom();
         }
       },
-      error: function () {
+      error: function (xhr, status) {
+        if (status === "abort") {
+          return;
+        }
+        if (requestSeq !== __watchlistItemsRequestSeq || !isSameWatchlistQuery(query)) {
+          return;
+        }
         $("#wlError").show().text("관심종목 조회 실패");
         renderWatchlist([]);
+      },
+      complete: function (xhr) {
+        if (__watchlistItemsXhr === xhr) {
+          __watchlistItemsXhr = null;
+        }
       }
     });
   }
+
+  window.loadWatchlistItems = loadWatchlistItems;
+  window.loadWatchlistGroups = loadWatchlistGroups;
 
   /* =========================
      Market Summary
@@ -572,71 +679,6 @@ function fmtYmdToPlain(ymd) {
         setSummaryError("시장요약 조회 실패");
       }
     });
-  }
-
-  /* =========================
-     Market Issues
-     - 시장이슈 조회 및 렌더링
-     ========================= */
-  function loadMarketIssues() {
-    $.ajax({
-      url: window.__URLS.selectMarketIssues || "selectMarketIssues.do",
-      method: "GET",
-      dataType: "json",
-      success: function(data) {
-        if (!data || (!data.us_market && !data.kr_market)) {
-          $("#marketIssuesCard").hide();
-          return;
-        }
-        renderMarketIssues(data);
-        $("#marketIssuesCard").show();
-      },
-      error: function() {
-        $("#marketIssuesCard").hide();
-      }
-    });
-  }
-
-  function renderMarketIssues(data) {
-    if (data.date) {
-      $("#issueDate").text("(" + data.date + ")");
-    }
-    
-    if (data.us_market) {
-      var us = data.us_market;
-      $("#usIssueTitle").text(us.title || "");
-      $("#usIssueIndices").text(us.indices || "");
-      var $usList = $("#usIssueList").empty();
-      if (us.issues && us.issues.length) {
-        for (var i = 0; i < us.issues.length; i++) {
-          $usList.append($("<li>").text(us.issues[i]));
-        }
-      }
-      $("#usIssueOutlook").text(us.outlook ? "→ " + us.outlook : "");
-      $("#usMarketIssue").show();
-    } else {
-      $("#usMarketIssue").hide();
-    }
-    
-    if (data.kr_market) {
-      var kr = data.kr_market;
-      $("#krIssueTitle").text(kr.title || "");
-      $("#krIssueIndices").text(kr.indices || "");
-      var $krList = $("#krIssueList").empty();
-      if (kr.issues && kr.issues.length) {
-        for (var i = 0; i < kr.issues.length; i++) {
-          $krList.append($("<li>").text(kr.issues[i]));
-        }
-      }
-      $("#krIssueOutlook").text(kr.outlook ? "→ " + kr.outlook : "");
-      $("#krMarketIssue").show();
-    } else {
-      $("#krMarketIssue").hide();
-    }
-    
-    if (data.updated_at) {
-      $("#issueUpdated").text("업데이트: " + data.updated_at);
-    }
   }
 
   /* =========================
@@ -801,6 +843,7 @@ function fmtYmdToPlain(ymd) {
       }
     } catch (e) {}
     syncWlMarketSwitchFromSelect();
+    syncWlGroupDivFromMarket();
 
         loadWatchlistGroups();
       },
@@ -1617,408 +1660,6 @@ function fmtYmdToPlain(ymd) {
     ChartScript.__kisHeaderHooked = true;
   }
 
-  /* =========================
-     Position Plan (Entry/Stop/TP1) Overlay
-     - evaluatePositionPlan.do 호출 후 차트에 PlotLine을 그려준다.
-     ========================= */
-
-  function kisToEpochMillis(v) {
-    if (v === null || v === undefined) return null;
-
-    // number
-    if (typeof v === "number") {
-      if (v > 1e12) return v; // epoch ms
-      // 8자리 yyyymmdd 가능성
-      if (v > 19000101 && v < 30000101) {
-        var s = String(Math.floor(v));
-        var y = parseInt(s.substr(0, 4), 10);
-        var m = parseInt(s.substr(4, 2), 10) - 1;
-        var d = parseInt(s.substr(6, 2), 10);
-        return new Date(y, m, d).getTime();
-      }
-      return v;
-    }
-
-    var s2 = ("" + v).trim();
-    if (!s2) return null;
-    // yyyymmdd
-    if (/^[0-9]{8}$/.test(s2)) {
-      var y2 = parseInt(s2.substr(0, 4), 10);
-      var m2 = parseInt(s2.substr(4, 2), 10) - 1;
-      var d2 = parseInt(s2.substr(6, 2), 10);
-      return new Date(y2, m2, d2).getTime();
-    }
-    // iso/date parse
-    var t = Date.parse(s2);
-    if (!isNaN(t)) return t;
-
-    // fallback: digits
-    var digits = s2.replace(/[^0-9]/g, "");
-    if (digits.length === 8) {
-      var y3 = parseInt(digits.substr(0, 4), 10);
-      var m3 = parseInt(digits.substr(4, 2), 10) - 1;
-      var d3 = parseInt(digits.substr(6, 2), 10);
-      return new Date(y3, m3, d3).getTime();
-    }
-    return null;
-  }
-
-  function kisNormalizeChartListToArray(list) {
-    var out = [];
-    if (!list || !list.length) return out;
-
-    for (var i = 0; i < list.length; i++) {
-      var r = list[i] || {};
-      var ts = kisToEpochMillis(r.date || r.time);
-      if (ts === null) continue;
-
-      var o = Number(r.open);
-      var h = Number(r.high);
-      var l = Number(r.low);
-      var c = Number(r.close);
-      var v = Number(r.volume || r.acml_vol || r.cntg_vol || 0);
-
-      if (isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c)) continue;
-      if (isNaN(v)) v = 0;
-
-      out.push([ts, o, h, l, c, v]);
-    }
-
-    return out;
-  }
-
-  function kisFetchKisItemchartpriceData(query) {
-    query = query || {};
-    return new Promise(function (resolve, reject) {
-      $.ajax({
-        url: "/scheduler/finance/kisItemchartpriceData.do",
-        type: "GET",
-        dataType: "json",
-        data: {
-          in_stockCode: query.stockCode,
-          in_fromDate: query.fromDate,
-          in_toDate: query.toDate,
-          in_periodDivCode: query.periodDivCode,
-          in_orgAdjPrc: query.orgAdjPrc || "1",
-          in_stockMarket: query.stockMarket || "",
-          in_stockCountryCode: query.stockCountryCode || ""
-        },
-        success: function (res) {
-          if (!res) return reject(new Error("no response"));
-          if (res.system_code && res.system_code !== "0000") {
-            return reject(new Error(res.system_msg || "KIS API error"));
-          }
-          resolve($.isArray(res.data) ? res.data : []);
-        },
-        error: function (xhr, status, err) {
-          reject(new Error(err || status || "ajax error"));
-        }
-      });
-    });
-  }
-
-  function kisPlainYmdMinusDays(plainYmd, days) {
-    var s = ("" + (plainYmd || "")).replace(/[^0-9]/g, "");
-    if (s.length !== 8) return plainYmd;
-    var y = parseInt(s.substr(0, 4), 10);
-    var m = parseInt(s.substr(4, 2), 10) - 1;
-    var d = parseInt(s.substr(6, 2), 10);
-    var dt = new Date(y, m, d);
-    dt.setDate(dt.getDate() - (days || 0));
-    var yy = dt.getFullYear();
-    var mm = ("0" + (dt.getMonth() + 1)).slice(-2);
-    var dd = ("0" + dt.getDate()).slice(-2);
-    return "" + yy + mm + dd;
-  }
-
-  function kisRemovePlotLine(yAxis, id) {
-    if (!yAxis || !id) return;
-    try { yAxis.removePlotLine(id); } catch (e) {}
-  }
-
-  function kisStateLabelKo(state) {
-    var s = (state || "").toUpperCase();
-    var map = {
-      "NO_POSITION": "관망",
-      "WATCH": "관심",
-      "ENTRY_READY": "진입준비",
-      "IN_POSITION_RISK_ON": "리스크ON",
-      "RISK_ON": "리스크ON",
-      "IN_POSITION_RISK_OFF": "원금회수",
-      "RISK_OFF": "원금회수",
-      "EXIT": "청산",
-      "EXITED": "청산",
-      "INVALIDATED": "무효(진입금지)"
-    };
-    return map[s] || (state || "-");
-  }
-
-  function kisApplyPositionPlanPlotLines(chart, plan) {
-    if (!chart || !plan || !chart.yAxis || !chart.yAxis.length) return;
-    var yAxis = chart.yAxis[0];
-
-    // clear previous
-    kisRemovePlotLine(yAxis, "pos_entry");
-    kisRemovePlotLine(yAxis, "pos_stop");
-    kisRemovePlotLine(yAxis, "pos_tp1");
-
-    function addLine(id, value, color, text) {
-      if (value === null || value === undefined || isNaN(value)) return;
-      try {
-        yAxis.addPlotLine({
-          id: id,
-          value: Number(value),
-          color: color,
-          width: 1.5,
-          zIndex: 6,
-          dashStyle: "ShortDash",
-          label: {
-            text: text,
-            align: "right",
-            x: -6,
-            style: { color: color, fontWeight: "bold" }
-          }
-        });
-      } catch (e) {}
-    }
-
-    var stKo = kisStateLabelKo(plan.state);
-    var mobile = (/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i).test(navigator.userAgent || "");
-
-    if (mobile) {
-      addLine("pos_entry", plan.suggestedEntryPrice, "#2e7d32", "E " + plan.suggestedEntryPrice);
-      addLine("pos_stop", plan.initialStopPrice, "#c62828", "S " + plan.initialStopPrice);
-      addLine("pos_tp1", plan.takeProfit1Price, "#1565c0", "T1 " + plan.takeProfit1Price);
-    } else {
-      addLine("pos_entry", plan.suggestedEntryPrice, "#2e7d32", "진입(ENTRY) " + plan.suggestedEntryPrice + " · " + stKo);
-      addLine("pos_stop", plan.initialStopPrice, "#c62828", "손절(STOP) " + plan.initialStopPrice);
-      addLine("pos_tp1", plan.takeProfit1Price, "#1565c0", "목표가(일부매도) " + plan.takeProfit1Price);
-    }
-
-    try { chart.redraw(false); } catch (e) {}
-  }
-
-  var __posPlanInFlight = false;
-  var __aiAutoSearchInProgress = false;
-
-  function kisRetryEvaluateAfterSearch(remain) {
-    var left = (typeof remain === "number" ? remain : 6);
-    setTimeout(function () {
-      var q2 = (window.ChartScript && ChartScript.lastQuery) ? ChartScript.lastQuery : {};
-      var l2 = (window.ChartScript && ChartScript.lastData) ? ChartScript.lastData : [];
-      if (q2.stockCode && l2 && l2.length) {
-        __aiAutoSearchInProgress = false;
-        kisEvaluateAndOverlayPositionPlan();
-        return;
-      }
-      if (left > 1) {
-        kisRetryEvaluateAfterSearch(left - 1);
-      } else {
-        __aiAutoSearchInProgress = false;
-        try { $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>차트 재조회 후에도 데이터가 아직 없습니다.</div><div style='margin-top:6px;color:#94a3b8;'>네트워크 또는 차트 로딩 지연일 수 있어요. 잠시 후 다시 시도해 주세요.</div>"); } catch (e0) {}
-      }
-    }, 1000);
-  }
-
-  function kisEvaluateAndOverlayPositionPlan() {
-    if (__posPlanInFlight) {
-      try {
-        if (window.__aiSlideStallTimer) {
-          clearTimeout(window.__aiSlideStallTimer);
-          window.__aiSlideStallTimer = null;
-        }
-        $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>이전 요청 처리중입니다. 잠시만 기다려 주세요.</div>");
-      } catch (e0) {}
-      return;
-    }
-    if (!window.ChartScript) {
-      try { $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>차트 엔진이 아직 준비되지 않았습니다.</div>"); } catch (e1) {}
-      return;
-    }
-
-    var q = ChartScript.lastQuery || {};
-    var list = ChartScript.lastData || [];
-    if (!q.stockCode || !list.length) {
-      var fallbackCode = $.trim($("#stockCode").val() || $("#kisHdrCode").text() || "");
-      if (fallbackCode && typeof doSearch === "function" && !__aiAutoSearchInProgress) {
-        __aiAutoSearchInProgress = true;
-        try {
-          $("#stockCode").val(fallbackCode);
-          $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>차트 데이터가 없어 종목을 자동 재조회하고 있어요...</div>");
-        } catch (e2) {}
-        try { doSearch(); } catch (e3) { __aiAutoSearchInProgress = false; }
-        kisRetryEvaluateAfterSearch(8);
-        return;
-      }
-      try { $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>종목/차트 데이터가 아직 없습니다. 종목 조회 후 다시 시도해 주세요.</div>"); } catch (e4) {}
-      return;
-    }
-
-    // 국내주식 MVP: KR 고정
-    // 1) 30분봉 데이터 확보
-    var m30Arr = null;
-    var isMinute = isMinuteDivCode(q.periodDivCode);
-
-    var toPlain = (q.toDate || fmtYmdToPlain($("#toDate").val()) || "");
-
-    // daily는 최소 200일은 확보(60일 MA 계산용 + 여유)
-    var dailyFrom = kisPlainYmdMinusDays(toPlain, 240);
-    var dailyTo = toPlain;
-
-    var m30From = kisPlainYmdMinusDays(toPlain, 7);
-    var m30To = toPlain;
-
-    __posPlanInFlight = true;
-
-    var fetchDailyP;
-    var fetchM30P;
-
-    if (isMinute) {
-      // 현재 차트가 분봉이면 m30은 lastData 사용, daily만 추가 fetch
-      fetchM30P = Promise.resolve(kisNormalizeChartListToArray(list));
-      fetchDailyP = kisFetchKisItemchartpriceData({
-        stockCode: q.stockCode,
-        fromDate: dailyFrom,
-        toDate: dailyTo,
-        periodDivCode: "D",
-        orgAdjPrc: q.orgAdjPrc || "1",
-        stockMarket: q.stockMarket || "",
-        stockCountryCode: q.stockCountryCode || ""
-      }).then(kisNormalizeChartListToArray);
-    } else {
-      // 현재 차트가 일봉이면 daily는 lastData 재사용(중복 fetch 제거), m30만 추가 fetch
-      fetchDailyP = Promise.resolve(kisNormalizeChartListToArray(list));
-      fetchM30P = kisFetchKisItemchartpriceData({
-        stockCode: q.stockCode,
-        fromDate: kisPlainYmdMinusDays(toPlain, 4),
-        toDate: m30To,
-        periodDivCode: "T", // 30분봉
-        orgAdjPrc: q.orgAdjPrc || "1",
-        stockMarket: q.stockMarket || "",
-        stockCountryCode: q.stockCountryCode || ""
-      }).then(kisNormalizeChartListToArray);
-    }
-
-    Promise.all([fetchDailyP, fetchM30P])
-      .then(function (arr) {
-        var daily = arr[0] || [];
-        var m30 = arr[1] || [];
-
-        if (daily.length < 60 || m30.length < 30) {
-          try {
-            $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>분석 데이터 부족: 일봉 " + daily.length + "개 / 30분봉 " + m30.length + "개</div><div style='margin-top:6px;color:#94a3b8;'>최소 기준: 일봉 60개, 30분봉 30개</div>");
-            renderAiSlideStockAnalysisMessage("분석 데이터 부족", "일봉 " + daily.length + "개 / 30분봉 " + m30.length + "개");
-          } catch (e3) {}
-          __posPlanInFlight = false;
-          return;
-        }
-
-        var params = new URLSearchParams();
-        params.append("stockCode", q.stockCode);
-        params.append("stockName", ($.trim($("#kisStockName").text()) || ""));
-        params.append("dailyChartData", JSON.stringify({ data: daily }));
-        params.append("m30ChartData", JSON.stringify({ data: m30 }));
-
-        var ctl = (window.AbortController ? new AbortController() : null);
-        var tm = setTimeout(function () {
-          try { if (ctl) ctl.abort(); } catch (eAbort) {}
-        }, 9000);
-
-        return fetch("/scheduler/finance/evaluatePositionPlan.do", {
-          method: "POST",
-          body: params,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          signal: ctl ? ctl.signal : undefined
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (res) {
-            try { clearTimeout(tm); } catch (eTm0) {}
-            if (!res || !res.success || !res.plan) {
-              var msg = (res && (res.message || res.msg || res.result_msg)) || "AI 검토 결과를 생성하지 못했습니다.";
-              var code = (res && (res.code || res.errorCode)) ? String(res.code || res.errorCode) : "-";
-              var trace = (res && res.traceId) ? String(res.traceId) : "-";
-              try {
-                if (window.__aiSlideStallTimer) {
-                  clearTimeout(window.__aiSlideStallTimer);
-                  window.__aiSlideStallTimer = null;
-                }
-                $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>결과 없음: " + kisEsc(msg) + "</div><div style='margin-top:6px;color:#94a3b8;'>오류코드 " + kisEsc(code) + " · 추적ID " + kisEsc(trace) + "</div>");
-                renderAiSlideStockAnalysisMessage("결과 없음", "오류코드 " + code + " / 추적ID " + trace);
-              } catch (e1) {}
-              return;
-            }
-            var chart = kisPickKisChart();
-            // 요청 반영: AI 재검토 시 차트 점선 보조라인은 그리지 않음(슬라이드 결과만 표시)
-            try {
-              if (chart && chart.yAxis && chart.yAxis.length) {
-                var yAxis = chart.yAxis[0];
-                kisRemovePlotLine(yAxis, "pos_entry");
-                kisRemovePlotLine(yAxis, "pos_stop");
-                kisRemovePlotLine(yAxis, "pos_tp1");
-              }
-            } catch (e0) {}
-            try {
-              var ep = document.getElementById("kisExplainPanel");
-              if (ep) {
-                var st = kisStateLabelKo(res.plan.state || "-");
-                var et = (res.plan.suggestedEntryPrice || "-");
-                var sp = (res.plan.initialStopPrice || "-");
-                var tp = (res.plan.takeProfit1Price || "-");
-                ep.textContent = "AI 검토 결과 · 상태 " + st + " · 진입 " + et + " · 손절 " + sp + " · 목표가(일부매도) " + tp;
-              }
-              var aiPayload = { plan: res.plan, signals: ($.isArray(res.signals) ? res.signals : []) };
-              try { saveCachedAiPlan(aiPayload); } catch (e3) {}
-              if (typeof renderAiSlideSummary === "function") renderAiSlideSummary(aiPayload);
-              if (typeof renderAiSlideIndicators === "function") renderAiSlideIndicators();
-              if (typeof renderAiSlideStockAnalysis === "function") renderAiSlideStockAnalysis(aiPayload);
-            } catch (e) {}
-          })
-          .catch(function (err) {
-            try {
-              clearTimeout(tm);
-              if (window.__aiSlideStallTimer) {
-                clearTimeout(window.__aiSlideStallTimer);
-                window.__aiSlideStallTimer = null;
-              }
-              var em = (err && err.name === "AbortError") ? "요청 시간 초과(9초)" : ((err && err.message) ? err.message : "요청 실패");
-              $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>통신 오류: " + kisEsc(em) + "</div><div style='margin-top:6px;color:#94a3b8;'>잠시 후 다시 시도해 주세요.</div>");
-              renderAiSlideStockAnalysisMessage("통신 오류", em);
-            } catch (e2) {}
-          })
-          .finally(function () {
-            __posPlanInFlight = false;
-          });
-      })
-      .catch(function (err) {
-        try {
-          var em = (err && err.message) ? err.message : "데이터 수집 실패";
-          $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>사전 데이터 수집 실패: " + kisEsc(em) + "</div><div style='margin-top:6px;color:#94a3b8;'>네트워크/서버 상태를 확인해 주세요.</div>");
-          renderAiSlideStockAnalysisMessage("사전 데이터 수집 실패", em);
-        } catch (e4) {}
-        __posPlanInFlight = false;
-      });
-  }
-
-  function kisHookRenderForPositionPlan() {
-    if (!window.ChartScript || typeof ChartScript.renderKisChart !== "function") return;
-    if (ChartScript.__kisPosPlanHooked) return;
-
-    var _orig = ChartScript.renderKisChart;
-    ChartScript.renderKisChart = function () {
-      var r = _orig.apply(this, arguments);
-      // 자동 평가는 레이스를 유발할 수 있어 기본 비활성화.
-      // 필요 시 콘솔에서 window.__AI_PREFETCH_ON_RENDER = true 로 켤 수 있음.
-      if (window.__AI_PREFETCH_ON_RENDER === true) {
-        setTimeout(function () {
-          kisEvaluateAndOverlayPositionPlan();
-        }, 50);
-      }
-      return r;
-    };
-
-    ChartScript.__kisPosPlanHooked = true;
-  }
-
 
   function doSearch() {
 
@@ -2115,7 +1756,6 @@ function fmtYmdToPlain(ymd) {
         // ChartScript가 로드된 이후에 훅을 걸어야 실제로 적용된다.
         try {
           kisHookRenderForHeader();
-          kisHookRenderForPositionPlan();
         } catch (e) {}
 
         if (typeof ChartScript.setOptions === "function") {
@@ -2654,10 +2294,6 @@ function scheduleMaAutoSave() {
     // 차트 헤더(상단 레이아웃) 훅 등록
     kisHookRenderForHeader();
 
-    // WF-1-4: 차트 오버레이(ENTRY/STOP/TP1)
-    // 포지션 플랜(ENTRY/STOP/TP1) 오버레이 훅 등록
-    kisHookRenderForPositionPlan();
-
     initMobilePanelToggle();
 
     setDefaultDates();
@@ -2827,242 +2463,6 @@ $(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
   if (e.key === "Escape") closeChartOptionsPanel();
 });
 
-function kisEsc(s) {
-  return String(s == null ? "" : s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/\'/g, "&#39;");
-}
-
-function openAiSlide() {
-  $("#aiSlidePanel").addClass("is-open").attr("aria-hidden", "false");
-  $("#aiSlideBackdrop").addClass("is-open");
-}
-
-function closeAiSlide() {
-  $("#aiSlidePanel").removeClass("is-open").attr("aria-hidden", "true");
-  $("#aiSlideBackdrop").removeClass("is-open");
-}
-
-function renderAiSlideIndicators() {
-  var maText = $.trim($("#kisMaLegend").text() || "-");
-  var o = $.trim($("#kisHdrO").text() || "-");
-  var h = $.trim($("#kisHdrH").text() || "-");
-  var l = $.trim($("#kisHdrL").text() || "-");
-  var c = $.trim($("#kisHdrC").text() || "-");
-  var explain = $.trim($("#kisExplainPanel").text() || "-");
-
-  var html = ""
-    + "<div class='ai-row-title'>지표 분석</div>"
-    + "<div>이동평균: " + kisEsc(maText) + "</div>"
-    + "<div>OHLC: 시 " + kisEsc(o) + " · 고 " + kisEsc(h) + " · 저 " + kisEsc(l) + " · 종 " + kisEsc(c) + "</div>"
-    + "<div style='margin-top:6px;color:#cbd5e1;'>" + kisEsc(explain) + "</div>";
-
-  $("#aiSlideIndicators").html(html);
-}
-
-function getCurrentAiCode() {
-  return $.trim($("#kisHdrCode").text() || "");
-}
-
-function getCachedAiPlan(code) {
-  try {
-    var c = code || getCurrentAiCode();
-    if (!c) return null;
-    window.__aiPlanCache = window.__aiPlanCache || {};
-    return window.__aiPlanCache[c] || null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveCachedAiPlan(payload) {
-  try {
-    var c = getCurrentAiCode();
-    if (!c || !payload) return;
-    window.__aiPlanCache = window.__aiPlanCache || {};
-    window.__aiPlanCache[c] = payload;
-  } catch (e) {}
-}
-
-function renderAiSlideStockAnalysis(payload) {
-  var plan = payload && payload.plan ? payload.plan : payload;
-  var signals = (payload && payload.signals && $.isArray(payload.signals)) ? payload.signals : [];
-
-  var code = $.trim($("#kisHdrCode").text() || "-");
-  var name = $.trim($("#kisStockName").text() || "-");
-  var px = $.trim($("#kisHdrC").text() || $.trim($("#kisStockPrice").text() || "-"));
-  var asOf = $.trim($("#toDate").val() || "-");
-
-  var st = plan ? kisStateLabelKo(plan.state || "-") : "-";
-  var et = plan ? (plan.suggestedEntryPrice || "-") : "-";
-  var sp = plan ? (plan.initialStopPrice || "-") : "-";
-  var tp = plan ? (plan.takeProfit1Price || "-") : "-";
-
-  var lines = [];
-  for (var i = 0; i < signals.length; i++) {
-    var s = signals[i] || {};
-    var msg = $.trim(String(s.message || ""));
-    if (!msg) continue;
-    lines.push(msg);
-  }
-
-  var html = ""
-    + "<div class='ai-row-title'>종목 분석</div>"
-    + "<div><strong>종목:</strong> " + kisEsc(name) + " (" + kisEsc(code) + ")</div>"
-    + "<div><strong>현재가:</strong> " + kisEsc(px) + "</div>"
-    + "<div><strong>판정:</strong> " + kisEsc(st) + "</div>"
-    + "<div><strong>가격전략:</strong> 진입 " + kisEsc(et) + " · 손절 " + kisEsc(sp) + " · 목표 " + kisEsc(tp) + "</div>";
-
-  if (lines.length) {
-    html += "<ul class='ai-list'>";
-    for (var j = 0; j < lines.length && j < 6; j++) {
-      html += "<li>" + kisEsc(lines[j]) + "</li>";
-    }
-    html += "</ul>";
-  } else {
-    html += "<div class='ai-subtle'>신호 상세 데이터 없음</div>";
-  }
-
-  html += "<div class='ai-subtle'>데이터 기준일: " + kisEsc(asOf) + "</div>";
-  $("#aiSlideStockAnalysis").html(html);
-}
-
-function renderAiSlideStockAnalysisMessage(msg, sub) {
-  var html = "<div class='ai-row-title'>종목 분석</div><div>" + kisEsc(msg || "-") + "</div>";
-  if (sub) html += "<div class='ai-subtle'>" + kisEsc(sub) + "</div>";
-  $("#aiSlideStockAnalysis").html(html);
-}
-
-function renderAiSlideSummary(payload) {
-  try {
-    if (window.__aiSlideStallTimer) {
-      clearTimeout(window.__aiSlideStallTimer);
-      window.__aiSlideStallTimer = null;
-    }
-  } catch (e0) {}
-
-  var plan = payload && payload.plan ? payload.plan : payload;
-  var signals = (payload && payload.signals && $.isArray(payload.signals)) ? payload.signals : [];
-
-  if (!plan) {
-    $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>분석 준비중...</div>");
-    return;
-  }
-  var stRaw = String(plan.state || "HOLD").toUpperCase();
-  var st = kisStateLabelKo(plan.state || "-");
-  var et = (plan.suggestedEntryPrice || "-");
-  var sp = (plan.initialStopPrice || "-");
-  var tp = (plan.takeProfit1Price || "-");
-  var rr = (plan.riskRewardRatio || "-");
-
-  var score = 50;
-  if (stRaw.indexOf("STRONG_BUY") >= 0 || stRaw.indexOf("ENTER") >= 0) score = 78;
-  else if (stRaw.indexOf("BUY") >= 0 || stRaw.indexOf("TREND") >= 0) score = 65;
-  else if (stRaw.indexOf("SELL") >= 0 || stRaw.indexOf("RISK") >= 0 || stRaw.indexOf("EXIT") >= 0) score = 24;
-  var deg = Math.round((score / 100) * 180 - 90);
-
-  var expectedUp = (plan.expectedUpRate || plan.expectUpRate || "-");
-  var expectedRet = (plan.expectedReturnRate || plan.expectedProfitRate || "-");
-  var riseProb = (plan.riseProbability || plan.winRate || "-");
-
-  var triggerText = "대기";
-  if (stRaw.indexOf("ENTRY") >= 0 || stRaw.indexOf("BUY") >= 0) {
-    triggerText = "진입 검토 가능";
-  }
-  if (stRaw.indexOf("SELL") >= 0 || stRaw.indexOf("RISK") >= 0) {
-    triggerText = "진입 주의";
-  }
-
-  var sigDaily = "-";
-  var sigPull = "-";
-  var sigBreak = "-";
-  var sigInfo = "";
-  try {
-    for (var i = 0; i < signals.length; i++) {
-      var s = signals[i] || {};
-      var t = String(s.type || "").toUpperCase();
-      var m = String(s.message || "");
-      if (t === "DAILY_TREND_OK") sigDaily = "일봉 추세 유효";
-      if (t.indexOf("TRIGGER_PULLBACK") >= 0) sigPull = (m.indexOf("WAIT") >= 0 ? "눌림형 대기" : "눌림형 가능");
-      if (t.indexOf("TRIGGER_BREAKOUT") >= 0) sigBreak = (m.indexOf("WAIT") >= 0 ? "돌파형 대기" : "돌파형 가능");
-      if (t === "INFO" && !sigInfo) sigInfo = m;
-    }
-  } catch (eSig) {}
-
-  var html = ""
-    + "<div class='ai-row-title'>AI 검토 결과</div>"
-    + "<div><strong>판단:</strong> " + kisEsc(st) + " / <strong>트리거:</strong> " + kisEsc(triggerText) + "</div>"
-    + "<div class='ai-gauge-wrap'><div>"
-    + "<div class='ai-gauge'><span class='ai-gauge-needle' style='transform:translateX(-50%) rotate(" + deg + "deg)'></span></div>"
-    + "<div class='ai-gauge-label'>의견 강도 <strong>" + score + "</strong></div>"
-    + "</div></div>"
-    + "<div><strong>가격 가이드:</strong> 진입 " + kisEsc(et) + " · 손절 " + kisEsc(sp) + " · 목표가(일부매도) " + kisEsc(tp) + "</div>"
-    + "<div class='ai-metrics'>"
-    + "<div class='ai-metric'><div class='ai-metric-k'>예상상승</div><div class='ai-metric-v'>" + kisEsc(expectedUp) + "</div></div>"
-    + "<div class='ai-metric'><div class='ai-metric-k'>예상수익</div><div class='ai-metric-v'>" + kisEsc(expectedRet) + "</div></div>"
-    + "<div class='ai-metric'><div class='ai-metric-k'>상승확률</div><div class='ai-metric-v'>" + kisEsc(riseProb) + "</div></div>"
-    + "</div>"
-    + "<div style='margin-top:6px;color:#cbd5e1;'><strong>신호 해석:</strong> " + kisEsc(sigDaily) + " · " + kisEsc(sigPull) + " · " + kisEsc(sigBreak) + "</div>"
-    + (sigInfo ? ("<div style='margin-top:4px;color:#94a3b8;'>" + kisEsc(sigInfo) + "</div>") : "")
-    + "<div style='margin-top:6px;color:#94a3b8;'><strong>리스크 체크:</strong> R/R " + kisEsc(rr) + "</div>";
-
-  $("#aiSlideSummary").html(html);
-}
-
-$("#aiSlideClose, #aiSlideBackdrop").on("click", closeAiSlide);
-
-// WF-2-2b AIRecheck: 온디맨드 재검토
-$("#btnAiRecheck").on("click", function () {
-  var $btn = $(this);
-  if ($btn.data("busy")) return;
-  openAiSlide();
-  renderAiSlideIndicators();
-
-  if (__posPlanInFlight) {
-    $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>백그라운드 분석이 진행 중입니다. 완료 후 다시 눌러주세요.</div>");
-    $("#aiSlideStockAnalysis").html("<div class='ai-row-title'>종목 분석</div><div>최근 요청 처리중입니다...</div>");
-    return;
-  }
-
-  var cached = getCachedAiPlan();
-  if (cached) {
-    renderAiSlideSummary(cached);
-    if (typeof renderAiSlideStockAnalysis === "function") renderAiSlideStockAnalysis(cached);
-    $("#aiSlideSummary").append("<div style='margin-top:6px;color:#94a3b8;'>최근 저장값 먼저 표시 중 · 최신값 다시 계산중...</div>");
-  } else {
-    var pending = "<div class='ai-row-title'>AI 검토 결과</div><div>분석중...</div><div style='margin-top:6px;color:#94a3b8;'>최근 저장값 없음 · 신규 계산중...</div>";
-    $("#aiSlideSummary").html(pending);
-    $("#aiSlideStockAnalysis").html("<div class='ai-row-title'>종목 분석</div><div>상세 분석 생성중...</div>");
-  }
-
-  try {
-    if (window.__aiSlideStallTimer) clearTimeout(window.__aiSlideStallTimer);
-    window.__aiSlideStallTimer = setTimeout(function () {
-      var txt = $.trim($("#aiSlideSummary").text() || "");
-      if (txt.indexOf("분석중") >= 0) {
-        $("#aiSlideSummary").html("<div class='ai-row-title'>AI 검토 결과</div><div>서버 응답 지연으로 결과가 늦어지고 있어요.</div><div style='margin-top:6px;color:#94a3b8;'>15초 이상 지연 중입니다. 잠시 후 다시 눌러주세요.</div>");
-        var c2 = getCachedAiPlan();
-        if (c2) renderAiSlideStockAnalysis(c2);
-        else renderAiSlideStockAnalysisMessage("상세 분석 지연", "서버 응답을 기다리는 중입니다.");
-      }
-    }, 15000);
-  } catch (e1) {}
-
-  $btn.data("busy", true).html('<i class="fa-solid fa-spinner fa-spin"></i>');
-  try {
-    kisEvaluateAndOverlayPositionPlan();
-  } finally {
-    setTimeout(function () {
-      $btn.data("busy", false).html('<i class="fa-solid fa-robot"></i>');
-    }, 1200);
-  }
-});
-
-    
-
 // 모달 내 버튼
     $("#btnAddMaLine").on("click", function () {
       var $list = $("#maRowList");
@@ -3113,6 +2513,7 @@ $("#btnAiRecheck").on("click", function () {
         wlSaveMarket(marketVal);
       } catch (e) {}
       syncWlMarketSwitchFromSelect();
+      syncWlGroupDivFromMarket();
       loadWatchlistGroups();
     });
 
@@ -3129,19 +2530,34 @@ $("#btnAiRecheck").on("click", function () {
       loadWatchlistItems();
     });
 
+    $("#wlGroupDiv").on("change", function () {
+      try {
+        var marketVal = $("#wlMarket").val();
+        wlSaveGroupDiv(marketVal, $("#wlGroupDiv").val());
+      } catch (e) {}
+      loadWatchlistItems();
+    });
+
     $("#btnWlReload").on("click", function () {
       try {
         var marketVal = $("#wlMarket").val();
         var groupVal = $("#wlGroup").val();
         wlSaveMarket(marketVal);
         wlSaveGroup(marketVal, groupVal);
+        wlSaveGroupDiv(marketVal, $("#wlGroupDiv").val());
       } catch (e) {}
       loadWatchlistGroups();
     });
 
     $("#btnSummaryReload").on("click", function () {
       loadMarketSummary();
-      loadMarketIssues();
+    });
+
+    $("#btnOpenRecSignal").on("click", function () {
+      if (!window.__URLS || !window.__URLS.recSignalListView) {
+        return;
+      }
+      window.open(window.__URLS.recSignalListView, "_blank");
     });
 
     $("#btnRightToggle").on("click", function () {
@@ -3203,10 +2619,10 @@ $("#btnAiRecheck").on("click", function () {
       }
     } catch (e) {}
     syncWlMarketSwitchFromSelect();
+    syncWlGroupDivFromMarket();
 
     loadWatchlistGroups();
     loadMarketSummary();
-    loadMarketIssues();
     bindMarketSummaryChartClicks();
 
     // 초기 진입 시 DB MA 옵션을 차트에 반영 (모달은 띄우지 않음)

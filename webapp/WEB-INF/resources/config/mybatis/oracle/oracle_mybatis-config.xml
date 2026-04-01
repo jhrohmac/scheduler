@@ -39,12 +39,20 @@
 		<typeAlias alias="marketSummaryVo"			type="com.scheduler.finance.vo.MarketSummaryVo"/>
 		<!-- batch -->
 		<typeAlias alias="batchJobCtrlVo"			type="com.scheduler.finance.vo.BatchJobCtrlVo"/>
-		<typeAlias alias="stockRecommendVo"			type="com.scheduler.finance.vo.StockRecommendVo"/>
-		
 		<!-- WF-2-4: 보유종목 관리 -->
 		<typeAlias alias="positionVo"				type="com.scheduler.finance.vo.PositionVo"/>
 		<typeAlias alias="positionTxnVo"			type="com.scheduler.finance.vo.PositionTxnVo"/>
 		<typeAlias alias="positionEventVo"			type="com.scheduler.finance.vo.PositionEventVo"/>
+		
+		<!-- Stock Rec Signal -->
+		<typeAlias alias="recSignalDto"			type="com.scheduler.stock.dto.RecSignalDto"/>
+		<typeAlias alias="dlyPriceDto"			type="com.scheduler.stock.dto.DlyPriceDto"/>
+		<typeAlias alias="maResultDto"			type="com.scheduler.stock.dto.MaResultDto"/>
+		<typeAlias alias="recPickDto"			type="com.scheduler.stock.dto.RecPickDto"/>
+		<typeAlias alias="recPickDailyDto"		type="com.scheduler.stock.dto.RecPickDailyDto"/>
+		<typeAlias alias="recPickEvalDto"		type="com.scheduler.stock.dto.RecPickEvalDto"/>
+		<typeAlias alias="recProbabilityDto"	type="com.scheduler.stock.dto.RecProbabilityDto"/>
+		<typeAlias alias="positionSellGuideDto"	type="com.scheduler.stock.dto.PositionSellGuideDto"/>
 		
 		<!-- batch 											  
 	 	<typeAlias alias="macroDailyVo"				type="com.scheduler.finance.vo.MacroDailyVo"/>
@@ -84,6 +92,15 @@
 		
 		<!-- WF-2-4: 보유종목 관리 -->
 		<mapper resource="com/scheduler/finance/sql/oracle/oracle_Position.xml"/>
+		
+		<!-- Stock Rec Signal -->
+		<mapper resource="com/scheduler/stock/sql/oracle/RecSignalMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/StkMasterMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/TradeDateMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/RecPickMapper.xml"/>
 		
 		<!-- batch 
 		<mapper resource="com/scheduler/finance/sql/oracle/oracle_MacroDaily.xml"/>

@@ -28,16 +28,16 @@ public class RequestHandler {
 	        Map<String, String[]> reqParameter = req.getParameterMap();
 	        
 	        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-	        System.out.println(" ** extractParameters ======="+stackTrace[2].getMethodName()+"=======");
+	        //System.out.println(" ** extractParameters ======="+stackTrace[2].getMethodName()+"=======");
 	        
 	        for (Map.Entry<String, String[]> entry : reqParameter.entrySet()) {
 	            String key = entry.getKey();
 	            String[] values = entry.getValue();
 	            
 	            if (values.length > 0) {
-	            	if(!key.contains("columns")) {
-	            		System.out.println("key:'"+key+"'  value:'"+values[0]+"'");
-	            	}
+	            	// if(!key.contains("columns")) {
+	            	// 	System.out.println("key:'"+key+"'  value:'"+values[0]+"'");
+	            	// }
 	            	//Null Check
 	            	String value = (values[0].equals("null"))? "" : values[0];
 	                map.put(key, value); // 첫 번째 값을 저장

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.BatchExecItemLog">
+
+    <insert id="insertBatchExecItemLog" parameterType="hashmap">
+        INSERT INTO TB_BATCH_EXEC_ITEM_LOG (
+            EXEC_ID, BATCH_ID, BASE_DT, MKT_CD, STK_CD, STK_NM,
+            ITEM_STATUS, ERROR_MSG, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{execId,jdbcType=VARCHAR},
+            #{batchId,jdbcType=VARCHAR},
+            TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
+            #{mktCd,jdbcType=VARCHAR},
+            #{stkCd,jdbcType=VARCHAR},
+            #{stkNm,jdbcType=VARCHAR},
+            #{itemStatus,jdbcType=VARCHAR},
+            #{errorMsg,jdbcType=VARCHAR},
+            SYSDATE,
+            SYSDATE
+        )
+    </insert>
+
+    <select id="selectRetryStockList" parameterType="hashmap" resultType="recSignalDto">
+        SELECT STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               MKT_CD AS mktCd
+          FROM TB_BATCH_EXEC_ITEM_LOG
+         WHERE EXEC_ID = (
+                SELECT EXEC_ID
+                  FROM (
+                        SELECT EXEC_ID
+                          FROM TB_BATCH_EXEC_LOG
+                         WHERE BATCH_ID = #{sourceBatchId,jdbcType=VARCHAR}
+                           AND BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+                         ORDER BY START_AT DESC
+                       )
+                 WHERE ROWNUM = 1
+          )
+           AND ITEM_STATUS = 'FAIL'
+         ORDER BY STK_CD ASC
+    </select>
+
+</mapper>

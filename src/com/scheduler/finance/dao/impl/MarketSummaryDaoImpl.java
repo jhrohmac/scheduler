@@ -167,7 +167,7 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
 
             out.put("IXIC", fetchOverseasLike(client,
                     new String[] { "N" },
-                    new String[] { ".IXIC", "IXIC", "NASDAQ" }));
+                    new String[] { "COMP", ".COMP", ".IXIC", "IXIC", "NASDAQ" }));
 
             out.put("SPX", fetchOverseasLike(client,
                     new String[] { "N" },
@@ -500,13 +500,19 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
         return v == null ? "" : String.valueOf(v);
     }
 
-    private String toDir(String diff, String sign) {
+    private String normalizeKisSign(String sign) {
         String s = nvl(sign, "").trim();
-        if (s.length() > 0) {
-            if ("1".equals(s) || "2".equals(s)) return "UP";
-            if ("4".equals(s) || "5".equals(s)) return "DOWN";
-            return "FLAT";
-        }
+        if ("+".equals(s) || "1".equals(s) || "4".equals(s)) return "+";
+        if ("-".equals(s) || "2".equals(s) || "5".equals(s)) return "-";
+        if ("0".equals(s) || "3".equals(s)) return "0";
+        return "";
+    }
+
+    private String toDir(String diff, String sign) {
+        String normalized = normalizeKisSign(sign);
+        if ("+".equals(normalized)) return "UP";
+        if ("-".equals(normalized)) return "DOWN";
+        if ("0".equals(normalized)) return "FLAT";
 
         try {
             String d = nvl(diff, "").replace(",", "").trim();

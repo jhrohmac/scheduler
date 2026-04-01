@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.StockBatchAdmin">
+
+    <select id="selectTaskCatalog" parameterType="hashmap" resultType="hashmap">
+        SELECT TASK_KEY AS task_key,
+               TASK_NAME AS task_name,
+               BEAN_NAME AS bean_name,
+               ENABLED_YN AS enabled_yn,
+               DESCRIPTION AS description,
+               TO_CHAR(MOD_DT, 'YYYY-MM-DD HH24:MI:SS') AS mod_dt
+          FROM TB_STK_BATCH_TASK_DEF
+         WHERE ENABLED_YN = 'Y'
+         ORDER BY TASK_KEY
+    </select>
+
+    <select id="selectJobList" parameterType="hashmap" resultType="hashmap">
+        SELECT
+            J.JOB_ID AS job_id,
+            J.JOB_NAME AS job_name,
+            J.TASK_KEY AS task_key,
+            J.ENABLED_YN AS enabled_yn,
+            J.TIMEZONE AS timezone,
+            TO_CHAR(J.MAX_RUNTIME_SEC) AS max_runtime_sec,
+            J.ALLOW_MANUAL_RUN_YN AS allow_manual_run_yn,
+            J.DESCRIPTION AS description,
+            NVL(R.RUNNING_YN, 'N') AS running_yn,
+            NVL(R.STOP_REQUEST_YN, 'N') AS stop_request_yn,
+            TO_CHAR(S.SCHEDULE_ID) AS schedule_id,
+            S.SCHEDULE_TYPE AS schedule_type,
+            S.CRON_EXPR AS cron_expr,
+            TO_CHAR(S.INTERVAL_SEC) AS interval_sec,
+            S.ENABLED_YN AS schedule_enabled_yn,
+            TO_CHAR(S.NEXT_RUN_AT, 'YYYY-MM-DD HH24:MI:SS') AS next_run_at,
+            TO_CHAR(J.LAST_START_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_start_at,
+            TO_CHAR(J.LAST_END_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_end_at,
+            J.LAST_RESULT_CODE AS last_result_code,
+            J.LAST_RESULT_MSG AS last_result_msg,
+            TO_CHAR(J.MOD_DT, 'YYYY-MM-DD HH24:MI:SS') AS mod_dt
+        FROM TB_STK_BATCH_JOB_DEF J
+        LEFT JOIN TB_STK_BATCH_JOB_SCHEDULE S
+               ON S.JOB_ID = J.JOB_ID
+        LEFT JOIN TB_STK_BATCH_JOB_RUNTIME R
+               ON R.JOB_ID = J.JOB_ID
+        WHERE 1=1
+          <if test="in_job_id != null and in_job_id != ''">
+            AND UPPER(J.JOB_ID) LIKE '%' || UPPER(#{in_job_id}) || '%'
+          </if>
+          <if test="in_task_key != null and in_task_key != ''">
+            AND J.TASK_KEY = #{in_task_key}
+          </if>
+          <if test="in_enabled_yn != null and in_enabled_yn != ''">
+            AND J.ENABLED_YN = #{in_enabled_yn}
+          </if>
+          <if test="in_running_yn != null and in_running_yn != ''">
+            AND NVL(R.RUNNING_YN, 'N') = #{in_running_yn}
+          </if>
+          <if test="in_result_code != null and in_result_code != ''">
+            AND NVL(J.LAST_RESULT_CODE, '') = #{in_result_code}
+          </if>
+        ORDER BY J.JOB_ID
+    </select>
+
+    <select id="selectJobOne" parameterType="hashmap" resultType="hashmap">
+        SELECT
+            J.JOB_ID AS job_id,
+            J.JOB_NAME AS job_name,
+            J.TASK_KEY AS task_key,
+            J.ENABLED_YN AS enabled_yn,
+            J.TIMEZONE AS timezone,
+            TO_CHAR(J.MAX_RUNTIME_SEC) AS max_runtime_sec,
+            J.ALLOW_MANUAL_RUN_YN AS allow_manual_run_yn,
+            J.DESCRIPTION AS description,
+            NVL(R.RUNNING_YN, 'N') AS running_yn,
+            NVL(R.STOP_REQUEST_YN, 'N') AS stop_request_yn,
+            TO_CHAR(R.LOCK_AT, 'YYYY-MM-DD HH24:MI:SS') AS lock_at,
+            TO_CHAR(R.LAST_HEARTBEAT_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_heartbeat_at,
+            R.LOCK_OWNER AS lock_owner,
+            R.CURRENT_EXEC_ID AS current_exec_id,
+            TO_CHAR(J.LAST_START_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_start_at,
+            TO_CHAR(J.LAST_END_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_end_at,
+            J.LAST_RESULT_CODE AS last_result_code,
+            J.LAST_RESULT_MSG AS last_result_msg,
+            TO_CHAR(J.MOD_DT, 'YYYY-MM-DD HH24:MI:SS') AS mod_dt
+        FROM TB_STK_BATCH_JOB_DEF J
+        LEFT JOIN TB_STK_BATCH_JOB_RUNTIME R
+               ON R.JOB_ID = J.JOB_ID
+        WHERE J.JOB_ID = #{job_id}
+    </select>
+
+    <select id="selectJobSchedule" parameterType="hashmap" resultType="hashmap">
+        SELECT TO_CHAR(SCHEDULE_ID) AS schedule_id,
+               JOB_ID AS job_id,
+               SCHEDULE_TYPE AS schedule_type,
+               CRON_EXPR AS cron_expr,
+               TO_CHAR(INTERVAL_SEC) AS interval_sec,
+               WINDOW_START_HH24MI AS window_start_hh24mi,
+               WINDOW_END_HH24MI AS window_end_hh24mi,
+               MISFIRE_POLICY AS misfire_policy,
+               ENABLED_YN AS enabled_yn,
+               TO_CHAR(NEXT_RUN_AT, 'YYYY-MM-DD HH24:MI:SS') AS next_run_at,
+               TO_CHAR(LAST_EVAL_AT, 'YYYY-MM-DD HH24:MI:SS') AS last_eval_at
+          FROM TB_STK_BATCH_JOB_SCHEDULE
+         WHERE JOB_ID = #{job_id}
+    </select>
+
+    <select id="selectJobParams" parameterType="hashmap" resultType="hashmap">
+        SELECT TO_CHAR(PARAM_ID) AS param_id,
+               JOB_ID AS job_id,
+               PARAM_KEY AS param_key,
+               DBMS_LOB.SUBSTR(PARAM_VALUE, 4000, 1) AS param_value,
+               PARAM_TYPE AS param_type,
+               REQUIRED_YN AS required_yn,
+               MASKED_YN AS masked_yn,
+               TO_CHAR(MOD_DT, 'YYYY-MM-DD HH24:MI:SS') AS mod_dt
+          FROM TB_STK_BATCH_JOB_PARAM
+         WHERE JOB_ID = #{job_id}
+         ORDER BY PARAM_KEY
+    </select>
+
+    <select id="selectJobLogList" parameterType="hashmap" resultType="hashmap">
+        SELECT *
+          FROM (
+                SELECT EXEC_ID AS exec_id,
+                       BATCH_ID AS batch_id,
+                       TO_CHAR(BASE_DT, 'YYYY-MM-DD') AS base_dt,
+                       STATUS AS status,
+                       TO_CHAR(TOTAL_CNT) AS total_cnt,
+                       TO_CHAR(SUCCESS_CNT) AS success_cnt,
+                       TO_CHAR(FAIL_CNT) AS fail_cnt,
+                       TO_CHAR(START_AT, 'YYYY-MM-DD HH24:MI:SS') AS start_at,
+                       TO_CHAR(END_AT, 'YYYY-MM-DD HH24:MI:SS') AS end_at,
+                       ERROR_MSG AS error_msg
+                  FROM TB_BATCH_EXEC_LOG
+                 WHERE (
+                           BATCH_ID = #{job_id}
+                        <if test="task_key != null and task_key != ''">
+                           OR BATCH_ID LIKE 'BATCH_' || REPLACE(UPPER(#{task_key}), '_RUN', '') || '_%'
+                        </if>
+                       )
+                   <if test="market_group != null and market_group != ''">
+                     AND INSTR(UPPER(BATCH_ID), '_' || UPPER(#{market_group}) || '_') <![CDATA[>]]> 0
+                   </if>
+                   <if test="base_dt != null and base_dt != ''">
+                     AND BASE_DT = TO_DATE(#{base_dt}, 'YYYY-MM-DD')
+                   </if>
+                 ORDER BY START_AT DESC
+               )
+         WHERE ROWNUM <![CDATA[<=]]> 200
+    </select>
+
+    <select id="selectJobLogItemFailList" parameterType="hashmap" resultType="hashmap">
+        SELECT *
+          FROM (
+                SELECT EXEC_ID AS exec_id,
+                       BATCH_ID AS batch_id,
+                       TO_CHAR(BASE_DT, 'YYYY-MM-DD') AS base_dt,
+                       MKT_CD AS mkt_cd,
+                       STK_CD AS stk_cd,
+                       STK_NM AS stk_nm,
+                       ITEM_STATUS AS item_status,
+                       ERROR_MSG AS error_msg,
+                       TO_CHAR(CREATED_AT, 'YYYY-MM-DD HH24:MI:SS') AS created_at
+                  FROM TB_BATCH_EXEC_ITEM_LOG
+                 WHERE ITEM_STATUS = 'FAIL'
+                   AND (
+                           BATCH_ID = #{job_id}
+                        <if test="task_key != null and task_key != ''">
+                           OR BATCH_ID LIKE 'BATCH_' || REPLACE(UPPER(#{task_key}), '_RUN', '') || '_%'
+                        </if>
+                       )
+                   <if test="market_group != null and market_group != ''">
+                     AND UPPER(MKT_CD) = UPPER(#{market_group})
+                   </if>
+                 ORDER BY CREATED_AT DESC
+               )
+         WHERE ROWNUM <![CDATA[<=]]> 500
+    </select>
+
+    <insert id="insertJobDef" parameterType="hashmap">
+        INSERT INTO TB_STK_BATCH_JOB_DEF (
+            JOB_ID, JOB_NAME, TASK_KEY, ENABLED_YN,
+            TIMEZONE, MAX_RUNTIME_SEC, ALLOW_MANUAL_RUN_YN,
+            RUN_POLICY, DESCRIPTION,
+            LAST_RESULT_CODE, LAST_RESULT_MSG,
+            REG_DT, MOD_DT
+        ) VALUES (
+            #{job_id}, #{job_name}, #{task_key}, #{enabled_yn},
+            #{timezone}, TO_NUMBER(#{max_runtime_sec}), #{allow_manual_run_yn},
+            'SINGLETON', #{description},
+            'NONE', 'CREATED',
+            SYSDATE, SYSDATE
+        )
+    </insert>
+
+    <update id="updateJobDef" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_DEF
+           SET JOB_NAME = #{job_name}
+             , TASK_KEY = #{task_key}
+             , ENABLED_YN = #{enabled_yn}
+             , TIMEZONE = #{timezone}
+             , MAX_RUNTIME_SEC = TO_NUMBER(#{max_runtime_sec})
+             , ALLOW_MANUAL_RUN_YN = #{allow_manual_run_yn}
+             , DESCRIPTION = #{description}
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <delete id="deleteJobDef" parameterType="hashmap">
+        DELETE FROM TB_STK_BATCH_JOB_DEF
+         WHERE JOB_ID = #{job_id}
+    </delete>
+
+    <update id="upsertJobSchedule" parameterType="hashmap">
+        MERGE INTO TB_STK_BATCH_JOB_SCHEDULE T
+        USING (
+            SELECT #{job_id} AS JOB_ID FROM DUAL
+        ) S
+           ON (T.JOB_ID = S.JOB_ID)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.SCHEDULE_TYPE = #{schedule_type},
+                T.CRON_EXPR = CASE WHEN #{cron_expr} = '' THEN NULL ELSE #{cron_expr} END,
+                T.INTERVAL_SEC = CASE WHEN #{interval_sec} = '0' THEN NULL ELSE TO_NUMBER(#{interval_sec}) END,
+                T.WINDOW_START_HH24MI = CASE WHEN #{window_start_hh24mi} = '' THEN NULL ELSE #{window_start_hh24mi} END,
+                T.WINDOW_END_HH24MI = CASE WHEN #{window_end_hh24mi} = '' THEN NULL ELSE #{window_end_hh24mi} END,
+                T.MISFIRE_POLICY = #{misfire_policy},
+                T.ENABLED_YN = #{enabled_yn},
+                T.NEXT_RUN_AT = TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS'),
+                T.LAST_EVAL_AT = TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS'),
+                T.MOD_DT = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (
+                SCHEDULE_ID, JOB_ID, SCHEDULE_TYPE, CRON_EXPR,
+                INTERVAL_SEC, WINDOW_START_HH24MI, WINDOW_END_HH24MI,
+                MISFIRE_POLICY, ENABLED_YN, NEXT_RUN_AT, LAST_EVAL_AT,
+                REG_DT, MOD_DT
+            ) VALUES (
+                SEQ_STK_BATCH_JOB_SCHEDULE.NEXTVAL, #{job_id}, #{schedule_type},
+                CASE WHEN #{cron_expr} = '' THEN NULL ELSE #{cron_expr} END,
+                CASE WHEN #{interval_sec} = '0' THEN NULL ELSE TO_NUMBER(#{interval_sec}) END,
+                CASE WHEN #{window_start_hh24mi} = '' THEN NULL ELSE #{window_start_hh24mi} END,
+                CASE WHEN #{window_end_hh24mi} = '' THEN NULL ELSE #{window_end_hh24mi} END,
+                #{misfire_policy}, #{enabled_yn},
+                TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS'),
+                TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS'),
+                SYSDATE, SYSDATE
+            )
+    </update>
+
+    <delete id="deleteJobParams" parameterType="hashmap">
+        DELETE FROM TB_STK_BATCH_JOB_PARAM
+         WHERE JOB_ID = #{job_id}
+    </delete>
+
+    <insert id="insertJobParam" parameterType="hashmap">
+        INSERT INTO TB_STK_BATCH_JOB_PARAM (
+            PARAM_ID, JOB_ID, PARAM_KEY, PARAM_VALUE,
+            PARAM_TYPE, REQUIRED_YN, MASKED_YN,
+            REG_DT, MOD_DT
+        ) VALUES (
+            SEQ_STK_BATCH_JOB_PARAM.NEXTVAL,
+            #{job_id},
+            #{param_key},
+            #{param_value},
+            #{param_type},
+            #{required_yn},
+            #{masked_yn},
+            SYSDATE,
+            SYSDATE
+        )
+    </insert>
+
+    <insert id="ensureJobRuntime" parameterType="hashmap">
+        MERGE INTO TB_STK_BATCH_JOB_RUNTIME T
+        USING (SELECT #{job_id} AS JOB_ID FROM DUAL) S
+           ON (T.JOB_ID = S.JOB_ID)
+        WHEN NOT MATCHED THEN
+            INSERT (JOB_ID, RUNNING_YN, STOP_REQUEST_YN, MOD_DT)
+            VALUES (#{job_id}, 'N', 'N', SYSDATE)
+    </insert>
+
+    <update id="tryAcquireRuntimeLock" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME
+           SET RUNNING_YN = 'Y'
+             , LOCK_OWNER = #{lock_owner}
+             , LOCK_AT = SYSDATE
+             , LAST_HEARTBEAT_AT = SYSDATE
+             , STOP_REQUEST_YN = 'N'
+             , CURRENT_EXEC_ID = #{exec_id}
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+           AND RUNNING_YN = 'N'
+    </update>
+
+    <update id="heartbeatRuntime" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME
+           SET LAST_HEARTBEAT_AT = SYSDATE
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+           AND RUNNING_YN = 'Y'
+    </update>
+
+    <update id="releaseRuntime" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME
+           SET RUNNING_YN = 'N'
+             , STOP_REQUEST_YN = 'N'
+             , CURRENT_EXEC_ID = NULL
+             , LAST_HEARTBEAT_AT = NULL
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <update id="requestStop" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME
+           SET STOP_REQUEST_YN = 'Y'
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <select id="selectStopRequestYn" parameterType="hashmap" resultType="string">
+        SELECT STOP_REQUEST_YN
+          FROM TB_STK_BATCH_JOB_RUNTIME
+         WHERE JOB_ID = #{job_id}
+    </select>
+
+    <update id="clearStopRequest" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME
+           SET STOP_REQUEST_YN = 'N'
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <update id="updateScheduleNextRun" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_SCHEDULE
+           SET NEXT_RUN_AT = TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS')
+             , LAST_EVAL_AT = TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS')
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <select id="selectDueJobs" parameterType="hashmap" resultType="hashmap">
+        SELECT
+            J.JOB_ID AS job_id,
+            J.JOB_NAME AS job_name,
+            J.TASK_KEY AS task_key,
+            J.ENABLED_YN AS enabled_yn,
+            J.TIMEZONE AS timezone,
+            TO_CHAR(J.MAX_RUNTIME_SEC) AS max_runtime_sec,
+            J.ALLOW_MANUAL_RUN_YN AS allow_manual_run_yn,
+            S.SCHEDULE_TYPE AS schedule_type,
+            S.CRON_EXPR AS cron_expr,
+            TO_CHAR(S.INTERVAL_SEC) AS interval_sec,
+            S.WINDOW_START_HH24MI AS window_start_hh24mi,
+            S.WINDOW_END_HH24MI AS window_end_hh24mi,
+            S.MISFIRE_POLICY AS misfire_policy,
+            S.ENABLED_YN AS schedule_enabled_yn,
+            TO_CHAR(S.NEXT_RUN_AT, 'YYYY-MM-DD HH24:MI:SS') AS next_run_at,
+            NVL(R.RUNNING_YN, 'N') AS running_yn
+          FROM TB_STK_BATCH_JOB_DEF J
+          JOIN TB_STK_BATCH_JOB_SCHEDULE S
+            ON S.JOB_ID = J.JOB_ID
+          JOIN TB_STK_BATCH_TASK_DEF T
+            ON T.TASK_KEY = J.TASK_KEY
+          LEFT JOIN TB_STK_BATCH_JOB_RUNTIME R
+            ON R.JOB_ID = J.JOB_ID
+         WHERE J.ENABLED_YN = 'Y'
+           AND S.ENABLED_YN = 'Y'
+           AND T.ENABLED_YN = 'Y'
+           AND NVL(R.RUNNING_YN, 'N') = 'N'
+           AND (S.NEXT_RUN_AT IS NULL OR S.NEXT_RUN_AT <![CDATA[<=]]> SYSDATE)
+         ORDER BY S.NEXT_RUN_AT NULLS FIRST, J.JOB_ID
+    </select>
+
+    <select id="selectStaleJobIds" parameterType="hashmap" resultType="string">
+        SELECT R.JOB_ID
+          FROM TB_STK_BATCH_JOB_RUNTIME R
+          JOIN TB_STK_BATCH_JOB_DEF J
+            ON J.JOB_ID = R.JOB_ID
+         WHERE R.RUNNING_YN = 'Y'
+           AND R.LOCK_AT IS NOT NULL
+           AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+    </select>
+
+    <update id="clearStaleBatchExecLogs" parameterType="hashmap">
+        UPDATE TB_BATCH_EXEC_LOG L
+           SET END_AT = SYSDATE,
+               STATUS = 'FAIL',
+               ERROR_MSG = SUBSTR(
+                   CASE
+                       WHEN L.ERROR_MSG IS NULL OR TRIM(L.ERROR_MSG) = '' THEN 'AUTO_ABORT_STALE_RUNTIME'
+                       ELSE L.ERROR_MSG || ' / AUTO_ABORT_STALE_RUNTIME'
+                   END,
+                   1,
+                   2000
+               )
+         WHERE L.STATUS = 'RUNNING'
+           AND EXISTS (
+                SELECT 1
+                  FROM TB_STK_BATCH_JOB_RUNTIME R
+                  JOIN TB_STK_BATCH_JOB_DEF J
+                    ON J.JOB_ID = R.JOB_ID
+                  LEFT JOIN (
+                        SELECT JOB_ID,
+                               MAX(
+                                   CASE
+                                       WHEN UPPER(PARAM_KEY) IN ('MARKETGROUP', 'MKTCD', 'SOURCEMKTCD')
+                                       THEN UPPER(DBMS_LOB.SUBSTR(PARAM_VALUE, 100, 1))
+                                   END
+                               ) AS MARKET_GROUP
+                          FROM TB_STK_BATCH_JOB_PARAM
+                         GROUP BY JOB_ID
+                  ) P
+                    ON P.JOB_ID = J.JOB_ID
+                 WHERE R.RUNNING_YN = 'Y'
+                   AND R.LOCK_AT IS NOT NULL
+                   AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+                   AND (
+                        L.EXEC_ID = R.CURRENT_EXEC_ID
+                        OR (
+                            J.TASK_KEY = 'REC_SIGNAL_RUN'
+                            AND L.BATCH_ID LIKE 'BATCH_' || REPLACE(UPPER(J.TASK_KEY), '_RUN', '') || '_%'
+                            AND L.START_AT <![CDATA[>=]]> NVL(J.LAST_START_AT, R.LOCK_AT)
+                            AND (
+                                P.MARKET_GROUP IS NULL
+                                OR INSTR(UPPER(L.BATCH_ID), '_' || P.MARKET_GROUP || '_') <![CDATA[>]]> 0
+                            )
+                        )
+                   )
+           )
+    </update>
+
+    <update id="clearStaleRuntimeLocks" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_RUNTIME R
+           SET RUNNING_YN = 'N'
+             , STOP_REQUEST_YN = 'N'
+             , CURRENT_EXEC_ID = NULL
+             , LAST_HEARTBEAT_AT = NULL
+             , MOD_DT = SYSDATE
+         WHERE R.RUNNING_YN = 'Y'
+           AND R.LOCK_AT IS NOT NULL
+           AND EXISTS (
+                SELECT 1
+                  FROM TB_STK_BATCH_JOB_DEF J
+                 WHERE J.JOB_ID = R.JOB_ID
+                   AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+           )
+    </update>
+
+    <update id="markJobStart" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_DEF
+           SET LAST_START_AT = SYSDATE
+             , LAST_RESULT_CODE = 'RUNNING'
+             , LAST_RESULT_MSG = 'RUNNING'
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <update id="markJobFinish" parameterType="hashmap">
+        UPDATE TB_STK_BATCH_JOB_DEF
+           SET LAST_END_AT = SYSDATE
+             , LAST_RESULT_CODE = #{last_result_code}
+             , LAST_RESULT_MSG = #{last_result_msg}
+             , MOD_DT = SYSDATE
+         WHERE JOB_ID = #{job_id}
+    </update>
+
+    <select id="selectTaskDef" parameterType="hashmap" resultType="hashmap">
+        SELECT TASK_KEY AS task_key,
+               TASK_NAME AS task_name,
+               BEAN_NAME AS bean_name,
+               ENABLED_YN AS enabled_yn,
+               PARAM_SCHEMA_JSON AS param_schema_json,
+               DESCRIPTION AS description
+          FROM TB_STK_BATCH_TASK_DEF
+         WHERE TASK_KEY = #{task_key}
+           AND ENABLED_YN = 'Y'
+    </select>
+
+</mapper>

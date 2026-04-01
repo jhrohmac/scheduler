@@ -2,8 +2,8 @@ package com.scheduler.comm.system;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -15,9 +15,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
+import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.annotation.WebListener;
+
+import org.apache.ibatis.logging.LogFactory;
 
 import com.scheduler.comm.util.StringUtil;
 import com.scheduler.comm.util.TimeUtil;
@@ -114,29 +117,11 @@ public class InitializedSetting implements ServletContextListener {
 	
     @Override
     public void contextInitialized(ServletContextEvent sce) {
+		LogFactory.useStdOutLogging();
 
 		System.err.println("==========property Start filePropertySet================");
-		String os_path ="webapps";
-		String filepath ="file.os.order.root";
-        // 운영체제 구분 (windows 가 아니면 무조건 linux 로 판단)
-		 if (System.getProperty("os.name").indexOf("Windows") > -1) {
-			 os_path = "wtpwebapps";
-			 filepath ="file.os.win.root";
-		 }
-		 
 		Properties prop = new Properties();
-		FileReader resources= null;
-		
-    	File catalinaBase = new File( System.getProperty( "catalina.base" ) ).getAbsoluteFile();
-    	File propertyFile = new File( catalinaBase, os_path+"/scheduler/WEB-INF/resources/config/mybatis/oracle/oracle.db.properties");
-			try {
-				resources= new FileReader(propertyFile);
-				prop.load(resources);
-			} catch (FileNotFoundException e) {
-				System.err.println("filePropertySet() Method : "+e.getMessage());
-			} catch (IOException e) {
-				System.err.println("filePropertySet() Method : "+e.getMessage());
-			}
+		loadProperties(prop, sce.getServletContext());
 			// Root Info
 			System.out.println(prop.getProperty("jdbc.driverClassName"));
 		// Root Info
@@ -147,6 +132,63 @@ public class InitializedSetting implements ServletContextListener {
 			System.out.println(prop.getProperty("jdbc.password"));
 			getInitialized(prop);
 			TimeUtil.getCountry();
+    }
+
+    private void loadProperties(Properties prop, ServletContext servletContext) {
+        File propertyFile = resolvePropertyFile(servletContext,
+                "/WEB-INF/resources/config/mybatis/oracle/oracle.db.properties",
+                "config/mybatis/oracle/oracle.db.properties");
+        if (propertyFile != null && propertyFile.isFile()) {
+            try (InputStream in = new java.io.FileInputStream(propertyFile)) {
+                prop.load(in);
+                return;
+            } catch (FileNotFoundException e) {
+                System.err.println("filePropertySet() Method : " + e.getMessage());
+            } catch (IOException e) {
+                System.err.println("filePropertySet() Method : " + e.getMessage());
+            }
+        }
+
+        try (InputStream in = InitializedSetting.class.getClassLoader()
+                .getResourceAsStream("config/mybatis/oracle/oracle.db.properties")) {
+            if (in != null) {
+                prop.load(in);
+            }
+        } catch (IOException e) {
+            System.err.println("filePropertySet() Method : " + e.getMessage());
+        }
+    }
+
+    private File resolvePropertyFile(ServletContext servletContext, String webInfPath, String classpathResource) {
+        if (servletContext != null) {
+            String realPath = servletContext.getRealPath(webInfPath);
+            if (realPath != null) {
+                File realFile = new File(realPath);
+                if (realFile.isFile()) {
+                    return realFile;
+                }
+            }
+        }
+
+        File classpathFile = resolveClasspathFile(classpathResource);
+        if (classpathFile != null && classpathFile.isFile()) {
+            return classpathFile;
+        }
+
+        String osPath = System.getProperty("os.name").indexOf("Windows") > -1 ? "wtpwebapps" : "webapps";
+        File catalinaBase = new File(System.getProperty("catalina.base")).getAbsoluteFile();
+        return new File(catalinaBase, osPath + "/scheduler/WEB-INF/resources/config/mybatis/oracle/oracle.db.properties");
+    }
+
+    private File resolveClasspathFile(String classpathResource) {
+        try {
+            java.net.URL url = InitializedSetting.class.getClassLoader().getResource(classpathResource);
+            if (url != null && "file".equals(url.getProtocol())) {
+                return new File(url.toURI());
+            }
+        } catch (Exception ignore) {
+        }
+        return null;
     }
     
 	@Override

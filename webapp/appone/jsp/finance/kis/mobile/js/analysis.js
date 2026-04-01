@@ -11,7 +11,6 @@
 
   const state = {
     market: (localStorage.getItem('mobile.market') === 'US') ? 'A' : 'N',
-    signalFilter: 'all',
     pickedCode: (new URLSearchParams(location.search).get('code') || '005930').trim(),
     pickedName: '-',
     pickedSignal: '중립',
@@ -56,37 +55,42 @@
     return fallback;
   }
 
+  function currentMarketCode() {
+    return state.market === 'A' ? 'US' : 'KR';
+  }
+
   function loadSignalMini() {
-    if (!window.__MOBILE || !window.__MOBILE.urls || !window.__MOBILE.urls.legacyHome) return;
-    const url = '/scheduler/finance/selectRecommendStocks.do?market=' + encodeURIComponent(state.market) + '&limit=12&minGrade=S&includeNow=Y&nowLimit=5';
+    if (!window.__MOBILE || !window.__MOBILE.urls || !window.__MOBILE.urls.recSignalList) return;
+    const url = window.__MOBILE.urls.recSignalList
+      + '?recYn=Y&mktCd=' + encodeURIComponent(currentMarketCode());
     fetch(url, { credentials: 'include' })
       .then(r => r.json())
       .then(resp => {
-        const list = (resp && Array.isArray(resp.data)) ? resp.data : [];
+        const list = (resp && Array.isArray(resp.data)) ? resp.data : (resp && resp.data && Array.isArray(resp.data.data) ? resp.data.data : []);
         renderSignalMini(list);
         pickAiStock(list);
       })
       .catch(() => {
-        if (signalListEl) signalListEl.innerHTML = '<div class="mini-empty">매매신호 로딩 실패</div>';
+        if (signalListEl) signalListEl.innerHTML = '<div class="mini-empty">추천신호 로딩 실패</div>';
       });
   }
 
   function renderSignalMini(list) {
     if (!signalListEl) return;
     if (!list.length) {
-      signalListEl.innerHTML = '<div class="mini-empty">표시할 매매신호가 없습니다.</div>';
+      signalListEl.innerHTML = '<div class="mini-empty">표시할 추천신호가 없습니다.</div>';
       return;
     }
 
     const top = list.slice(0, 5);
     signalListEl.innerHTML = top.map((row, idx) => {
-      const code = getRowField(row, ['stock_code','STOCK_CODE'], '');
-      const name = getRowField(row, ['stock_ko_name','STOCK_KO_NAME','stock_name'], code);
-      const signal = String(getRowField(row, ['reco_signal_code','RECO_SIGNAL_CODE'], 'HOLD')).toUpperCase();
-      const close = getRowField(row, ['stock_close','STOCK_CLOSE','close'], null);
-      const rate = getRowField(row, ['stock_close_rate','STOCK_CLOSE_RATE','reco_signal_rate'], null);
-      const badge = signal === 'BUY' ? '매수' : signal === 'SELL' ? '매도' : '관망';
-      const cls = signal === 'BUY' ? 'buy' : signal === 'SELL' ? 'sell' : 'hold';
+      const code = getRowField(row, ['stkCd','stk_cd','code'], '');
+      const name = getRowField(row, ['stkNm','stk_nm','name'], code);
+      const grade = String(getRowField(row, ['recGrade','rec_grade'], 'C')).toUpperCase();
+      const close = getRowField(row, ['curPrice','cur_price','currentPrice'], null);
+      const rate = getRowField(row, ['monChgRate','mon_chg_rate'], null);
+      const badge = grade ? (grade + '등급') : '추천';
+      const cls = grade === 'A' ? 'buy' : grade === 'B' ? 'hold' : 'sell';
       return `
         <button class="mini-row ${cls}" data-code="${code}" data-focus="signal">
           <span class="rank">${idx + 1}</span>
@@ -109,14 +113,14 @@
   function pickAiStock(list) {
     if (!list || !list.length) return loadAiByCode(state.pickedCode);
 
-    const direct = list.find(r => String(getRowField(r, ['stock_code','STOCK_CODE'], '')).trim() === state.pickedCode);
+    const direct = list.find(r => String(getRowField(r, ['stkCd','stk_cd','code'], '')).trim() === state.pickedCode);
     const row = direct || list[0];
 
-    state.pickedCode = String(getRowField(row, ['stock_code','STOCK_CODE'], state.pickedCode));
-    state.pickedName = String(getRowField(row, ['stock_ko_name','STOCK_KO_NAME','stock_name'], '-'));
-    const sig = String(getRowField(row, ['reco_signal_code','RECO_SIGNAL_CODE'], 'HOLD')).toUpperCase();
-    state.pickedSignal = sig === 'BUY' ? '매수' : sig === 'SELL' ? '매도' : '중립';
-    state.pickedYield = fmtPct(getRowField(row, ['reco_signal_rate','RECO_SIGNAL_RATE','stock_close_rate'], null));
+    state.pickedCode = String(getRowField(row, ['stkCd','stk_cd','code'], state.pickedCode));
+    state.pickedName = String(getRowField(row, ['stkNm','stk_nm','name'], '-'));
+    const grade = String(getRowField(row, ['recGrade','rec_grade'], 'C')).toUpperCase();
+    state.pickedSignal = grade ? (grade + '등급') : '추천';
+    state.pickedYield = fmtPct(getRowField(row, ['monChgRate','mon_chg_rate'], null));
 
     if (aiStockNameEl) aiStockNameEl.textContent = state.pickedName + ' (' + state.pickedCode + ')';
     loadAiByCode(state.pickedCode);

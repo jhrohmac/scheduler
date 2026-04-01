@@ -1,41 +1,129 @@
-# Workflow ↔ Source Sync Matrix
+# Source ↔ Canvas ↔ Notion Sync Matrix
 
-## 규칙
-- 워크플로우 노드 ID를 소스 주석/로그 키로 같이 사용
-- 예: `WF-2-2`(차트 분석 모듈), `WF-2-4`(보유종목 관리)
+## 1. 필드 매핑
 
-## 1차 매핑 + 싱크 상태
-- WF-2-1 배치/분석 저장 → `BatchJobCtrlDaoImpl` ✅ (WF 주석 반영)
-- WF-2-2 차트 분석 모듈 → `PositionRuleEngine`, `BullishMomentumDetector`, `StockAnalysisUtil` ✅
-  - DAY/30MIN CrossDown(5/20 vs 60) 이벤트 로직 반영 ✅
-- WF-2-2c-BASE 지수 전용 베이스 모듈 → `IndexTrendRuleModule`(신규), `31_MARKET_TREND_RULES.md` 기준 연동 🟡
-  - 사용자 정의 이벤트명/판정식을 단일 기준 문서로 관리
-  - 소스 반영 대상: 지수 레짐 산출부 + 차트/AI 검토 문구 매핑
-- WF-2-3 추천 선별 → `oracle_StockAnalysis.xml#selectRecommendStocks`, `StockRecommendVo` ✅
-- WF-1-2 추천 UI → `recommendStocks.js`, `kisFinance.css`, `kisFinance.jsp` ✅
-- WF-1-4 차트 오버레이 UI → `kisFinancePage.js` ✅ (WF 주석 반영)
-- WF-1-5 시장정보/시장이슈 UI → `kisFinance.jsp`, `kisFinancePage.js`, `kisFinance.css`, `MarketSummaryController#selectMarketIssues` ✅
-  - 파일기반 SoT: `data/market-issues.json`
-  - OpenClaw cron(평일 07:30)로 일일 브리핑 생성/갱신
-- WF-2-9 WS 실시간 신호 → 설계/워크플로우 반영 ✅, 소스 확장 ⬜
-- WF-2-4 보유종목 관리(ADD/DELETE/AVERAGE_DOWN) → 설계 반영 ✅, 소스 완료 ✅
-  - `PositionVo/TxnVo/EventVo` + `PositionDao/DaoImpl` + `PositionController` 생성
-  - `oracle_Position.xml` 매퍼 + Spring Bean 등록 완료
-  - API: `/position/list.do`, `/position/add.do`, `/position/delete.do`, `/position/averageDown.do`, `/position/txnList.do`, `/position/eventList.do`
+| 관리 정보 | Canvas(Obsidian) | Notion | Source |
+| --- | --- | --- | --- |
+| 공통 ID | 노드 ID (`WF-*`, `2-4` 등) | `코드` | 주석/로그/문서에 동일 ID 반영 |
+| 항목명 | 노드 제목 | `항목명` | 클래스/모듈/화면 책임명 |
+| 상태 | `✅/🟡` | `상태` | 구현 사실로 검증 |
+| 연결관계 | edge | `연결 코드` | 호출 흐름/DB 의존 |
+| 상세 설명 | 노드 본문 | 페이지 본문 | 설계 문서/코드 |
 
-## 정리 완료 항목(삭제)
-- 캔버스 중복 파일 삭제 완료
-- 일회성/보조 DB tools 삭제 완료(승인 반영)
+운영 원칙:
+1. 공식 캔버스는 `MASTER_WORKFLOW.canvas` 하나만 사용한다.
+2. 이 문서에는 현재 `MASTER_WORKFLOW.canvas`에 남아 있는 source-backed 노드만 기록한다.
+3. 설계만 있는 planned/helper/checklist 항목은 `MASTER_WORKFLOW_NOTE.md`로 관리한다.
 
-## 다음 구현 순서(합의)
-1) WF-2-4 보유종목 로직(ADD/DELETE/AVERAGE_DOWN) ✅
-2) WF-3-8 보유종목 DB 테이블/매퍼 ✅(테이블/매핑/검증쿼리)
-3) WF-1-3 보유 UI 액션 연결 ✅
+## 2. 노드 ID별 소스 앵커 레지스트리
 
-## 후속 고도화(튜닝)
-- 상태머신 임계값(-3%, +1%) 데이터 기반 튜닝
-- 이벤트 타입별 성능 분석 쿼리 운영 (`db/analyze_position_event_thresholds.sql`)
-- 데모 샘플 적재/정리 스크립트 추가
-  - 적재: `db/seed_position_events_demo.sql`
-  - 정리: `db/cleanup_position_events_demo.sql`
-- 보유 UI에서 최근 포지션 이벤트 힌트 조회 연동 (`selectPositionEventList.do`)
+노드 ID 요청 시 이 표를 1차 기준으로 사용하고, 실제 검색 결과로 보강한다.
+
+| Canvas ID | 기능/의미 | 1차 소스 앵커 |
+| --- | --- | --- |
+| `1-0` | 로그인 UI | `webapp/appone/jsp/login/login.jsp (반응형 로그인 레이아웃 + 배경 이미지 오버레이 투명도 조정으로 원본 이미지 선명도 유지)` |
+| `1-1` | 관심종목 UI | `webapp/appone/jsp/finance/kis/mobile/watchlist.jsp`, `webapp/appone/jsp/finance/kis/kisFinance/kisFinance.jsp (realtimeWatchlist.js cache bust 버전 상향)`, `webapp/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js (wlGroupDiv 변경 시 관심종목 재조회 로딩 표시 + 이전 Ajax abort + 최신 선택값만 반영, 전역 재조회 함수 노출)`, `webapp/appone/jsp/finance/kis/kisFinance/js/realtimeWatchlist.js (관심종목/차트 헤더/시장요약 WebSocket에 CONNECTING 중복 연결 차단, stable key, 종료 코드 기반 재연결 백오프 적용)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css (터치 디바이스에서 관심종목 좌측 패널을 모바일 오버레이 레이아웃으로 강제하고, kisFinance 메인 차트 화면의 모바일 높이/툴바 줄바꿈/차트 컨테이너를 반응형으로 보정)`, `webapp/appone/jsp/finance/kis/kisFinance/js/chartScript.js (모바일에서 차트 우측 spacing과 리사이즈를 보정해 현재가 태그/축 라벨 잘림을 완화)`, `src/com/scheduler/finance/controller/InterestWatchlistController.java`, `src/com/scheduler/finance/dao/impl/MarketSummaryDaoImpl.java (KIS sign 코드 기준으로 관심종목/시장요약 방향을 동일 해석)`, `src/com/scheduler/finance/websocket/NoExtensionsConfigurator.java (브라우저 permessage-deflate 협상을 비활성화해 Tomcat/Tyrus 500 핸드셰이크 충돌 방지)`, `src/com/scheduler/finance/websocket/WatchlistRealtimeEndpoint.java (WS error 시 watchlist 구독 cleanup 보강 + no-extension configurator 적용)`, `src/com/scheduler/finance/websocket/MarketSummaryRealtimeEndpoint.java (WS error 시 summary push task cleanup 보강 + no-extension configurator 적용)`, `src/com/scheduler/kis_client/client/socket/JsrSocketClient.java (KIS websocket client close 시 Tyrus container shutdown/lock 정리 보강)`, `run.sh (Tomcat scheduler context 를 reloadable=false 로 생성하고 macOS/Homebrew 에서 USE_NOHUP=true 로 daemon start 종료 전파를 차단)` |
+| `WF-1-2A` | 추천신호 v1.10 UI | `webapp/appone/jsp/stock/recSignalList.jsp (Highcharts CDN 제거, 로컬 플러그인 경로 사용)`, `webapp/appone/jsp/stock/recSignalList.css (모바일 정보 밀도 개선, 랭킹 카드 현재가 표시, 비교 테이블 정렬 버튼 스타일, listView 우측 KIS 차트 카드/배지/반응형 높이 적용, listView 상단 hero/요약 카드 compact spacing 정리)`, `webapp/appone/jsp/stock/recSignalList.js (샘플 fallback 제거, 운영 데이터 없음/조회 실패 상태 표출, system_code 0000/S 성공 처리, 코드성 문구 한글화, listView 기본 차트 탭 렌더링, 랭킹 정렬과 테이블 헤더 정렬 분리, MA/분석메모 detailView 역할 분리, recYn=Y 결과 0건 시 recYn=N fallback 표시)`, `webapp/appone/jsp/stock/recSignalDetail.jsp`, `webapp/appone/jsp/stock/recSignalDetail.js (샘플 fallback 제거, 상세 빈 상태 표출, system_code 0000/S 성공 처리, 코드성 문구 한글화, synthetic chart 제거, 실데이터 기반 분석 메모 표시)`, `src/com/scheduler/stock/web/RecSignalController.java`, `webapp/appone/jsp/finance/kis/kisFinance/kisFinance.jsp (추천 비교 섹션 국가 선택을 관심종목과 동일한 wl-market-pill 토글로 통일하고, 상세 버튼용 오버레이 팝업/상세 API URL + 관심종목 등록 API URL을 주입)`, `webapp/appone/jsp/finance/kis/kisFinance/css/common.css (KIS 차트 헤더 공용 스타일)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.css (매매신호 패널 추천 비교 툴바/필터/테이블 스타일 + 상세/등록 액션 버튼 스타일 + kisFinance 톤의 추천 상세 팝업 카드/레이아웃)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css (터치 디바이스에서 매매신호 우측 패널을 모바일 오버레이 레이아웃으로 강제)`, `webapp/appone/jsp/finance/kis/kisFinance/js/chartScript.js (KIS 차트 공용 렌더링, 최신 요청만 반영, Highcharts 미로드 가드 추가)`, `webapp/appone/jsp/finance/kis/kisFinance/js/maScript.js`, `webapp/appone/jsp/finance/kis/kisFinance/js/doubleMonthChartScript.js`, `webapp/appone/jsp/finance/kis/kisFinance/js/recSignalPanel.js (국가 pill 토글 + 시장/등급/정렬/검색, recYn fallback, 더블클릭 차트 반영, 상세 버튼 팝업 로딩/렌더링, saveToWatchlist.do 등록 버튼 호출/성공 상태 반영)`, `webapp/appone/jsp/finance/kis/mobile/analysis.jsp`, `webapp/appone/jsp/finance/kis/mobile/js/analysis.js (모바일 TOP5 추천신호 조회)`, `webapp/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js (Highcharts 로더 기본 fallback을 CDN→로컬 경로 전환)`, `webapp/appone/jsp/finance/kis/mobile/chart.jsp (모바일 차트 Highcharts 로컬 경로 적용)` |
+| `1-3` | 보유종목 UI | `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/dao/impl/PositionDaoImpl.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml`, `db/DDL_TB_S_POSITION.sql` |
+| `1-4` | 차트 UI | `webapp/appone/jsp/finance/kis/mobile/chart.jsp (모바일 차트 스크립트 버전 갱신)`, `webapp/appone/jsp/finance/kis/mobile/js/chart.js (m -> KIS T 30분 요청, minute/month 기간 분리, system_code 오류 직접 표출)`, `webapp/appone/jsp/finance/kis/kisFinance/kisFinance.jsp (더블차트는 툴바 버튼 단일 UI, 숨김 입력 + DB 옵션 상태 동기화)`, `webapp/appone/jsp/finance/kis/kisFinance/js/chartScript.js (인덱스 분봉 자동 기간 확장 제외)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.css (dash-shell 외곽/패널 간 여백 1px compact 레이아웃)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css (터치 디바이스에서 차트 대시보드 전체 레이아웃을 모바일 반응형으로 강제)`, `src/com/scheduler/finance/controller/StockCodeInfoController.java`, `src/com/scheduler/finance/dao/impl/StockCodeInfoDaoImpl.java (국내주식 정규장 분봉 필터 + 해외주식 시장일자 기준 보정 + 국내/해외 지수 분봉 현재 세션 제한 명시 + 기간 검증 + 분봉 오류 승격)`, `src/com/scheduler/kis_api/api/rest/quotations/InquireTimeDailychartpriceApi.java (국내 분봉 기본 시장코드 J로 보수화)`, `src/com/scheduler/kis_api/api/rest/quotations/InquireTimeIndexchartpriceApi.java`, `src/com/scheduler/kis_api/api/rest/quotations/InquireTimeIndexchartpriceResult.java`, `src/com/scheduler/kis_api/api/rest/quotations/InquireOverseasTimeIndexchartpriceApi.java`, `src/com/scheduler/kis_api/api/rest/quotations/InquireOverseasTimeIndexchartpriceResult.java` |
+| `WF-1-5A` | 메뉴 관리 안정화(기존 중복 데이터 수정 허용) | `webapp/appone/jsp/management/menu/menuManagement.jsp`, `src/com/scheduler/management/controller/MenuManagementController.java`, `src/com/scheduler/management/dao/impl/MenuManagementDaoImpl.java`, `src/com/scheduler/management/sql/oracle/oracle_MenuManagement.xml` |
+| `2-1` | 배치/분석 저장 | `src/com/scheduler/finance/controller/BatchJobCtrlController.java`, `src/com/scheduler/finance/dao/impl/BatchJobCtrlDaoImpl.java (KOSPI200 merge 결과를 예외 기준으로 집계, tryLock을 DB update count 기준으로 보정, schedulerTick orphan lock 즉시 복구 포함)`, `src/com/scheduler/finance/sql/oracle/oracle_BatchJobCtrl.xml (normalizeInterestStockCountryCodeKr + ORA-38104-safe MERGE 포함)` |
+| `2-2` | 차트 분석 모듈 | `src/com/scheduler/finance/module/StockAnalysisUtil.java`, `src/com/scheduler/finance/module/BullishMomentumDetector.java`, `src/com/scheduler/finance/module/PositionRuleEngine.java`, `src/com/scheduler/finance/module/MovingAveragesLineNumber.java` |
+| `WF-2-2c-BASE` | 지수 베이스 모듈 | `src/com/scheduler/finance/module/IndexTrendRuleModule.java`, `src/com/scheduler/finance/controller/StockAnalysisController.java` |
+| `WF-2-3A` | 추천신호 조회/응답 런타임 | `src/com/scheduler/stock/web/RecSignalController.java (list.do / detail.do 응답)`, `src/com/scheduler/stock/service/RecSignalService.java (mktCd KR/US 정규화 + marketFilter 승격/검증)`, `src/com/scheduler/stock/dto/RecSignalDto.java (listingMarket / dowMemberYn 응답 필드)`, `src/com/scheduler/stock/dao/RecSignalDao.java`, `src/com/scheduler/stock/dao/impl/RecSignalDaoImpl.java`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml (TB_REC_SIGNAL + TB_STK_MASTER 조인 조회, KR/US + KOSPI/KOSDAQ/NASDAQ/DOW 필터)`, `webapp/appone/jsp/stock/recSignalList.js`, `webapp/appone/jsp/stock/recSignalDetail.js`, `webapp/appone/jsp/finance/kis/kisFinance/js/recSignalPanel.js (국가/시장 서버조회 + 등급/정렬/검색 클라이언트 필터 + recYn fallback)` |
+| `WF-2-3A-1` | 조회 진입/UI 요청 | `webapp/appone/jsp/stock/recSignalList.jsp (hero 제거, 국가/시장/등급 툴바 + 기준일 텍스트 재배치, 배치 상태 아코디언 shell, KIS 차트 옵션 버튼/팝업 포함)`, `webapp/appone/jsp/stock/recSignalList.js (국가/시장 필터, 코스닥 #표시, 배치 상태 아코디언/점 상태 렌더링, 상세 캐시 키 확장)`, `webapp/appone/jsp/stock/recSignalList.css (다중 필터 툴바/모바일 wrap 레이아웃, 배치 상태 점 표시/아코디언 스타일, 차트 옵션 버튼 보강)`, `webapp/appone/jsp/stock/recSignalChartOptions.js (kisFinance 차트 옵션 MA/FEATURE/CROSS 팝업 재사용, ChartScript 옵션 후킹)`, `webapp/appone/jsp/stock/recSignalDetail.jsp (MA 상태 비교 / 분석 메모 확인)`, `webapp/appone/jsp/finance/kis/kisFinance/kisFinance.jsp (비교 섹션 국가 선택을 관심종목과 동일한 pill 토글로 통일하고, 상세/등록 액션을 동일 화면에서 제공)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css`, `webapp/appone/jsp/finance/kis/kisFinance/js/chartScript.js`, `webapp/appone/jsp/finance/kis/kisFinance/js/recSignalPanel.js (list.do 호출 + marketFilter 전달 + recYn=Y/N fallback + 국가 pill 토글 + 더블클릭 차트 반영 + detail.do 기반 팝업 상세 렌더링 + saveToWatchlist.do 등록 버튼을 recommend groupDiv 로 고정)`, `src/com/scheduler/stock/web/RecSignalController.java (listView.do / detailView.do / list.do / detail.do)`, `src/com/scheduler/finance/controller/StockCodeInfoController.java (/finance/kisItemchartpriceData.do 기간 입력 yyyy-MM-dd / yyyyMMdd 정규화)` |
+| `WF-2-3A-2` | 조회조건/기준일 정규화 | `src/com/scheduler/stock/service/RecSignalService.java (normalizeMarketFilter + legacy mktCd->marketFilter 승격 + selectLatestBaseDt)`, `src/com/scheduler/stock/service/TradeDateService.java` |
+| `WF-2-3A-3` | 추천신호 조회 응답 | `src/com/scheduler/stock/dao/RecSignalDao.java`, `src/com/scheduler/stock/dao/impl/RecSignalDaoImpl.java`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml`, `src/com/scheduler/stock/web/RecSignalController.java (DataTableSettingVo 응답)` |
+| `WF-2-3B` | 추천신호 수집/계산/적재 배치(이관 설계+구현 반영) | `src/com/scheduler/stock/web/RecSignalController.java (runBatch.do 수동 실행)`, `src/com/scheduler/stock/batch/RecSignalBatch.java`, `src/com/scheduler/stock/batch/RecSignalDailyBatch.java`, `src/com/scheduler/stock/batch/RecSignalMarketScheduler.java`, `src/com/scheduler/stock/service/KisDlyPriceSyncService.java (KIS fetch 전용)`, `src/com/scheduler/stock/service/TradeDateService.java`, `src/com/scheduler/stock/service/MaCalculateService.java`, `src/com/scheduler/stock/service/RecSignalService.java (메모리 계산 + 실패건 재시도 + byte-safe 오류 로그 + full refresh 시 시장 전체 스냅샷 교체 + 인터럽트 감지 시 batch loop 조기 종료)`, `src/com/scheduler/kis_client/client/http/JavaHttpClient.java (InterruptedException 재설정 유지)`, `src/com/scheduler/stock/dao/BatchExecItemLogDao.java`, `src/com/scheduler/stock/dao/impl/BatchExecItemLogDaoImpl.java`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml (ERROR_MSG null-safe 바인딩)`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml (결과 저장 MERGE + 시장 전체 refresh 삭제)`, `src/com/scheduler/stock/sql/oracle/TradeDateMapper.xml`, `src/com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml`, `src/com/scheduler/stock/web/StockBatchAdminController.java`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java (RUNNING_YN 락 획득 판정: updateCount + current_exec_id state-check 병행, 락 획득 후 예외 시 rollback/release 보강 + heartbeat thread + stale local interrupt)`, `src/com/scheduler/stock/batchadmin/task/StockBatchTask.java`, `src/com/scheduler/stock/batchadmin/task/RecSignalRunTask.java`, `src/com/scheduler/stock/batchadmin/dao/StockBatchAdminDao.java`, `src/com/scheduler/stock/batchadmin/dao/impl/StockBatchAdminDaoImpl.java`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (job_id + task_key 기반 BATCH_ID 패턴 로그 조회 보정 + LAST_HEARTBEAT_AT 기반 stale 판정)`, `webapp/appone/jsp/stock/batchAdmin.jsp`, `webapp/appone/jsp/stock/batchAdmin.js (taskCatalog 실패와 무관한 jobList 로드 + flat/nested 응답 구조 동시 파싱 + jobLogList 요청 시 task_key 전달 + 메인/로그 그리드 DataTable 10건 페이징)`, `webapp/appone/jsp/stock/batchAdmin.css`, `webapp/WEB-INF/resources/service/stockService.xml`, `webapp/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-config.xml`, `webapp/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-context.xml`, `_workflow/notes/36_REC_SIGNAL_BATCH_ADMIN_DESIGN_2026-03-12.md` |
+| `WF-2-3B-1` | 배치 진입/스케줄(고정 크론 운영 + BatchAdmin 운영화면 추가) | `src/com/scheduler/stock/web/RecSignalController.java (runBatch.do)`, `src/com/scheduler/stock/batch/RecSignalDailyBatch.java`, `src/com/scheduler/stock/batch/RecSignalMarketScheduler.java`, `src/com/scheduler/stock/web/StockBatchAdminController.java (/stock/batchAdmin/view.do + scheduler tick)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService (manual runNow 락 소유 판정/디버그 로그/rollback 보강 + stale runtime 회수 시 local interrupt + heartbeat 기반 stale 판정 + RUNNING 로그 정리)`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (stale runtime 로그 정리 + marketGroup scope 조건 + LAST_HEARTBEAT_AT 기준 회수)`, `webapp/appone/jsp/stock/batchAdmin.jsp (정적 리소스 버전 갱신 + 메인/로그 그리드 DataTable width 대응)`, `webapp/appone/jsp/stock/batchAdmin.js (loadTasks 실패와 무관하게 loadJobs 실행 + 실행로그 조회 payload에 task_key 포함 + 페이지당 10건 DataTable 페이징)`, `webapp/WEB-INF/resources/service/stockService.xml (BatchAdmin DAO SIMPLE executor 분리)`, `webapp/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-context.xml (sqlSessionTemplateSimple 추가)`, `_workflow/notes/36_REC_SIGNAL_BATCH_ADMIN_DESIGN_2026-03-12.md` |
+| `WF-2-3B-2` | 배치 기준일/대상종목 결정 | `src/com/scheduler/stock/service/RecSignalService.java (resolveEffectiveBaseDate + resolveTargetStockList, 거래일 캘린더 fallback probe/진단 메시지 보강)`, `src/com/scheduler/stock/service/TradeDateService.java`, `src/com/scheduler/stock/dao/StkMasterDao.java`, `src/com/scheduler/stock/dao/BatchExecItemLogDao.java` |
+| `WF-2-3B-3` | KIS 일봉 수집 | `src/com/scheduler/stock/service/KisDlyPriceSyncService.java`, `src/com/scheduler/stock/web/RecSignalController.java (syncDlyPrice.do 보조 진입)` |
+| `WF-2-3B-4` | 추천신호 메모리 계산 | `src/com/scheduler/stock/service/RecSignalService.java (buildRecSignal)`, `src/com/scheduler/stock/service/MaCalculateService.java` |
+| `WF-2-3B-5` | 결과/실행 로그 적재 | `src/com/scheduler/stock/service/RecSignalService.java (admin execId 재사용 + 시장 단위 최신 스냅샷 유지)`, `src/com/scheduler/stock/dao/RecSignalDao.java`, `src/com/scheduler/stock/dao/impl/RecSignalDaoImpl.java`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml`, `src/com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml`, `src/com/scheduler/stock/dao/BatchExecLogDao.java`, `src/com/scheduler/stock/dao/BatchExecItemLogDao.java` |
+| `WF-2-3B-6` | 실패건 재시도 | `src/com/scheduler/stock/service/RecSignalService.java (retryOnly + sourceBatchId)`, `src/com/scheduler/stock/dao/BatchExecItemLogDao.java`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml` |
+| `2-4` | 보유종목 관리 | `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/dao/impl/PositionDaoImpl.java`, `src/com/scheduler/finance/vo/PositionVo.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml`, `db/DDL_TB_S_POSITION.sql`, `db/MIGRATE_TB_S_POSITION_RECO_LINK.sql (partial schema에서도 TARGET_PRICE/STOP_PRICE 누락 컬럼만 재보강 가능)`, `db/tools/DbPositionDdlRunner.java` |
+| `2-7` | 추천 저장/추적/확률/매도 가이드 런타임 | `src/com/scheduler/stock/web/RecPickController.java`, `src/com/scheduler/stock/service/RecPickService.java (추천 저장 watchlist upsert 시 recommend groupDiv 고정 + MyBatis BATCH 음수 반환값 실패 오판 방지)`, `src/com/scheduler/stock/service/RecPickTrackService.java (dailyTrack 조회 결과 0건 + pickId 단건 선택 시 KIS 기반 on-demand backfill 후 재조회, forcePickId 단건 실행 alias 지원, UP_DOWN_FLAG 를 1글자 코드로 저장)`, `src/com/scheduler/stock/service/RecProbabilityService.java`, `src/com/scheduler/stock/service/PositionExitSignalService.java`, `src/com/scheduler/stock/batch/RecPickDailyBatch.java`, `src/com/scheduler/stock/batch/PositionMonitorDailyBatch.java`, `src/com/scheduler/stock/dao/RecPickDao.java`, `src/com/scheduler/stock/dao/impl/RecPickDaoImpl.java`, `src/com/scheduler/stock/dto/RecPickDto.java`, `src/com/scheduler/stock/dto/RecPickDailyDto.java`, `src/com/scheduler/stock/dto/RecPickEvalDto.java`, `src/com/scheduler/stock/dto/RecProbabilityDto.java`, `src/com/scheduler/stock/dto/PositionSellGuideDto.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml (TB_S_RECO_PICK_DAILY / TB_S_RECO_PICK_EVAL nullable bind jdbcType 명시로 ORA-17004 방지)`, `src/com/scheduler/stock/dao/TradeDateDao.java`, `src/com/scheduler/stock/dao/impl/TradeDateDaoImpl.java`, `src/com/scheduler/stock/service/TradeDateService.java`, `src/com/scheduler/stock/sql/oracle/TradeDateMapper.xml`, `src/com/scheduler/finance/sql/oracle/oracle_MarketSummary.xml (groupDiv null-safe bind + watchlist groupDiv upsert 유지)`, `webapp/WEB-INF/resources/service/stockService.xml`, `webapp/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-config.xml`, `webapp/appone/jsp/finance/kis/kisFinance/kisFinance.jsp (saveToWatchlist.do URL 주입)`, `webapp/appone/jsp/finance/kis/kisFinance/js/recSignalPanel.js (추천 비교 행 등록 버튼으로 saveToWatchlist.do 호출 + recommend groupDiv 저장)`, `webapp/appone/jsp/finance/kis/kisFinance/css/kisFinance.css (등록 버튼/성공 상태 메시지 스타일)` |
+| `3-1` | `TB_S_INTEREST_STOCK` | `src/com/scheduler/finance/sql/oracle/oracle_BatchStock.xml`, `src/com/scheduler/finance/sql/oracle/oracle_BatchJobCtrl.xml`, `src/com/scheduler/finance/sql/oracle/oracle_StockAnalysis.xml`, `src/com/scheduler/finance/sql/oracle/oracle_StockManagement.xml`, `db/tools/DbUpsertMarketRegimeAssets.java` |
+| `3-2` | `TB_S_BATCH_JOB_CTRL` | `src/com/scheduler/finance/sql/oracle/oracle_BatchJobCtrl.xml`, `src/com/scheduler/finance/controller/BatchJobCtrlController.java`, `src/com/scheduler/finance/dao/impl/BatchJobCtrlDaoImpl.java (tryLock DB update count 기준, orphan lock 다음 tick 즉시 복구)` |
+| `3-3` | `TB_S_STOCK_ANALYSIS` | `src/com/scheduler/finance/sql/oracle/oracle_StockAnalysis.xml`, `src/com/scheduler/finance/sql/oracle/oracle_StockCodeInfo.xml`, `src/com/scheduler/finance/dao/impl/BatchJobCtrlDaoImpl.java` |
+| `WF-3-1A` | 추천신호 저장구조/배치운영 스키마 | `db/DDL_TB_STK_MASTER.sql`, `db/MIGRATE_TB_STK_MASTER_MARKET_SEGMENT.sql`, `db/DDL_TB_REC_SIGNAL.sql`, `db/DDL_TB_TRADE_CALENDAR.sql`, `db/DDL_TB_BATCH_EXEC_LOG.sql`, `db/DDL_TB_BATCH_EXEC_ITEM_LOG.sql`, `db/DDL_TB_STK_BATCH_ADMIN.sql`, `db/MIGRATE_REC_SIGNAL_MEMORY_MODEL.sql (TB_BATCH_EXEC_ITEM_LOG.ERROR_MSG 2000 보정 포함)`, `db/DDL_DROP_TB_STK_PRICE_TABLES.sql`, `db/tools/DbRecSignalDdlRunner.java`, `db/apply_rec_signal_ddl.sh`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml`, `src/com/scheduler/stock/sql/oracle/TradeDateMapper.xml`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml`, `src/com/scheduler/comm/system/InitializedSetting.java`, `src/com/scheduler/comm/system/GlobalVariablesFileRead.java`, `src/com/scheduler/comm/system/GlobalVariablesDBRead.java` |
+| `WF-3-1A-1` | 입력 정본 테이블 묶음 | `db/DDL_TB_STK_MASTER.sql`, `db/MIGRATE_TB_STK_MASTER_MARKET_SEGMENT.sql`, `db/DDL_TB_TRADE_CALENDAR.sql`, `src/com/scheduler/stock/sql/oracle/TradeDateMapper.xml`, `src/com/scheduler/stock/dao/StkMasterDao.java`, `src/com/scheduler/stock/dao/TradeDateDao.java` |
+| `WF-3-1A-1A` | `TB_STK_MASTER` | `db/DDL_TB_STK_MASTER.sql (MKT_CD=상장시장, DOW_MEMBER_YN 추가)`, `db/MIGRATE_TB_STK_MASTER_MARKET_SEGMENT.sql`, `src/com/scheduler/stock/sql/oracle/StkMasterMapper.xml`, `src/com/scheduler/stock/dao/StkMasterDao.java`, `src/com/scheduler/stock/dao/impl/StkMasterDaoImpl.java` |
+| `WF-3-1A-1B` | `TB_TRADE_CALENDAR` | `db/DDL_TB_TRADE_CALENDAR.sql`, `src/com/scheduler/stock/sql/oracle/TradeDateMapper.xml`, `src/com/scheduler/stock/dao/TradeDateDao.java`, `src/com/scheduler/stock/dao/impl/TradeDateDaoImpl.java`, `src/com/scheduler/stock/service/TradeDateService.java` |
+| `WF-3-1A-2` | 결과 저장 스키마 | `db/DDL_TB_REC_SIGNAL.sql`, `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml (TB_REC_SIGNAL 조회 시 TB_STK_MASTER 메타 조인 + 시장 단위 refresh 삭제)`, `src/com/scheduler/stock/dao/RecSignalDao.java`, `src/com/scheduler/stock/dao/impl/RecSignalDaoImpl.java` |
+| `WF-3-1A-3` | 배치 로그/Batch Admin 테이블 묶음 | `db/DDL_TB_BATCH_EXEC_LOG.sql`, `db/DDL_TB_BATCH_EXEC_ITEM_LOG.sql`, `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml`, `src/com/scheduler/stock/batchadmin/dao/StockBatchAdminDao.java`, `src/com/scheduler/stock/batchadmin/dao/impl/StockBatchAdminDaoImpl.java`, `_workflow/notes/36_REC_SIGNAL_BATCH_ADMIN_DESIGN_2026-03-12.md` |
+| `WF-3-1A-3A` | `TB_BATCH_EXEC_LOG` | `db/DDL_TB_BATCH_EXEC_LOG.sql`, `src/com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml`, `src/com/scheduler/stock/dao/BatchExecLogDao.java`, `src/com/scheduler/stock/dao/impl/BatchExecLogDaoImpl.java`, `src/com/scheduler/stock/service/RecSignalService.java` |
+| `WF-3-1A-3B` | `TB_BATCH_EXEC_ITEM_LOG` | `db/DDL_TB_BATCH_EXEC_ITEM_LOG.sql`, `db/MIGRATE_REC_SIGNAL_MEMORY_MODEL.sql (TB_BATCH_EXEC_ITEM_LOG.ERROR_MSG 2000 보정 포함)`, `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml`, `src/com/scheduler/stock/dao/BatchExecItemLogDao.java`, `src/com/scheduler/stock/dao/impl/BatchExecItemLogDaoImpl.java`, `src/com/scheduler/stock/service/RecSignalService.java` |
+| `WF-3-1A-3C` | `TB_STK_BATCH_TASK_DEF` | `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (task catalog 조회)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java`, `webapp/WEB-INF/resources/service/stockService.xml` |
+| `WF-3-1A-3D` | `TB_STK_BATCH_JOB_DEF` | `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (job CRUD)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java`, `src/com/scheduler/stock/web/StockBatchAdminController.java` |
+| `WF-3-1A-3E` | `TB_STK_BATCH_JOB_SCHEDULE` | `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (schedule upsert / due job 조회)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java`, `src/com/scheduler/stock/web/StockBatchAdminController.java` |
+| `WF-3-1A-3F` | `TB_STK_BATCH_JOB_PARAM` | `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (param insert/delete)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java`, `src/com/scheduler/stock/web/StockBatchAdminController.java` |
+| `WF-3-1A-3G` | `TB_STK_BATCH_JOB_RUNTIME` | `db/DDL_TB_STK_BATCH_ADMIN.sql`, `src/com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml (RUNNING_YN / LAST_HEARTBEAT_AT / stale lock 회수)`, `src/com/scheduler/stock/batchadmin/service/StockBatchAdminService.java`, `src/com/scheduler/stock/web/StockBatchAdminController.java` |
+| `3-4` | `TB_S_STOCK_30MINANALYSIS` | `src/com/scheduler/finance/sql/oracle/oracle_StockAnalysis.xml`, `src/com/scheduler/finance/sql/oracle/oracle_StockCodeInfo.xml`, `src/com/scheduler/finance/dao/impl/BatchJobCtrlDaoImpl.java` |
+| `3-5` | `TB_S_SIGNAL_EVENT` | `db/DDL_TB_S_SIGNAL_EVENT.sql`, `src/com/scheduler/finance/sql/oracle/oracle_SignalEvent.xml`, `src/com/scheduler/finance/dao/impl/SignalEventDaoImpl.java` |
+| `3-8` | 보유종목 테이블 묶음 | `db/DDL_TB_S_POSITION.sql`, `db/MIGRATE_TB_S_POSITION_RECO_LINK.sql (추천 연계 컬럼 개별 ALTER로 재실행 안전화)`, `db/tools/DbPositionDdlRunner.java`, `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml` |
+| `3-8A` | `TB_S_POSITION` | `db/DDL_TB_S_POSITION.sql`, `db/MIGRATE_TB_S_POSITION_RECO_LINK.sql (TARGET_PRICE/STOP_PRICE 누락 운영 DB 보정 가능)`, `db/tools/DbPositionDdlRunner.java`, `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/vo/PositionVo.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml` |
+| `3-8B` | `TB_S_POSITION_TXN` | `db/DDL_TB_S_POSITION.sql`, `db/tools/DbPositionDdlRunner.java`, `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/vo/PositionTxnVo.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml` |
+| `3-8C` | `TB_S_POSITION_EVENT` | `db/DDL_TB_S_POSITION.sql`, `db/tools/DbPositionDdlRunner.java`, `src/com/scheduler/finance/controller/PositionController.java`, `src/com/scheduler/finance/dao/PositionDao.java`, `src/com/scheduler/finance/vo/PositionEventVo.java`, `src/com/scheduler/finance/sql/oracle/oracle_Position.xml` |
+| `3-9` | 추천 추적 테이블 묶음 | `db/DDL_TB_S_RECO_PICK.sql`, `db/DDL_TB_S_RECO_PICK_DAILY.sql`, `db/DDL_TB_S_RECO_PICK_EVAL.sql`, `db/DDL_VW_S_RECO_PICK_STATS.sql`, `db/verify_reco_pick_history.sql`, `db/apply_reco_pick_ddl.sh`, `db/tools/DbRecoPickDdlRunner.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml`, `src/com/scheduler/stock/dao/RecPickDao.java`, `src/com/scheduler/stock/dao/impl/RecPickDaoImpl.java` |
+| `3-9A` | `TB_S_RECO_PICK` | `db/DDL_TB_S_RECO_PICK.sql`, `db/apply_reco_pick_ddl.sh`, `db/tools/DbRecoPickDdlRunner.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml`, `src/com/scheduler/stock/dao/RecPickDao.java`, `src/com/scheduler/stock/dao/impl/RecPickDaoImpl.java`, `src/com/scheduler/stock/service/RecPickService.java` |
+| `3-9B` | `TB_S_RECO_PICK_DAILY` | `db/DDL_TB_S_RECO_PICK_DAILY.sql`, `db/apply_reco_pick_ddl.sh`, `db/tools/DbRecoPickDdlRunner.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml`, `src/com/scheduler/stock/service/RecPickTrackService.java`, `src/com/scheduler/stock/batch/RecPickDailyBatch.java` |
+| `3-9C` | `TB_S_RECO_PICK_EVAL` | `db/DDL_TB_S_RECO_PICK_EVAL.sql`, `db/apply_reco_pick_ddl.sh`, `db/tools/DbRecoPickDdlRunner.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml`, `src/com/scheduler/stock/service/RecProbabilityService.java`, `src/com/scheduler/stock/service/PositionExitSignalService.java` |
+| `3-9D` | `VW_S_RECO_PICK_STATS` | `db/DDL_VW_S_RECO_PICK_STATS.sql`, `db/verify_reco_pick_history.sql`, `src/com/scheduler/stock/service/RecProbabilityService.java`, `src/com/scheduler/stock/sql/oracle/RecPickMapper.xml` |
+
+레지스트리 유지 규칙:
+1. 신규 노드를 `MASTER_WORKFLOW.canvas`에 올릴 때만 이 표를 같은 작업에서 갱신한다.
+2. 실제 소스 경로가 없는 항목은 이 표에 등록하지 않는다.
+3. 소스 경로가 이동되면 같은 변경에서 앵커도 즉시 수정한다.
+
+## 3. 노드 ID 입력 요청 처리 표준
+
+### 즉시 파악 절차
+1. 본 문서의 노드 ID 앵커 확인
+2. 전체 검색으로 실제 영향 경로 확인
+3. 아래 형식으로 응답
+   - `변경 사항`
+   - `변경 대상`
+   - `영향 범위`
+4. 파일 표기는 경로만 사용하고, 라인 위치는 작성하지 않는다.
+5. `변경 대상` 작성 규칙
+   - `캔버스`: `노드 ID : 노드 내용`
+   - `프로젝트소스`: 관련 파일 경로 목록
+
+### 권장 검색 명령
+
+```bash
+rg -n "<CANVAS_ID>|핵심키워드" _workflow src webapp db
+```
+
+## 4. 변경 타입별 동기화 매트릭스
+
+| Change Type | Source 액션 | Canvas 액션 | Notion 액션 |
+| --- | --- | --- | --- |
+| `ADD` | 파일/테이블/엔드포인트 신규 추가 | 실제 소스가 존재할 때만 동일 노드 신규 추가 + 연결 edge 반영 | 신규 항목 생성 + 상태 `미착수/진행중` |
+| `MODIFY` | 기존 파일 로직 변경 | 동일 노드 설명/연결 수정 | 상태/체크리스트 갱신 |
+| `DELETE` | 파일/테이블/기능 제거 | 노드 삭제 + 연결 edge 제거 | 종료/폐기 상태 및 대체 경로 기록 |
+
+## 5. 변경 보고 표준
+
+```text
+변경 사항 :
+- ...
+
+변경 대상 :
+- 캔버스
+  - NODE_ID : 노드 내용
+- 프로젝트소스
+  - /absolute/path/...
+  - /absolute/path/...
+
+영향 범위 :
+- ...
+```
+
+## 6. 오염 방지 체크리스트
+
+1. 현재 `MASTER_WORKFLOW.canvas`에 없는 노드 ID를 이 문서에 남기지 않았는가
+2. 소스와 캔버스 반영 시점이 같은 작업 단위인가
+3. 삭제 작업에서 캔버스 edge 정리가 누락되지 않았는가
+4. 변경 보고에 Canvas ID, Change Type, Source Files가 빠지지 않았는가

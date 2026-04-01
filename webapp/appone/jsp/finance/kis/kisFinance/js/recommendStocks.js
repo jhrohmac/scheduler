@@ -1,11 +1,10 @@
 /**
- * 추천 종목 모달
- * - 필터: 국내/해외, 코스피/코스닥(국내), 최소등급(+), 가격 범위, 원픽(1개), 현재가(KIS), limit
- * - 리스트: 원픽 뱃지, 선택(라디오), 더블클릭 적용, 선택 적용 버튼
+ * kisFinance 우측 보유종목 패널과 시장 연동만 담당한다.
+ * 추천신호 목록 렌더링은 recSignalPanel.js에서 처리한다.
  */
 (function () {
     "use strict";
-    // WF-1-2: 추천종목 UI (필터/레짐배너/이벤트요약/선택적용)
+    // WF-1-3: 보유종목 패널 / 시장 칩 동기화
 
     function $(sel) { return document.querySelector(sel); }
     function $all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
@@ -13,15 +12,6 @@
     function safeStr(v) {
         if (v === null || v === undefined) return "";
         return String(v);
-    }
-
-    function escapeHtml(s) {
-        return safeStr(s)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\"/g, "&quot;")
-            .replace(/'/g, "&#39;");
     }
 
     function normalizeStockCode(code, country) {
@@ -47,31 +37,6 @@
         return "";
     }
 
-    function getRowField(row, name) {
-        // snake_case 우선, 그 다음 camel/UPPER 변형까지 흡수
-        var map = {
-            stock_code: ["stock_code", "stockCode", "code", "pdno", "STOCK_CODE"],
-            stock_ko_name: ["stock_ko_name", "stockKoName", "name", "STOCK_KO_NAME"],
-            stock_market: ["stock_market", "stockMarket", "market", "STOCK_MARKET"],
-            stock_country_code: ["stock_country_code", "stockCountryCode", "country", "STOCK_COUNTRY_CODE"],
-            daily_close: ["daily_close", "dailyClose", "close", "DAILY_CLOSE"],
-            daily_dist20_pct: ["daily_dist20_pct", "dailyDist20Pct", "dist20", "DAILY_DIST20_PCT"],
-            reco_score: ["reco_score", "recoScore", "score", "RECO_SCORE"],
-            reco_signal_code: ["reco_signal_code", "recoSignalCode", "signalCode", "RECO_SIGNAL_CODE"],
-            reco_signal_name: ["reco_signal_name", "recoSignalName", "signalName", "RECO_SIGNAL_NAME"],
-            reco_trend_text: ["reco_trend_text", "recoTrendText", "trendText", "RECO_TREND_TEXT"],
-            reco_reason_detail: ["reco_reason_detail", "recoReasonDetail", "reasonDetail", "RECO_REASON_DETAIL"],
-            reco_event_summary: ["reco_event_summary", "recoEventSummary", "eventSummary", "RECO_EVENT_SUMMARY"],
-            modify_date: ["modify_date", "modifyDate", "MODIFY_DATE"],
-            now_price: ["now_price", "nowPrice", "NOW_PRICE"],
-            now_diff: ["now_diff", "nowDiff", "NOW_DIFF"],
-            now_pct: ["now_pct", "nowPct", "NOW_PCT"],
-            regime_kr_score: ["regime_kr_score", "regimeKrScore", "REGIME_KR_SCORE"],
-            regime_us_score: ["regime_us_score", "regimeUsScore", "REGIME_US_SCORE"]
-        };
-        return pick(row, map[name] || [name]);
-    }
-
     function nfmt(v) {
         var s = safeStr(v).replace(/,/g, "");
         if (!s) return "-";
@@ -80,174 +45,11 @@
         return num.toLocaleString();
     }
 
-    function pctfmt(v) {
-        var s = safeStr(v).replace(/,/g, "");
-        if (!s) return "-";
-        var num = Number(s);
-        if (isNaN(num)) return safeStr(v);
-        return num.toFixed(2) + "%";
-    }
-
-    
-    function sigIcon(code) {
-        code = safeStr(code).toUpperCase();
-        if (code === "STRONG_BUY") return "🔥";
-        if (code === "BUY") return "▲";
-        if (code === "WEAK_BUY") return "↗";
-        if (code === "HOLD") return "•";
-        if (code === "WEAK_SELL") return "↘";
-        if (code === "SELL") return "▼";
-        if (code === "STRONG_SELL") return "🧊";
-        return "•";
-    }
-
     function domMktLabel(v) {
         v = safeStr(v).toUpperCase();
         if (v === "STK" || v === "KOSPI") return "KOSPI";
         if (v === "KSQ" || v === "KOSDAQ") return "KOSDAQ";
         return v || "-";
-    }
-
-    function domMktClass(v) {
-        v = safeStr(v).toUpperCase();
-        if (v === "STK" || v === "KOSPI") return "reco-mkt-kospi";
-        if (v === "KSQ" || v === "KOSDAQ") return "reco-mkt-kosdaq";
-        return "reco-mkt-etc";
-    }
-
-    function buildMktBadge(mkt) {
-        var lbl = domMktLabel(mkt);
-        var cls = domMktClass(mkt);
-        return '    <span class="reco-mkt-badge ' + cls + '">' + lbl + '</span>';
-    }
-
-    function isBuySignal(code) {
-        code = safeStr(code).toUpperCase();
-        return (code.indexOf("BUY") >= 0);
-    }
-
-    function isSellSignal(code) {
-        code = safeStr(code).toUpperCase();
-        return (code.indexOf("SELL") >= 0);
-    }
-
-    function timingLabelShort(text) {
-        var t = safeStr(text);
-        if (t.indexOf("매도주의") >= 0) return "매도주의";
-        if (t.indexOf("매수관심") >= 0) return "매수관심";
-        if (t.indexOf("매수대기") >= 0) return "매수대기";
-        return "매수대기";
-    }
-
-    function signalTagLabel(code, trend, reason, events) {
-        var t = timingDecision(code, trend, reason, events);
-        return timingLabelShort(t.text);
-    }
-
-    function signalTagClass(code, trend, reason, events) {
-        var t = timingDecision(code, trend, reason, events);
-        return (t.cls === "wait") ? "hold" : t.cls;
-    }
-
-    function signalCodeToKorean(code) {
-        var c = safeStr(code).toUpperCase();
-        if (c === "STRONG_BUY") return "강한매수";
-        if (c === "BUY") return "매수";
-        if (c === "WEAK_BUY") return "관심매수";
-        if (c === "HOLD") return "관망";
-        if (c === "WEAK_SELL") return "주의매도";
-        if (c === "SELL") return "매도";
-        if (c === "STRONG_SELL") return "강한매도";
-        return "";
-    }
-
-    function signalLabelKorean(sigName, sigCode) {
-        var code = safeStr(sigCode).toUpperCase();
-        var korByCode = signalCodeToKorean(code);
-        var name = safeStr(sigName);
-        if (!name && korByCode) return korByCode;
-        if (name && korByCode && name.toUpperCase() !== code) {
-            return name + " (" + korByCode + ")";
-        }
-        return korByCode || name || code;
-    }
-
-    function timingDecision(sig, trend, reason, events) {
-        var s = safeStr(sig).toUpperCase();
-        var t = safeStr(trend).toUpperCase();
-        var r = safeStr(reason).toUpperCase();
-        var e = safeStr(events).toUpperCase();
-        var all = s + " " + t + " " + r + " " + e;
-
-        if (all.indexOf("TRIGGER_PULLBACK_READY") >= 0) {
-            return { text: "매수관심(눌림형)", cls: "buy" };
-        }
-        if (all.indexOf("TRIGGER_BREAKOUT_READY") >= 0) {
-            return { text: "매수관심(돌파형)", cls: "buy" };
-        }
-        if (all.indexOf("TRIGGER_PULLBACK_WAIT") >= 0) {
-            return { text: "매수대기(눌림형)", cls: "wait" };
-        }
-        if (all.indexOf("TRIGGER_BREAKOUT_WAIT") >= 0) {
-            return { text: "매수대기(돌파형)", cls: "wait" };
-        }
-
-        if (all.indexOf("SELL") >= 0 || all.indexOf("RISK") >= 0 || all.indexOf("EXIT") >= 0 || all.indexOf("MACD: SELL") >= 0) {
-            return { text: "매도주의", cls: "sell" };
-        }
-        if (all.indexOf("BUY") >= 0 || all.indexOf("ENTRY_READY") >= 0 || all.indexOf("TREND_OK") >= 0 || all.indexOf("PULLBACK") >= 0) {
-            return { text: "매수관심", cls: "buy" };
-        }
-        return { text: "매수대기", cls: "wait" };
-    }
-
-    function setError(msg) {
-        var targets = ["#recoError", "#signalError"];
-        targets.forEach(function (sel) {
-            var el = $(sel);
-            if (!el) return;
-            if (!msg) {
-                el.style.display = "none";
-                el.textContent = "";
-                return;
-            }
-            el.style.display = "block";
-            el.textContent = msg;
-        });
-    }
-
-    function setAsOf(text) {
-        var targets = ["#recoAsOf", "#signalAsOf"];
-        targets.forEach(function (sel) {
-            var el = $(sel);
-            if (el) el.textContent = text || "";
-        });
-    }
-
-    function buildAsOfText(list) {
-        if (!Array.isArray(list) || list.length === 0) return "";
-        var latest = "";
-        for (var i = 0; i < list.length; i++) {
-            var d = safeStr(getRowField(list[i], "modify_date")).trim();
-            if (!d) continue;
-            if (!latest || d > latest) latest = d; // YYYY-MM-DD HH:MI 형식이라 문자열 비교 가능
-        }
-        if (!latest) return "총 " + list.length + "건";
-        return "데이터 기준 " + latest + " · 총 " + list.length + "건";
-    }
-
-    function setSignalCount(filteredCount, totalCount) {
-        var el = $("#signalCount");
-        if (!el) return;
-        if (!totalCount && totalCount !== 0) {
-            el.textContent = "";
-            return;
-        }
-        if (filteredCount === totalCount) {
-            el.textContent = "총 " + totalCount + "건";
-            return;
-        }
-        el.textContent = "표시 " + filteredCount + " / 총 " + totalCount + "건";
     }
 
     function normalizeResponse(resp) {
@@ -270,8 +72,6 @@
         return { ok: ok, msg: safeStr(resp && (resp.result_msg || resp.resultMsg || resp.RESULT_MSG || resp.system_msg || resp.systemMsg)), list: (data && data.data ? data.data : data) || [] };
     }
 
-    var selectedCode = "";
-    var lastList = [];
     var holdingSelectedCode = "";
     var holdingSelectedGroup = "";
     var holdingSelectedData = null;
@@ -283,187 +83,6 @@
     var holdingEventFilter = "all";
     var holdingEventCache = [];
 
-
-    function getSignalFilter() {
-        var active = document.querySelector(".sig-pill.is-active");
-        return active ? (active.getAttribute("data-filter") || "all") : "all";
-    }
-
-    function getSignalTypeFilters() {
-        var filters = [];
-        $all(".sig-type-chip.is-active").forEach(function (btn) {
-            var type = btn.getAttribute("data-type");
-            if (type) filters.push(type);
-        });
-        return filters;
-    }
-
-    function getSignalKeyword() {
-        var el = document.getElementById("signalKeyword");
-        return el ? safeStr(el.value).trim().toUpperCase() : "";
-    }
-
-    function matchesSignalType(item, selectedTypes) {
-        if (!selectedTypes || selectedTypes.length === 0) return true;
-        if (selectedTypes.indexOf("all") >= 0) return true;
-
-        var signalCode = safeStr(getRowField(item, "reco_signal_code")).toUpperCase();
-        var signalName = safeStr(getRowField(item, "reco_signal_name")).toUpperCase();
-        var trendText = safeStr(getRowField(item, "reco_trend_text")).toUpperCase();
-        var reasonDetail = safeStr(getRowField(item, "reco_reason_detail")).toUpperCase();
-        var eventSummary = safeStr(getRowField(item, "reco_event_summary")).toUpperCase();
-        var timing = timingDecision(signalCode, trendText, reasonDetail, eventSummary);
-
-        for (var i = 0; i < selectedTypes.length; i++) {
-            var type = selectedTypes[i];
-            switch (type) {
-                case "buy":
-                    if (timing.cls === "buy" || signalCode.indexOf("BUY") >= 0) return true;
-                    break;
-                case "sell":
-                    if (timing.cls === "sell" || signalCode.indexOf("SELL") >= 0) return true;
-                    break;
-                case "entry_ready":
-                    if (reasonDetail.indexOf("ENTRY_READY") >= 0 || reasonDetail.indexOf("진입 검토") >= 0 ||
-                        eventSummary.indexOf("ENTRY_READY") >= 0 || eventSummary.indexOf("TRIGGER_") >= 0) return true;
-                    break;
-                case "caution":
-                    if (timing.cls === "sell" || reasonDetail.indexOf("RISK") >= 0 || reasonDetail.indexOf("주의") >= 0 ||
-                        reasonDetail.indexOf("WAIT") >= 0 || eventSummary.indexOf("MACD:SELL") >= 0) return true;
-                    break;
-                case "long_uptrend":
-                    if (trendText.indexOf("장기 우상향") >= 0 || trendText.indexOf("장기 상승") >= 0 ||
-                        reasonDetail.indexOf("장기 우상향") >= 0 || reasonDetail.indexOf("장기 상승") >= 0 ||
-                        eventSummary.indexOf("정배열") >= 0) return true;
-                    break;
-            }
-        }
-        return false;
-    }
-
-    function filterSignalList(list, filter) {
-        if (!Array.isArray(list)) return [];
-
-        var typeFilters = getSignalTypeFilters();
-        var filtered = list.slice();
-
-        // 첫 번째: 매수/매도 필터
-        if (filter && filter !== "all") {
-            if (filter === "buy") {
-                filtered = filtered.filter(function (r) {
-                    return isBuySignal(getRowField(r, "reco_signal_code"));
-                });
-            } else if (filter === "sell") {
-                filtered = filtered.filter(function (r) {
-                    return isSellSignal(getRowField(r, "reco_signal_code"));
-                });
-            }
-        }
-
-        // 두 번째: 신호유형 필터
-        filtered = filtered.filter(function (item) {
-            return matchesSignalType(item, typeFilters);
-        });
-
-        // 세 번째: 키워드 검색(종목명/코드/이벤트/사유/추세)
-        var kw = getSignalKeyword();
-        if (kw) {
-            filtered = filtered.filter(function (item) {
-                var code = safeStr(getRowField(item, "stock_code")).toUpperCase();
-                var name = safeStr(getRowField(item, "stock_ko_name")).toUpperCase();
-                var events = safeStr(getRowField(item, "reco_event_summary")).toUpperCase();
-                var reason = safeStr(getRowField(item, "reco_reason_detail")).toUpperCase();
-                var trend = safeStr(getRowField(item, "reco_trend_text")).toUpperCase();
-                var hay = [code, name, events, reason, trend].join(" ");
-                return hay.indexOf(kw) >= 0;
-            });
-        }
-
-        return filtered;
-    }
-
-    function renderSignalList(list) {
-        var wrap = $("#signalList");
-        if (!wrap) return;
-
-        if (!Array.isArray(list) || list.length === 0) {
-            wrap.innerHTML = '<div class="signal-empty">표시할 매매 신호가 없습니다.</div>';
-            return;
-        }
-
-        var html = "";
-        for (var i = 0; i < list.length; i++) {
-            var r = list[i] || {};
-            var rank = i + 1;
-            var rawCode = safeStr(getRowField(r, "stock_code"));
-            var name = safeStr(getRowField(r, "stock_ko_name"));
-            var mkt = safeStr(getRowField(r, "stock_market"));
-            var ctry = safeStr(getRowField(r, "stock_country_code"));
-            var code = normalizeStockCode(rawCode, ctry);
-            var score = safeStr(getRowField(r, "reco_score"));
-            var sig = safeStr(getRowField(r, "reco_signal_code")) || "HOLD";
-            var sigName = safeStr(getRowField(r, "reco_signal_name"));
-            var dist20 = safeStr(getRowField(r, "daily_dist20_pct"));
-            var close = safeStr(getRowField(r, "daily_close"));
-            var trend = safeStr(getRowField(r, "reco_trend_text"));
-            var reason = safeStr(getRowField(r, "reco_reason_detail"));
-            var events = safeStr(getRowField(r, "reco_event_summary"));
-            var nowPrice = safeStr(getRowField(r, "now_price"));
-            var nowDiff = safeStr(getRowField(r, "now_diff"));
-            var nowPct = safeStr(getRowField(r, "now_pct"));
-
-            var priceMain = nowPrice ? nfmt(nowPrice) : nfmt(close);
-            var diffClass = "flat";
-            var dnum = Number(safeStr(nowDiff).replace(/,/g, ""));
-            if (!isNaN(dnum)) {
-                if (dnum > 0) diffClass = "up";
-                else if (dnum < 0) diffClass = "down";
-            }
-
-            var metaText = (code || "-") + (mkt ? (" · " + domMktLabel(mkt)) : "");
-            var strategyText = signalLabelKorean(sigName, sig) || trend || reason;
-
-            html += ''
-                + '<div class="signal-item" data-code="' + code + '">'
-                + '  <div class="signal-top">'
-                + '    <span class="signal-rank">' + rank + '</span>'
-                + '    <div class="signal-name-wrap">'
-                + '      <div class="signal-name">' + (name || "-") + '</div>'
-                + '      <div class="signal-code">' + metaText + '</div>'
-                + '    </div>'
-                + '    <span class="signal-tag ' + signalTagClass(sig, trend, reason, events) + '">' + signalTagLabel(sig, trend, reason, events) + '</span>'
-                + '  </div>'
-                + '  <div class="signal-mid">'
-                + '    <span class="signal-strategy">' + (strategyText ? ("전략명 " + strategyText) : "전략 정보 없음") + '</span>'
-                + (score ? '<span>점수 ' + score + '</span>' : '')
-                + (dist20 ? '<span>20일 ' + pctfmt(dist20) + '</span>' : '')
-                + '  </div>'
-                + '  <div class="signal-sub">'
-                + '    <span class="signal-price">현재 ' + priceMain + '</span>'
-                + (nowPrice ? '<span class="signal-change ' + diffClass + '">' + (nowDiff ? nfmt(nowDiff) : "-") + ' (' + (nowPct ? pctfmt(nowPct) : "-") + ')</span>' : '')
-                + '  </div>'
-                + '</div>';
-        }
-
-        wrap.innerHTML = html;
-
-        $all(".signal-item").forEach(function (row) {
-            row.addEventListener("click", function () {
-                var code = this.getAttribute("data-code");
-                if (!code) return;
-                selectedCode = code;
-                highlightSelected();
-            });
-            row.addEventListener("dblclick", function () {
-                var code = this.getAttribute("data-code");
-                if (!code) return;
-                selectedCode = code;
-                applySelected();
-            });
-        });
-
-        highlightSelected();
-    }
 
     function getHoldingField(row, name) {
         var map = {
@@ -670,11 +289,10 @@
         var market = isUsCountry(country) ? "A" : "N";
         var wl = document.getElementById("wlMarket");
         if (wl) wl.value = market;
-        var recoMarket = $("#recoMarket");
-        if (recoMarket) recoMarket.value = market;
         setActiveSignalMarket(market);
-        updateControlState();
-        loadList();
+        if (typeof window.refreshRecSignalPanel === "function") {
+            window.refreshRecSignalPanel(false);
+        }
     }
 
     function highlightHoldingSelected() {
@@ -1229,364 +847,12 @@
         });
     }
 
-    function regimeLabel(score) {
-        var n = Number(String(score).replace(/,/g, ""));
-        if (isNaN(n)) return { cls: "rg-mid", text: "중(중립)", score: "-" };
-        if (n >= 5) return { cls: "rg-up", text: "상(우호)", score: (n > 0 ? "+" : "") + n };
-        if (n <= -5) return { cls: "rg-down", text: "하(비우호)", score: String(n) };
-        return { cls: "rg-mid", text: "중(중립)", score: (n > 0 ? "+" : "") + n };
-    }
-
-    function renderRegimeSummary(list) {
-        var box = $("#recoRegimeSummary");
-        if (!box) return;
-
-        if (!Array.isArray(list) || list.length === 0) {
-            box.style.display = "none";
-            box.innerHTML = "";
-            return;
-        }
-
-        // 첫 행에 공통(시장) 레짐 점수를 실어 내려오게 구성
-        var r0 = list[0] || {};
-        var kr = safeStr(getRowField(r0, "regime_kr_score"));
-        var us = safeStr(getRowField(r0, "regime_us_score"));
-
-        if (!kr && !us) {
-            box.style.display = "none";
-            box.innerHTML = "";
-            return;
-        }
-
-        var html = '';
-        if (kr) {
-            var a = regimeLabel(kr);
-            html += '<span class="rg"><span class="rg-title">KR 레짐</span>'
-                + '<span class="rg-pill ' + a.cls + '">' + a.text + '</span>'
-                + '<span class="rg-score">(' + a.score + ')</span></span>';
-        }
-        if (us) {
-            var b = regimeLabel(us);
-            html += '<span class="rg"><span class="rg-title">US 레짐</span>'
-                + '<span class="rg-pill ' + b.cls + '">' + b.text + '</span>'
-                + '<span class="rg-score">(' + b.score + ')</span></span>';
-        }
-
-        box.innerHTML = html;
-        box.style.display = "block";
-    }
-
-    function renderList(list) {
-        var wrap = $("#recoList");
-        if (!wrap) return;
-
-        renderRegimeSummary(list);
-
-        if (!Array.isArray(list) || list.length === 0) {
-            wrap.innerHTML = '<div class="reco-empty">추천 종목이 없습니다.</div>';
-            return;
-        }
-
-        var html = "";
-        for (var i = 0; i < list.length; i++) {
-            var r = list[i] || {};
-            var rank = i + 1;
-            var rawCode = safeStr(getRowField(r, "stock_code"));
-            var name = safeStr(getRowField(r, "stock_ko_name"));
-            var mkt = safeStr(getRowField(r, "stock_market"));
-            var ctry = safeStr(getRowField(r, "stock_country_code"));
-            var code = normalizeStockCode(rawCode, ctry);
-            var score = safeStr(getRowField(r, "reco_score"));
-            var sig = safeStr(getRowField(r, "reco_signal_code")) || "HOLD";
-            var sigName = safeStr(getRowField(r, "reco_signal_name"));
-            var dist20 = safeStr(getRowField(r, "daily_dist20_pct"));
-            var close = safeStr(getRowField(r, "daily_close"));
-            var trend = safeStr(getRowField(r, "reco_trend_text"));
-            var reason = safeStr(getRowField(r, "reco_reason_detail"));
-            var events = safeStr(getRowField(r, "reco_event_summary"));
-            var timing = timingDecision(sig, trend, reason, events);
-            var nowPrice = safeStr(getRowField(r, "now_price"));
-            var nowDiff = safeStr(getRowField(r, "now_diff"));
-            var nowPct = safeStr(getRowField(r, "now_pct"));
-
-            var isPick = (i === 0);
-            var isSelected = (selectedCode && selectedCode === code);
-
-            var priceMain = nowPrice ? nfmt(nowPrice) : nfmt(close);
-            var priceSub = nowPrice ? ("종가 " + nfmt(close)) : "";
-
-            var diffClass = "reco-flat";
-            var dnum = Number(safeStr(nowDiff).replace(/,/g, ""));
-            if (!isNaN(dnum)) {
-                if (dnum > 0) diffClass = "reco-up";
-                else if (dnum < 0) diffClass = "reco-down";
-            }
-
-            var diffArrow = (diffClass === "reco-up" ? "▲" : (diffClass === "reco-down" ? "▼" : "•"));
-
-            html += ''
-                + '<div class="reco-row' + (isPick ? ' is-top' : '') + '" data-code="' + code + '">'
-                + '  <div class="reco-left">'
-                + '    <label class="reco-radio">'
-                + '      <input type="radio" name="recoPick" value="' + code + '" ' + (isSelected ? "checked" : "") + '>'
-                + '      <span class="reco-radio-ui"></span>'
-                + '    </label>'
-                + '    <span class="reco-rank reco-rank-' + rank + '">' + rank + '</span>'
-                + '    <span class="reco-flag">' + (ctry ? ctry : "KR") + '</span>'
-                + '    <span class="reco-name">' + (name || "-") + '</span>'
-                + '    <span class="reco-code">' + (code || "-") + '</span>'
-                + buildMktBadge(mkt)
-                + (isPick ? '<span class="reco-onepick">원픽</span>' : '')
-                + '  </div>'
-                + '  <div class="reco-right">'
-                + '    <span class="reco-sig sig-' + sig.toLowerCase().replace(/_/g, "-") + '">' + sigIcon(sig) + ' '+ signalLabelKorean(sigName, sig) + '</span>'
-                + '    <span class="reco-score">' + (score ? ("점수 " + score) : "") + '</span>'
-                + '    <span class="reco-dist">' + (dist20 ? ("20일 " + pctfmt(dist20)) : "") + '</span>'
-                + '    <span class="reco-price">' + priceMain + '</span>'
-                + (nowPrice ? '<span class="reco-sub">' + priceSub + '</span>' : '')
-                + (nowPrice ? '<span class="reco-chg ' + diffClass + '">' + diffArrow + ' '+ (nowDiff ? nfmt(nowDiff) : "-") + ' (' + (nowPct ? pctfmt(nowPct) : "-") + ')</span>' : '')
-                + '    <span class="reco-arrow">›</span>'
-                + '  </div>'
-                + '  <div class="reco-meta">'
-                + '    <div class="reco-trend">' + trend + '</div>'
-                + '    <div><span class="timing-badge ' + timing.cls + '">' + timing.text + '</span></div>'
-                + (events ? ('    <div class="reco-events">' + escapeHtml(events) + '</div>') : '')
-                + '    <div class="reco-reason">' + reason + '</div>'
-                + '  </div>'
-                + '</div>';
-        }
-
-        wrap.innerHTML = html;
-
-        // radio change
-        $all('input[name="recoPick"]').forEach(function (el) {
-            el.addEventListener("change", function () {
-                selectedCode = this.value;
-                highlightSelected();
-            });
-        });
-
-        // single click select, double click apply
-        $all(".reco-row").forEach(function (row) {
-            row.addEventListener("click", function () {
-                var code = this.getAttribute("data-code");
-                try { console.log("[reco] click data-code=", code); } catch (e) {}
-                if (!code) return;
-                selectedCode = code;
-                var radio = this.querySelector('input[name="recoPick"][value="' + code + '"]');
-                if (radio) radio.checked = true;
-                highlightSelected();
-            });
-            row.addEventListener("dblclick", function () {
-                var code = this.getAttribute("data-code");
-                try { console.log("[reco] dblclick data-code=", code); } catch (e) {}
-                if (!code) return;
-                selectedCode = code;
-                applySelected();
-            });
-        });
-
-        highlightSelected();
-    }
-
-    function highlightSelected() {
-        $all(".reco-row").forEach(function (row) {
-            var code = row.getAttribute("data-code");
-            if (code && selectedCode === code) row.classList.add("is-selected");
-            else row.classList.remove("is-selected");
-        });
-        $all(".signal-item").forEach(function (row) {
-            var code = row.getAttribute("data-code");
-            if (code && selectedCode === code) row.classList.add("is-selected");
-            else row.classList.remove("is-selected");
-        });
-    }
-
-    function applySelected() {
-        if (!selectedCode) {
-            var checked = document.querySelector('input[name="recoPick"]:checked');
-            if (checked && checked.value) {
-                selectedCode = checked.value;
-            } else {
-                var row = document.querySelector(".reco-row.is-selected") || document.querySelector(".reco-row");
-                if (row) {
-                    selectedCode = row.getAttribute("data-code") || "";
-                }
-            }
-        }
-        try { console.log("[reco] applySelected selectedCode=", selectedCode); } catch (e) {}
-        if (!selectedCode) return;
-
-        // kisFinance.jsp 내부의 종목 변경 로직과 연동
-        // 1) 상단 검색 입력이 있으면 넣고
-        var inp = document.getElementById("topSearchInput");
-        if (inp) inp.value = selectedCode;
-
-        var codeInput = document.getElementById("stockCode");
-        if (codeInput) codeInput.value = selectedCode;
-
-        // 기간이 비어 있으면 기본값 세팅
-        var fromEl = document.getElementById("fromDate");
-        var toEl = document.getElementById("toDate");
-        if ((fromEl && !fromEl.value) || (toEl && !toEl.value)) {
-            if (typeof window.setDefaultDates === "function") {
-                window.setDefaultDates();
-            }
-        }
-
-        // 2) 기존 검색/조회 함수가 있으면 호출
-        if (typeof window.doSearch === "function") {
-            window.doSearch();
-        } else if (typeof window.selectStockByCode === "function") {
-            window.selectStockByCode(selectedCode);
-        } else if (typeof window.loadStockChartByCode === "function") {
-            window.loadStockChartByCode(selectedCode);
-        } else if (typeof window.ChartScript !== "undefined" && ChartScript.loadKisItemchartprice) {
-            ChartScript.loadKisItemchartprice({
-                stockCode: selectedCode,
-                periodDivCode: (document.getElementById("periodDivCode") || {}).value || "D",
-                fromDate: (fromEl && fromEl.value ? fromEl.value : "").replace(/-/g, ""),
-                toDate: (toEl && toEl.value ? toEl.value : "").replace(/-/g, ""),
-                orgAdjPrc: "1"
-            });
-        }
-
-        // 모달 닫기
-        if (window.jQuery && window.jQuery("#recommendModal").modal) {
-            window.jQuery("#recommendModal").modal("hide");
-        }
-    }
-
-    function readFilters() {
-        var market = ($("#recoMarket") ? $("#recoMarket").value : "N");
-        var minGrade = ($("#recoMinGrade") ? $("#recoMinGrade").value : "WEAK_BUY");
-        var domMarket = ($("#recoDomMarket") ? $("#recoDomMarket").value : "ALL");
-        var priceMin = ($("#recoPriceMin") ? $("#recoPriceMin").value : "");
-        var priceMax = ($("#recoPriceMax") ? $("#recoPriceMax").value : "");
-        var onePick = ($("#recoOnePick") && $("#recoOnePick").checked) ? "Y" : "N";
-        var includeNow = ($("#recoIncludeNow") && $("#recoIncludeNow").checked) ? "Y" : "N";
-        var nowLimit = ($("#recoNowLimit") ? $("#recoNowLimit").value : "20");
-        var limit = ($("#recoLimit") ? $("#recoLimit").value : "50");
-
-        // market이 해외면 domMarket/현재가 비활성
-        if (market === "A") {
-            domMarket = "ALL";
-            includeNow = "N";
-        }
-
-        // 원픽이면 limit=1
-        if (onePick === "Y") {
-            limit = "1";
-        }
-
-        return {
-            market: market,
-            minGrade: minGrade,
-            domMarket: domMarket,
-            priceMin: priceMin,
-            priceMax: priceMax,
-            onePick: onePick,
-            includeNow: includeNow,
-            nowLimit: nowLimit,
-            limit: limit
-        };
-    }
-
-    function updateControlState() {
-        var market = ($("#recoMarket") ? $("#recoMarket").value : "N");
-
-        var domSel = $("#recoDomMarket");
-        if (domSel) domSel.disabled = (market !== "N");
-
-        var nowChk = $("#recoIncludeNow");
-        var nowSel = $("#recoNowLimit");
-        if (nowChk) nowChk.disabled = (market !== "N");
-        if (nowSel) nowSel.disabled = (market !== "N" || !(nowChk && nowChk.checked));
-
-        var limitSel = $("#recoLimit");
-        var onePick = $("#recoOnePick");
-        if (limitSel && onePick && onePick.checked) limitSel.disabled = true;
-        else if (limitSel) limitSel.disabled = false;
-    }
-
-    function loadList() {
-        setError("");
-        setAsOf("조회 중...");
-
-        updateControlState();
-
-        var f = readFilters();
-        setActiveSignalMarket(f.market || "N");
-        var url = (window.__URLS && window.__URLS.selectRecommendStocks) ? window.__URLS.selectRecommendStocks : "/finance/selectRecommendStocks.do";
-
-        if (!window.jQuery) {
-            setError("jQuery가 필요합니다.");
-            setAsOf("");
-            return;
-        }
-
-        window.jQuery.ajax({
-            url: url,
-            type: "GET",
-            dataType: "json",
-            data: f,
-            timeout: 15000
-        }).done(function (resp) {
-            var norm = normalizeResponse(resp);
-            if (!norm.ok) {
-                setError(norm.msg || "조회 실패");
-                renderList([]);
-                renderSignalList([]);
-                setSignalCount(0, 0);
-                setAsOf("");
-                return;
-            }
-
-            var list = norm.list;
-            if (list && list.data && Array.isArray(list.data)) list = list.data;
-            if (!Array.isArray(list)) list = [];
-
-            lastList = list.slice();
-
-            // 원픽 모드면 자동 선택
-            if (f.onePick === "Y" && list.length > 0) {
-                selectedCode = safeStr(getRowField(list[0], "stock_code"));
-            }
-
-            renderList(list);
-            var filtered = filterSignalList(list, getSignalFilter());
-            renderSignalList(filtered);
-            setSignalCount(filtered.length, list.length);
-            setAsOf(buildAsOfText(list));
-        }).fail(function (xhr) {
-            setError("통신 오류 (" + xhr.status + ")");
-            renderList([]);
-            renderSignalList([]);
-            setSignalCount(0, 0);
-            setAsOf("");
-        });
-    }
-
     function setActiveSignalMarket(market) {
         $all(".sig-chip").forEach(function (btn) {
             var m = btn.getAttribute("data-market");
             if (m === market) btn.classList.add("is-active");
             else btn.classList.remove("is-active");
         });
-    }
-
-    function setActiveSignalFilter(filter) {
-        $all(".sig-pill").forEach(function (btn) {
-            var f = btn.getAttribute("data-filter");
-            if (f === filter) btn.classList.add("is-active");
-            else btn.classList.remove("is-active");
-        });
-    }
-
-    function refreshSignalListFromCache() {
-        var filtered = filterSignalList(lastList, getSignalFilter());
-        renderSignalList(filtered);
-        setSignalCount(filtered.length, lastList.length);
     }
 
     function bindRightTabs() {
@@ -1610,75 +876,6 @@
                 });
             });
         });
-    }
-
-    function bindSignalPanel() {
-        $all(".sig-chip").forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                if (this.classList.contains("is-disabled")) return;
-                var market = this.getAttribute("data-market") || "N";
-                setActiveSignalMarket(market);
-                var recoMarket = $("#recoMarket");
-                if (recoMarket) recoMarket.value = market;
-                var wl = document.getElementById("wlMarket");
-                if (wl) wl.value = market;
-                updateControlState();
-                loadList();
-            });
-        });
-
-        $all(".sig-pill").forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                var filter = this.getAttribute("data-filter") || "all";
-                setActiveSignalFilter(filter);
-                refreshSignalListFromCache();
-            });
-        });
-
-        // 상태필터 토글칩
-        $all(".sig-type-chip").forEach(function (chip) {
-            chip.addEventListener("click", function () {
-                var type = this.getAttribute("data-type") || "";
-                var chips = $all(".sig-type-chip");
-                if (!type) return;
-
-                if (type === "all") {
-                    var on = !this.classList.contains("is-active");
-                    chips.forEach(function (c) {
-                        if (on) c.classList.add("is-active");
-                        else c.classList.remove("is-active");
-                    });
-                    refreshSignalListFromCache();
-                    return;
-                }
-
-                this.classList.toggle("is-active");
-
-                var others = chips.filter(function (c) { return c.getAttribute("data-type") !== "all"; });
-                var activeCount = 0;
-                others.forEach(function (c) { if (c.classList.contains("is-active")) activeCount++; });
-
-                var allChip = document.querySelector('.sig-type-chip[data-type="all"]');
-                if (allChip) {
-                    if (activeCount === others.length) allChip.classList.add("is-active");
-                    else allChip.classList.remove("is-active");
-                }
-
-                refreshSignalListFromCache();
-            });
-        });
-
-        var reload = $("#btnSignalReload");
-        if (reload) reload.addEventListener("click", function () {
-            loadList();
-        });
-
-        var kw = document.getElementById("signalKeyword");
-        if (kw) {
-            kw.addEventListener("input", function () {
-                refreshSignalListFromCache();
-            });
-        }
     }
 
     function bindHoldingPanel() {
@@ -1761,11 +958,10 @@
         if (wl) {
             wl.addEventListener("change", function () {
                 var market = (this.value === "A") ? "A" : "N";
-                var recoMarket = $("#recoMarket");
-                if (recoMarket) recoMarket.value = market;
                 setActiveSignalMarket(market);
-                updateControlState();
-                loadList();
+                if (typeof window.refreshRecSignalPanel === "function") {
+                    window.refreshRecSignalPanel(false);
+                }
 
                 resetHoldingFormInputs();
                 if (isHoldingTabActive()) {
@@ -1778,18 +974,15 @@
     }
 
     function bind() {
-        // 추천 팝업 제거: 매매신호 탭에서 직접 조회/검색
+        // 레거시 추천 조회는 제거하고, 보유종목 패널만 유지한다.
 
         var initMarket = "N";
         var wl = document.getElementById("wlMarket");
         if (wl && wl.value) initMarket = (wl.value === "A") ? "A" : "N";
 
         setActiveSignalMarket(initMarket);
-        setActiveSignalFilter("all");
         bindRightTabs();
-        bindSignalPanel();
         bindHoldingPanel();
-        loadList();
     }
 
     // DOM ready

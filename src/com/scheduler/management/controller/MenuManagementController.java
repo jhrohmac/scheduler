@@ -55,7 +55,7 @@ public class MenuManagementController
         	resultVo.setDraw(map.get("draw"));
             resultVo.setStart_no(Integer.parseInt(map.get("start")));
         	resultVo.setPage_length(Integer.parseInt(map.get("length")));
-        	resultVo.setRecordsFiltered(list.size());
+        	resultVo.setRecordsFiltered(list.isEmpty() ? 0 : list.get(0).getTotal_count());
         	resultVo.setRecordsTotal(list.isEmpty() ? 0 : list.get(0).getTotal_count());
 
         	ResponseHandler.sendResponse(res,ResultMsg.SUCCESS_CODE,ResultMsg.SUCCESS_MSG, resultVo);
@@ -204,7 +204,26 @@ public class MenuManagementController
         
         int cnt = 0;
         try {
-            cnt = this.menuManagementDao.selectOneCnt(map);
+        	String menuId = map.get("in_menuId");
+        	if (menuId != null) {
+        		map.put("in_menuId", menuId.trim());
+        	}
+
+        	if (map.get("in_menuSeq") != null && !map.get("in_menuSeq").equals("")) {
+        		MenuVo currentMenu = this.menuManagementDao.selectMenuBySeq(map);
+        		String currentMenuId = "";
+        		if (currentMenu != null && currentMenu.getMenu_id() != null) {
+        			currentMenuId = currentMenu.getMenu_id().trim();
+        		}
+
+        		if (map.get("in_menuId") != null && map.get("in_menuId").equals(currentMenuId)) {
+        			cnt = 0;
+        		} else {
+        			cnt = this.menuManagementDao.selectOneCnt(map);
+        		}
+        	} else {
+        		cnt = this.menuManagementDao.selectOneCnt(map);
+        	}
             String resultCode = "";
             String resultMsg = "";
             if (cnt > 0) {
@@ -212,8 +231,8 @@ public class MenuManagementController
             	resultMsg = "사용중인 메뉴 코드 입니다. 코드명을 변경해주세요.";
             }
             else {
-            	resultCode = "사용 가능한 메뉴 코드 입니다.";
             	resultCode ="Y";
+            	resultMsg = "사용 가능한 메뉴 코드 입니다.";
             }
             
         	DataTableSettingVo resultVo = new DataTableSettingVo();

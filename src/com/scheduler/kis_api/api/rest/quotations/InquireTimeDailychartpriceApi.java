@@ -28,7 +28,7 @@ public class InquireTimeDailychartpriceApi extends CommonRestApi<InquireTimeDail
      * J:KRX, NX:NXT, UN:통합
      */
     @Parameter
-    private String fidCondMrktDivCode = "UN";
+    private String fidCondMrktDivCode = "J";
 
     /**
      * 입력 종목코드

@@ -11,16 +11,17 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Scheduler System</title>
 </head>
 <link rel="stylesheet" href="/scheduler/appone/plugins/system/css/scheduler-custom.css">
 
-<body class="hold-transition sidebar-mini" >
-	<div class="wrapper" id="main_View">
+<body class="hold-transition sidebar-mini scheduler-shell-page" >
+	<div class="wrapper scheduler-app" id="main_View">
  		<!-- Navbar -->
-		<nav class="main-header navbar navbar-expand navbar-white navbar-light">
+		<nav class="main-header navbar navbar-expand navbar-white navbar-light scheduler-topbar">
 			<!-- Left navbar links -->
-			<ul class="navbar-nav">
+			<ul class="navbar-nav scheduler-topbar__group scheduler-topbar__group--left">
 				<li class="nav-item">
 					<a class="nav-link" data-widget="pushmenu" href="#" role="button">
 						<i class="fas fa-bars"></i> 
@@ -31,7 +32,7 @@
 				</li>
 			</ul>
 			<!-- Right navbar links -->
-			<ul class="navbar-nav ml-auto">
+			<ul class="navbar-nav ml-auto scheduler-topbar__group scheduler-topbar__group--right">
 				<!-- [SESSION] 타임아웃 표시 (최소 수정) -->
                 <li class="nav-item d-flex align-items-center pr-2" id="nav_session_timer" title="세션 남은 시간 / 설정값">
                     <i class="far fa-clock mr-1" aria-hidden="true"></i>
@@ -109,8 +110,8 @@
 		</ul>
 	</nav>
 	<%@ include file="/appone/jsp/slidemenu/slide_menu.jsp" %>
-	<div class="content-wrapper">
-		<section class="content-header pt-1 pb-1 pl-3 pr-3">
+	<div class="content-wrapper scheduler-content-wrapper">
+		<section class="content-header pt-1 pb-1 pl-3 pr-3 scheduler-content-header">
 	    	<div class="container-fluid">
 	        	<div class="row mb-0">
 	          		<div class="col-sm-6 d-flex align-items-center justify-content-left">
@@ -122,21 +123,23 @@
 	        	</div>
 			</div>
   		</section>
-	    <section class="content pt-1 pb-1 pl-3 pr-3" id="mainContent"></section>
+	    <section class="content pt-1 pb-1 pl-3 pr-3 scheduler-main-content" id="mainContent"></section>
 	</div>
-	<footer class="main-footer p-1">
-	    <div class="float-right d-none d-sm-block">
+	<footer class="main-footer p-1 scheduler-footer">
+	    <div class="float-right d-none d-sm-block scheduler-footer__version">
 	    	<b>Version</b> 3.2.0
 	    </div>
-	    <strong>CREATE &copy;2024 Contact as : <a href="">ipsit@ipscorp.co.kr</a></strong> All rights reserved.
+	    <div class="scheduler-footer__copyright">
+	    	<strong>CREATE &copy;2024 Contact as : <a href="">ipsit@ipscorp.co.kr</a></strong> All rights reserved.
+	    </div>
   	</footer>
   	<aside class="control-sidebar control-sidebar-light">
   	</aside>
 </div>
 
 <!-- 등록 / 수정 POPUP -->
-<div class="modal fade" id="modal_userProfile" tabindex="-1" data-keyboard="true" data-backdrop="static">
-	<div class="modal-dialog modal-sm">
+<div class="modal fade scheduler-modal" id="modal_userProfile" tabindex="-1" data-keyboard="true" data-backdrop="static">
+	<div class="modal-dialog modal-sm scheduler-modal__dialog">
 		<div class="modal-content">
 			<div class="modal-header">
 				<h6 class="modal-title">사용자 정보</h6>
@@ -168,8 +171,8 @@
 	</div>
 </div>
 
-<div class="modal fade" id="modal_orgChart" tabindex="-1" data-keyboard="true" data-backdrop="static">
-	<div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+<div class="modal fade scheduler-modal" id="modal_orgChart" tabindex="-1" data-keyboard="true" data-backdrop="static">
+	<div class="modal-dialog modal-lg modal-dialog-scrollable scheduler-modal__dialog scheduler-modal__dialog--org" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
 					<h5 class="modal-title" id="orgChartModalLabel">조직도</h5>

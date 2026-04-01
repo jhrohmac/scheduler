@@ -1,11 +1,5 @@
 package com.scheduler.finance.controller;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -241,51 +235,4 @@ public class MarketSummaryController {
         }
     }
 
-    /**
-     * 시장이슈 JSON 파일 조회
-     * - 파일 경로: /Users/jinhyun/Desktop/scheduler/data/market-issues.json
-     * - 파일이 없으면 빈 JSON 반환
-     */
-    @RequestMapping({ "/finance/selectMarketIssues.do" })
-    public void selectMarketIssues(HttpServletRequest req, HttpServletResponse res) {
-        res.setContentType("application/json;charset=UTF-8");
-        
-        String filePath = "/Users/jinhyun/Desktop/scheduler/data/market-issues.json";
-        File file = new File(filePath);
-        
-        try {
-            PrintWriter out = res.getWriter();
-            
-            if (!file.exists() || !file.isFile()) {
-                // 파일이 없으면 빈 JSON 반환
-                out.write("{\"date\":\"\",\"us_market\":null,\"kr_market\":null}");
-                out.flush();
-                return;
-            }
-            
-            // 파일 읽기
-            StringBuilder content = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    content.append(line);
-                }
-            }
-            
-            // JSON 내용 그대로 반환
-            out.write(content.toString());
-            out.flush();
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            try {
-                PrintWriter out = res.getWriter();
-                out.write("{\"date\":\"\",\"us_market\":null,\"kr_market\":null}");
-                out.flush();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-    }
 }

@@ -111,23 +111,25 @@ public class KisInquirePriceTest {
             InquirePriceResult result = kisClient.execute(api, credentials);
 
             // 6) 결과 출력
-            System.out.println("=== InquirePriceResult ===");
-            System.out.println("rt_cd  = " + result.getRtCd());
-            System.out.println("msg_cd = " + result.getMsgCd());
-            System.out.println("msg1   = " + result.getMsg1());
+            //System.out.println("=== InquirePriceResult ===");
+            //System.out.println("rt_cd  = " + result.getRtCd());
+            //System.out.println("msg_cd = " + result.getMsgCd());
+            //System.out.println("msg1   = " + result.getMsg1());
 
             if ("0".equals(result.getRtCd())) {
                 InquirePriceResult.Output out = result.getOutput();
-                if (out != null) {
-                    System.out.println("종목코드    : " + out.getStckShrnIscd());
-                    System.out.println("종목명      : " + out.getHtSdtNm());
-                    System.out.println("현재가      : " + out.getStckPrpr());
-                    System.out.println("전일대비     : " + out.getPrdyVrss());
-                    System.out.println("전일대비율  : " + out.getPrdyCtrt());
-                    System.out.println("거래량      : " + out.getAcmlVol());
-                } else {
-                    System.out.println("output 이 null 입니다.");
-                }
+                if (out == null) {
+                    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                    System.out.println("======="+stackTrace[2].getMethodName()+"=======output 이 null 입니다.");
+                    // System.out.println("종목코드    : " + out.getStckShrnIscd());
+                    // System.out.println("종목명      : " + out.getHtSdtNm());
+                    // System.out.println("현재가      : " + out.getStckPrpr());
+                    // System.out.println("전일대비     : " + out.getPrdyVrss());
+                    // System.out.println("전일대비율  : " + out.getPrdyCtrt());
+                    // System.out.println("거래량      : " + out.getAcmlVol());
+                }// else {
+                   // System.out.println("output 이 null 입니다.");
+               // }
             } else {
                 System.out.println("요청 실패. 코드/메시지를 확인하세요.");
             }
