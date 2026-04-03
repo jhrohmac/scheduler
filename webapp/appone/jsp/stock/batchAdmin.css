@@ -12,8 +12,36 @@
     font-size: 12px;
 }
 
-#edit_params_json {
-    font-family: Menlo, Monaco, Consolas, monospace;
+#param_rows_container .param-row-header {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#param_rows_container .param-row {
+    border-bottom: 1px solid #f0f0f0;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+#param_rows_container .param-row:last-child {
+    border-bottom: none;
+}
+
+#param_rows_container .param-value[disabled] {
+    background-color: #e8f4fd;
+    color: #1a6a9a;
+    font-style: italic;
+}
+
+#param_rows_container .btn-sysdate {
+    font-size: 10px;
+    padding: 2px 5px;
+    white-space: nowrap;
+}
+
+#param_rows_container .btn-sysdate.btn-info {
+    font-weight: 700;
 }
 
 #modal_batch_admin_edit .batch-tip {

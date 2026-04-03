@@ -248,45 +248,55 @@
     </select>
 
     <select id="selectRecPickList" parameterType="hashmap" resultType="recPickDto">
-        SELECT PICK_ID AS pickId,
-               SOURCE_TYPE AS sourceType,
-               TO_CHAR(SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
-               SOURCE_MKT_CD AS sourceMktCd,
-               STK_CD AS stkCd,
-               STK_NM AS stkNm,
-               LISTING_MARKET AS listingMarket,
-               WATCH_GROUP_ID AS watchGroupId,
-               PICK_STATUS AS pickStatus,
-               REC_RANK AS recRank,
-               REC_YN AS recYn,
-               REC_GRADE AS recGrade,
-               REC_REASON AS recReason,
-               GOLDEN_YN AS goldenYn,
-               MON_UP_YN AS monUpYn,
-               MON_CHG_RATE AS monChgRate,
-               TREND_STRENGTH AS trendStrength,
-               AVG_TRD_VAL_20 AS avgTrdVal20,
-               REC_ANCHOR_PRICE AS recAnchorPrice,
-               WATCH_ANCHOR_PRICE AS watchAnchorPrice,
-               TO_CHAR(WATCH_SAVED_AT, 'YYYY-MM-DD') AS watchSavedAt,
-               TO_CHAR(FIRST_BUY_DATE, 'YYYY-MM-DD') AS firstBuyDate,
-               FIRST_BUY_PRICE AS firstBuyPrice,
-               FIRST_BUY_QTY AS firstBuyQty,
-               POSITION_ID AS positionId,
-               ENTRY_RULE_CODE AS entryRuleCode,
-               TO_CHAR(LAST_TRACK_DT, 'YYYY-MM-DD') AS lastTrackDt,
-               CREATE_USER AS createUser,
-               TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') AS createDate,
-               TO_CHAR(MODIFY_DATE, 'YYYY-MM-DD') AS modifyDate
-          FROM TB_S_RECO_PICK
+        SELECT P.PICK_ID AS pickId,
+               P.SOURCE_TYPE AS sourceType,
+               TO_CHAR(P.SOURCE_BASE_DT, 'YYYY-MM-DD') AS sourceBaseDt,
+               P.SOURCE_MKT_CD AS sourceMktCd,
+               P.STK_CD AS stkCd,
+               P.STK_NM AS stkNm,
+               P.LISTING_MARKET AS listingMarket,
+               P.WATCH_GROUP_ID AS watchGroupId,
+               P.PICK_STATUS AS pickStatus,
+               P.REC_RANK AS recRank,
+               P.REC_YN AS recYn,
+               P.REC_GRADE AS recGrade,
+               P.REC_REASON AS recReason,
+               P.GOLDEN_YN AS goldenYn,
+               P.MON_UP_YN AS monUpYn,
+               P.MON_CHG_RATE AS monChgRate,
+               P.TREND_STRENGTH AS trendStrength,
+               P.AVG_TRD_VAL_20 AS avgTrdVal20,
+               P.REC_ANCHOR_PRICE AS recAnchorPrice,
+               P.WATCH_ANCHOR_PRICE AS watchAnchorPrice,
+               TO_CHAR(P.WATCH_SAVED_AT, 'YYYY-MM-DD') AS watchSavedAt,
+               TO_CHAR(P.FIRST_BUY_DATE, 'YYYY-MM-DD') AS firstBuyDate,
+               P.FIRST_BUY_PRICE AS firstBuyPrice,
+               P.FIRST_BUY_QTY AS firstBuyQty,
+               P.POSITION_ID AS positionId,
+               P.ENTRY_RULE_CODE AS entryRuleCode,
+               TO_CHAR(P.LAST_TRACK_DT, 'YYYY-MM-DD') AS lastTrackDt,
+               P.CREATE_USER AS createUser,
+               TO_CHAR(P.CREATE_DATE, 'YYYY-MM-DD') AS createDate,
+               TO_CHAR(P.MODIFY_DATE, 'YYYY-MM-DD') AS modifyDate,
+               D.CLOSE_PRICE AS currentPrice
+          FROM TB_S_RECO_PICK P
+          LEFT JOIN (
+              SELECT d.PICK_ID, d.CLOSE_PRICE
+                FROM TB_S_RECO_PICK_DAILY d
+               INNER JOIN (
+                   SELECT PICK_ID, MAX(TRADE_DT) AS MAX_DT
+                     FROM TB_S_RECO_PICK_DAILY
+                    GROUP BY PICK_ID
+               ) m ON d.PICK_ID = m.PICK_ID AND d.TRADE_DT = m.MAX_DT
+          ) D ON D.PICK_ID = P.PICK_ID
          WHERE 1 = 1
-           <if test="pickStatus != null and pickStatus != ''">AND PICK_STATUS = #{pickStatus}</if>
-           <if test="mktCd != null and mktCd != ''">AND SOURCE_MKT_CD = #{mktCd}</if>
-           <if test="watchGroupId != null and watchGroupId != ''">AND WATCH_GROUP_ID = #{watchGroupId}</if>
-           <if test="stkCd != null and stkCd != ''">AND STK_CD = #{stkCd}</if>
-           <if test="sourceBaseDt != null and sourceBaseDt != ''">AND SOURCE_BASE_DT = TO_DATE(#{sourceBaseDt}, 'YYYY-MM-DD')</if>
-           <if test="positionId != null and positionId != ''">AND POSITION_ID = TO_NUMBER(#{positionId})</if>
-         ORDER BY WATCH_SAVED_AT DESC, PICK_ID DESC
+           <if test="pickStatus != null and pickStatus != ''">AND P.PICK_STATUS = #{pickStatus}</if>
+           <if test="mktCd != null and mktCd != ''">AND P.SOURCE_MKT_CD = #{mktCd}</if>
+           <if test="watchGroupId != null and watchGroupId != ''">AND P.WATCH_GROUP_ID = #{watchGroupId}</if>
+           <if test="stkCd != null and stkCd != ''">AND P.STK_CD = #{stkCd}</if>
+           <if test="sourceBaseDt != null and sourceBaseDt != ''">AND P.SOURCE_BASE_DT = TO_DATE(#{sourceBaseDt}, 'YYYY-MM-DD')</if>
+           <if test="positionId != null and positionId != ''">AND P.POSITION_ID = TO_NUMBER(#{positionId})</if>
+         ORDER BY P.WATCH_SAVED_AT DESC, P.PICK_ID DESC
     </select>
 
     <select id="selectTrackTargetPickList" parameterType="hashmap" resultType="recPickDto">

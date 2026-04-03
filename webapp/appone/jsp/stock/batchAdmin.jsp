@@ -1,6 +1,6 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260326-1' />">
+<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260403-1' />">
 
 <div class="container-fluid" id="div_stock_batch_admin">
     <div class="card card-info">
@@ -186,13 +186,25 @@
                 </div>
 
                 <hr>
-                <h6>
-                    Params JSON
-                    <span class="batch-tip" data-toggle="tooltip" data-container="body" title="작업 파라미터입니다. JSON 배열 형식으로 입력하며 각 항목은 paramKey/paramValue/paramType을 가집니다.">?</span>
-                </h6>
-                <textarea id="edit_params_json" class="form-control form-control-sm" rows="8" placeholder='[{"paramKey":"marketGroup","paramValue":"KR","paramType":"STRING"}]'></textarea>
-                <small class="text-muted">paramKey/paramValue/paramType(requiredYn/maskedYn optional)</small><br>
-                <small class="text-muted">`stkCd`는 비우면 전체 종목 실행, 값을 넣으면 해당 종목만 실행합니다. (JSON 표준상 // 주석은 입력 불가)</small>
+                <div class="d-flex align-items-center mb-2">
+                    <h6 class="mb-0">
+                        Params
+                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="작업 파라미터입니다. 항목을 추가하고 KEY/VALUE/TYPE을 선택하세요. DATE 타입은 SYSDATE 버튼으로 실행 시점 날짜를 자동 적용할 수 있습니다.">?</span>
+                    </h6>
+                    <button type="button" id="btn_add_param" class="btn btn-xs btn-outline-secondary ml-2"><i class="fa fa-plus"></i> 파라미터 추가</button>
+                </div>
+                <div id="param_rows_container">
+                    <div class="param-row-header row small text-muted mb-1 px-2">
+                        <div class="col-sm-3">KEY</div>
+                        <div class="col-sm-3">VALUE</div>
+                        <div class="col-sm-2">TYPE</div>
+                        <div class="col-sm-1 text-center">REQ</div>
+                        <div class="col-sm-1 text-center">MASK</div>
+                        <div class="col-sm-1"></div>
+                    </div>
+                </div>
+                <small class="text-muted">`stkCd`는 비우면 전체 종목 실행, 값을 넣으면 해당 종목만 실행합니다.</small><br>
+                <small class="text-muted text-info"><i class="fa fa-info-circle"></i> DATE 타입 파라미터에서 <strong>SYSDATE</strong> 활성화 시, 배치 실행 시점의 날짜가 자동 적용됩니다.</small>
             </div>
             <div class="modal-footer justify-content-between">
                 <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">Close</button>
@@ -218,4 +230,4 @@ window.batchAdminConfig = {
     jobStopUrl: "<c:url value='/stock/batchAdmin/jobStop.do' />"
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260326-1' />"></script>
+<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260403-1' />"></script>

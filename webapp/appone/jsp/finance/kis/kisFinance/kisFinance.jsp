@@ -85,6 +85,68 @@
   .kis-toolbar-left .double-chart-btn[data-double-mode="off"] .double-chart-dot.is-active {
     background: #64748b;
   }
+  /* signal-rec toolbar 사이클 버튼 */
+  .signal-rec-toolbar .signal-cycle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    height: 28px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    color: #374151;
+    cursor: pointer;
+  }
+  .signal-rec-toolbar .signal-cycle-btn:hover {
+    border-color: #94a3b8;
+  }
+  .signal-rec-toolbar .signal-cycle-btn-label {
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .signal-rec-toolbar .signal-cycle-btn-mode {
+    font-size: 9px;
+    font-weight: 800;
+    color: #64748b;
+  }
+  .signal-rec-toolbar .signal-cycle-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .signal-rec-toolbar .signal-cycle-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    opacity: .45;
+  }
+  .signal-rec-toolbar .signal-cycle-dot.is-active {
+    opacity: 1;
+    background: #374151;
+  }
+  /* 시장: KOSPI/NASDAQ - 파랑 */
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSPI"] .signal-cycle-btn-mode,
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="NASDAQ"] .signal-cycle-btn-mode { color: #1d4ed8; }
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSPI"] .signal-cycle-dot.is-active,
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="NASDAQ"] .signal-cycle-dot.is-active { background: #1d4ed8; }
+  /* 시장: KOSDAQ/DOW - 틸 */
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSDAQ"] .signal-cycle-btn-mode,
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="DOW"] .signal-cycle-btn-mode { color: #0d9488; }
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSDAQ"] .signal-cycle-dot.is-active,
+  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="DOW"] .signal-cycle-dot.is-active { background: #0d9488; }
+  /* 등급 A - 앰버 */
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="A"] .signal-cycle-btn-mode { color: #d97706; }
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="A"] .signal-cycle-dot.is-active { background: #d97706; }
+  /* 등급 B - 파랑 */
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="B"] .signal-cycle-btn-mode { color: #1d4ed8; }
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="B"] .signal-cycle-dot.is-active { background: #1d4ed8; }
+  /* 등급 C - 초록 */
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="C"] .signal-cycle-btn-mode { color: #16a34a; }
+  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="C"] .signal-cycle-dot.is-active { background: #16a34a; }
 </style>
 
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/maScript.js"></script>
@@ -120,6 +182,7 @@
     recSignalListView: "<c:url value='/stock/recSignal/listView.do'/>",
     recSignalDetailView: "<c:url value='/stock/recSignal/detailView.do'/>",
     recPickSaveToWatchlist: "<c:url value='/stock/recPick/saveToWatchlist.do'/>",
+    recPickRegisterBuy: "<c:url value='/stock/recPick/registerBuy.do'/>",
     // WF-2-4: 보유종목 API
     positionList: "<c:url value='/position/list.do'/>",
     positionDetail: "<c:url value='/position/detail.do'/>",
@@ -379,18 +442,27 @@
 									</button>
 								</div>
 								<div class="signal-rec-toolbar-group">
-									<span class="signal-rec-toolbar-label">시장</span>
-									<div id="signalMarketFilter" class="signal-rec-chip-row"></div>
+									<button type="button" class="signal-cycle-btn" id="signalMarketCycleBtn" data-market-mode="ALL" title="시장 전체">
+										<span class="signal-cycle-btn-label">시장</span>
+										<span class="signal-cycle-btn-mode">전체</span>
+										<span class="signal-cycle-dots" aria-hidden="true">
+											<span class="signal-cycle-dot is-active"></span>
+											<span class="signal-cycle-dot"></span>
+											<span class="signal-cycle-dot"></span>
+										</span>
+									</button>
 								</div>
-								
 								<div class="signal-rec-toolbar-group">
-									<span class="signal-rec-toolbar-label">등급 필터</span>
-									<div id="signalGradeFilter" class="signal-rec-chip-row">
-										<button type="button" class="signal-rec-chip is-active" data-grade="ALL">전체</button>
-										<button type="button" class="signal-rec-chip" data-grade="A">A</button>
-										<button type="button" class="signal-rec-chip" data-grade="B">B</button>
-										<button type="button" class="signal-rec-chip" data-grade="C">C</button>
-									</div>
+									<button type="button" class="signal-cycle-btn" id="signalGradeCycleBtn" data-grade-mode="ALL" title="등급 전체">
+										<span class="signal-cycle-btn-label">등급</span>
+										<span class="signal-cycle-btn-mode">전체</span>
+										<span class="signal-cycle-dots" aria-hidden="true">
+											<span class="signal-cycle-dot is-active"></span>
+											<span class="signal-cycle-dot"></span>
+											<span class="signal-cycle-dot"></span>
+											<span class="signal-cycle-dot"></span>
+										</span>
+									</button>
 								</div>
 							</div>
 							<div class="signal-rec-toolbar-right">

@@ -329,17 +329,106 @@
         });
     }
 
+    function todayStr() {
+        var d = new Date();
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1);
+        var dd = String(d.getDate());
+        if (m.length < 2) m = "0" + m;
+        if (dd.length < 2) dd = "0" + dd;
+        return y + "-" + m + "-" + dd;
+    }
+
+    function buildParamRow(param) {
+        param = param || {};
+        var paramKey = param.paramKey || "";
+        var paramValue = param.paramValue || "";
+        var paramType = param.paramType || "STRING";
+        var requiredYn = param.requiredYn || "N";
+        var maskedYn = param.maskedYn || "N";
+        var isSysdate = (paramType === "DATE" && paramValue === "SYSDATE");
+        var isDate = (paramType === "DATE");
+
+        var typeOpts = ["STRING", "NUMBER", "BOOLEAN", "DATE"].map(function (t) {
+            return '<option value="' + t + '"' + (paramType === t ? " selected" : "") + ">" + t + "</option>";
+        }).join("");
+        var reqOpts = ["N", "Y"].map(function (v) {
+            return '<option value="' + v + '"' + (requiredYn === v ? " selected" : "") + ">" + v + "</option>";
+        }).join("");
+        var maskOpts = ["N", "Y"].map(function (v) {
+            return '<option value="' + v + '"' + (maskedYn === v ? " selected" : "") + ">" + v + "</option>";
+        }).join("");
+
+        var displayValue = isSysdate ? "" : escapeHtml(paramValue);
+        var valuePlaceholder = isSysdate ? ("SYSDATE → " + todayStr()) : "paramValue";
+        var valueDisabled = isSysdate ? " disabled" : "";
+        var sysdateClass = isSysdate ? "btn-info" : "btn-outline-secondary";
+        var sysdateDisplay = isDate ? "" : ' style="display:none"';
+
+        return '<div class="param-row row align-items-center mb-1 px-2">' +
+            '<div class="col-sm-3"><input type="text" class="form-control form-control-sm param-key" value="' + escapeHtml(paramKey) + '" placeholder="paramKey"></div>' +
+            '<div class="col-sm-3 d-flex align-items-center">' +
+                '<input type="text" class="form-control form-control-sm param-value" value="' + displayValue + '" placeholder="' + valuePlaceholder + '"' + valueDisabled + ' data-sysdate="' + (isSysdate ? "Y" : "N") + '">' +
+                '<button type="button" class="btn btn-xs ' + sysdateClass + ' btn-sysdate ml-1 flex-shrink-0"' + sysdateDisplay + ' title="실행 시점 날짜 자동 적용">S</button>' +
+            '</div>' +
+            '<div class="col-sm-2"><select class="form-control form-control-sm param-type">' + typeOpts + '</select></div>' +
+            '<div class="col-sm-1"><select class="form-control form-control-sm param-required">' + reqOpts + '</select></div>' +
+            '<div class="col-sm-1"><select class="form-control form-control-sm param-masked">' + maskOpts + '</select></div>' +
+            '<div class="col-sm-1 text-center"><button type="button" class="btn btn-xs btn-outline-danger btn-remove-param">×</button></div>' +
+        '</div>';
+    }
+
+    function renderParamRows(paramsArr) {
+        var $container = $("#param_rows_container");
+        var $header = $container.find(".param-row-header").detach();
+        $container.empty();
+        $container.append($header);
+        paramsArr = paramsArr || [];
+        for (var i = 0; i < paramsArr.length; i++) {
+            $container.append(buildParamRow(paramsArr[i]));
+        }
+    }
+
+    function collectParamsJson() {
+        var rows = [];
+        $("#param_rows_container .param-row").each(function () {
+            var $row = $(this);
+            var paramKey = $row.find(".param-key").val().trim();
+            var paramType = $row.find(".param-type").val();
+            var $valInput = $row.find(".param-value");
+            var isSysdate = $valInput.attr("data-sysdate") === "Y";
+            var paramValue;
+            if (paramType === "DATE" && isSysdate) {
+                paramValue = "SYSDATE";
+            } else {
+                paramValue = $valInput.val();
+            }
+            var obj = { paramKey: paramKey, paramValue: paramValue, paramType: paramType };
+            var req = $row.find(".param-required").val();
+            var masked = $row.find(".param-masked").val();
+            if (req) obj.requiredYn = req;
+            if (masked) obj.maskedYn = masked;
+            rows.push(obj);
+        });
+        return JSON.stringify(rows, null, 2);
+    }
+
     function defaultParamsByTask(taskKey) {
         if (taskKey === "REC_SIGNAL_RUN") {
-            return JSON.stringify([
+            return [
                 { paramKey: "marketGroup", paramValue: "KR", paramType: "STRING" },
                 { paramKey: "retryOnly", paramValue: "N", paramType: "BOOLEAN" },
                 { paramKey: "days", paramValue: "400", paramType: "NUMBER" },
                 { paramKey: "requestIntervalMs", paramValue: "1000", paramType: "NUMBER" },
                 { paramKey: "stkCd", paramValue: "", paramType: "STRING" }
-            ], null, 2);
+            ];
         }
-        return "[]";
+        if (taskKey === "REC_PICK_DAILY") {
+            return [
+                { paramKey: "baseDt", paramValue: "SYSDATE", paramType: "DATE", requiredYn: "N", maskedYn: "N" }
+            ];
+        }
+        return [];
     }
 
     function openCreate() {
@@ -355,7 +444,7 @@
         $("#edit_interval_sec").val("3600");
         $("#edit_misfire_policy").val("SKIP");
         $("#edit_schedule_enabled_yn").val("Y");
-        $("#edit_params_json").val("[]");
+        renderParamRows([]);
         $("#modal_batch_admin_edit").modal("show");
     }
 
@@ -390,7 +479,7 @@
                     maskedYn: val(params[i], "masked_yn")
                 });
             }
-            $("#edit_params_json").val(JSON.stringify(paramsJson, null, 2));
+            renderParamRows(paramsJson);
 
             $("#modal_batch_admin_edit").modal("show");
         });
@@ -413,15 +502,7 @@
             enabledYn: $("#edit_schedule_enabled_yn").val()
         };
 
-        var paramsText = $("#edit_params_json").val();
-        if (!paramsText) paramsText = "[]";
-
-        try {
-            JSON.parse(paramsText);
-        } catch (e) {
-            alert("Params JSON 형식이 올바르지 않습니다.");
-            return;
-        }
+        var paramsText = collectParamsJson();
 
         var payload = {
             job_id: jobId,
@@ -486,8 +567,43 @@
         });
 
         $("#edit_task_key").on("change", function () {
-            if (!$("#edit_params_json").val() || $("#edit_params_json").val() === "[]") {
-                $("#edit_params_json").val(defaultParamsByTask($(this).val()));
+            if (!$("#param_rows_container .param-row").length) {
+                renderParamRows(defaultParamsByTask($(this).val()));
+            }
+        });
+
+        $("#btn_add_param").on("click", function () {
+            $("#param_rows_container").append(buildParamRow({}));
+        });
+
+        $("#param_rows_container").on("click", ".btn-remove-param", function () {
+            $(this).closest(".param-row").remove();
+        });
+
+        $("#param_rows_container").on("change", ".param-type", function () {
+            var $row = $(this).closest(".param-row");
+            var isDate = $(this).val() === "DATE";
+            var $btn = $row.find(".btn-sysdate");
+            if (isDate) {
+                $btn.show();
+            } else {
+                $btn.hide();
+                $btn.removeClass("btn-info").addClass("btn-outline-secondary");
+                var $valInput = $row.find(".param-value");
+                $valInput.attr("data-sysdate", "N").prop("disabled", false).attr("placeholder", "paramValue");
+            }
+        });
+
+        $("#param_rows_container").on("click", ".btn-sysdate", function () {
+            var $row = $(this).closest(".param-row");
+            var $valInput = $row.find(".param-value");
+            var isSysdate = $valInput.attr("data-sysdate") === "Y";
+            if (isSysdate) {
+                $valInput.attr("data-sysdate", "N").prop("disabled", false).val("").attr("placeholder", "paramValue");
+                $(this).removeClass("btn-info").addClass("btn-outline-secondary");
+            } else {
+                $valInput.attr("data-sysdate", "Y").prop("disabled", true).val("").attr("placeholder", "SYSDATE → " + todayStr());
+                $(this).removeClass("btn-outline-secondary").addClass("btn-info");
             }
         });
 

@@ -422,9 +422,16 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         List<HashMap<String, Object>> paramRows = stockBatchAdminDao.selectJobParams(q);
         HashMap<String, String> params = new HashMap<String, String>();
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        String todayStr = sdf.format(new java.util.Date());
         for (HashMap<String, Object> row : paramRows) {
             String k = nvl(mapVal(row, "param_key"), "");
             String v = mapVal(row, "param_value");
+            String t = nvl(mapVal(row, "param_type"), "STRING").toUpperCase();
+            // DATE 타입이고 값이 SYSDATE이면 실행 시점의 오늘 날짜로 치환
+            if ("DATE".equals(t) && "SYSDATE".equalsIgnoreCase(v)) {
+                v = todayStr;
+            }
             if (!k.isEmpty()) params.put(k, v);
         }
 

@@ -33,6 +33,7 @@ public class RecPickDto {
     private String createUser;
     private String createDate;
     private String modifyDate;
+    private Double currentPrice;
 
     public Long getPickId() {
         return pickId;
@@ -280,5 +281,13 @@ public class RecPickDto {
 
     public void setModifyDate(String modifyDate) {
         this.modifyDate = modifyDate;
+    }
+
+    public Double getCurrentPrice() {
+        return currentPrice;
+    }
+
+    public void setCurrentPrice(Double currentPrice) {
+        this.currentPrice = currentPrice;
     }
 }
