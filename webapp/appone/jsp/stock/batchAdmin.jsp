@@ -1,6 +1,6 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260403-1' />">
+<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260403-2' />">
 
 <div class="container-fluid" id="div_stock_batch_admin">
     <div class="card card-info">
@@ -76,6 +76,26 @@
                     <th>START</th>
                     <th>END</th>
                     <th>ERROR</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card card-danger" id="div_item_fail_log" style="display:none;">
+        <div class="card-header">
+            <h3 class="card-title">실패 종목 상세 <small id="lbl_item_fail_exec_id" class="text-light ml-2"></small></h3>
+        </div>
+        <div class="card-body table-responsive p-2">
+            <table class="table table-sm w-100" id="tblBatchItemFailLog">
+                <thead>
+                <tr>
+                    <th>종목코드</th>
+                    <th>종목명</th>
+                    <th>시장</th>
+                    <th>에러 내용</th>
+                    <th>발생시각</th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -185,6 +205,14 @@
                     </div>
                 </div>
 
+                <div class="form-group row">
+                    <label class="col-sm-2 col-form-label text-right">
+                        LOG 보관(일)
+                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="TB_BATCH_EXEC_LOG 보관 일수입니다. 설정한 일수보다 오래된 로그는 스케줄러 tick 실행 시 자동 삭제됩니다. 0이면 자동 삭제하지 않습니다.">?</span>
+                    </label>
+                    <div class="col-sm-2"><input id="edit_log_retention_days" class="form-control form-control-sm" value="30" placeholder="0=삭제안함"></div>
+                </div>
+
                 <hr>
                 <div class="d-flex align-items-center mb-2">
                     <h6 class="mb-0">
@@ -227,7 +255,8 @@ window.batchAdminConfig = {
     jobUpdateUrl: "<c:url value='/stock/batchAdmin/jobUpdate.do' />",
     jobDeleteUrl: "<c:url value='/stock/batchAdmin/jobDelete.do' />",
     jobRunNowUrl: "<c:url value='/stock/batchAdmin/jobRunNow.do' />",
-    jobStopUrl: "<c:url value='/stock/batchAdmin/jobStop.do' />"
+    jobStopUrl: "<c:url value='/stock/batchAdmin/jobStop.do' />",
+    jobLogItemFailListUrl: "<c:url value='/stock/batchAdmin/jobLogItemFailList.do' />"
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260403-1' />"></script>
+<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260403-2' />"></script>

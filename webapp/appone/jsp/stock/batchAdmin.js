@@ -5,7 +5,8 @@
         jobs: [],
         selectedJobId: "",
         batchAdminTable: null,
-        batchLogTable: null
+        batchLogTable: null,
+        batchItemFailTable: null
     };
 
     function initTooltips($scope) {
@@ -211,6 +212,77 @@
         return state.batchLogTable;
     }
 
+    function ensureBatchItemFailTable() {
+        if (state.batchItemFailTable) {
+            return state.batchItemFailTable;
+        }
+
+        state.batchItemFailTable = $("#tblBatchItemFailLog").DataTable({
+            data: [],
+            pageLength: 20,
+            lengthChange: false,
+            searching: false,
+            paging: true,
+            info: true,
+            autoWidth: false,
+            responsive: true,
+            processing: false,
+            ordering: false,
+            columns: [
+                { data: "stk_cd", defaultContent: "" },
+                { data: "stk_nm", defaultContent: "" },
+                { data: "mkt_cd", defaultContent: "" },
+                {
+                    data: "error_msg",
+                    defaultContent: "",
+                    render: function (data, type) {
+                        var fullText = data || "";
+                        if (type !== "display") return fullText;
+                        var shortText = fullText.length > 120 ? fullText.substring(0, 120) + "..." : fullText;
+                        return '<span title="' + escapeHtml(fullText) + '">' + escapeHtml(shortText) + "</span>";
+                    }
+                },
+                { data: "created_at", defaultContent: "" }
+            ]
+        });
+
+        return state.batchItemFailTable;
+    }
+
+    function loadItemFailLog(execId, jobId) {
+        if (!execId && !jobId) return;
+        var table = ensureBatchItemFailTable();
+        var payload = {};
+        if (execId) {
+            payload.exec_id = execId;
+            $("#lbl_item_fail_exec_id").text("EXEC: " + execId);
+        }
+        if (jobId) payload.job_id = jobId;
+
+        api(config.jobLogItemFailListUrl || "/stock/batchAdmin/jobLogItemFailList.do", payload, function (res) {
+            var list = rowsOf(res);
+            var normalized = [];
+            for (var i = 0; i < list.length; i++) {
+                var r = list[i];
+                normalized.push({
+                    stk_cd: val(r, "stk_cd"),
+                    stk_nm: val(r, "stk_nm"),
+                    mkt_cd: val(r, "mkt_cd"),
+                    error_msg: val(r, "error_msg"),
+                    created_at: val(r, "created_at")
+                });
+            }
+            table.clear();
+            if (normalized.length) {
+                table.rows.add(normalized);
+                $("#div_item_fail_log").show();
+            } else {
+                $("#div_item_fail_log").hide();
+            }
+            table.draw(false);
+        });
+    }
+
     function api(url, data, onSuccess, onError) {
         $.ajax({
             url: url,
@@ -324,6 +396,8 @@
                 break;
             }
         }
+        // 실패 종목 상세 패널 초기화
+        $("#div_item_fail_log").hide();
         api(config.jobLogListUrl || "/stock/batchAdmin/jobLogList.do", payload, function (res) {
             renderLogs(rowsOf(res));
         });
@@ -444,6 +518,7 @@
         $("#edit_interval_sec").val("3600");
         $("#edit_misfire_policy").val("SKIP");
         $("#edit_schedule_enabled_yn").val("Y");
+        $("#edit_log_retention_days").val("30");
         renderParamRows([]);
         $("#modal_batch_admin_edit").modal("show");
     }
@@ -468,6 +543,7 @@
             $("#edit_interval_sec").val(val(schedule, "interval_sec") || "3600");
             $("#edit_misfire_policy").val(val(schedule, "misfire_policy") || "SKIP");
             $("#edit_schedule_enabled_yn").val(val(schedule, "enabled_yn") || "Y");
+            $("#edit_log_retention_days").val(val(schedule, "log_retention_days") || "30");
 
             var paramsJson = [];
             for (var i = 0; i < params.length; i++) {
@@ -499,7 +575,8 @@
             cronExpr: $("#edit_cron_expr").val(),
             intervalSec: $("#edit_interval_sec").val(),
             misfirePolicy: $("#edit_misfire_policy").val(),
-            enabledYn: $("#edit_schedule_enabled_yn").val()
+            enabledYn: $("#edit_schedule_enabled_yn").val(),
+            logRetentionDays: parseInt($("#edit_log_retention_days").val(), 10) || 0
         };
 
         var paramsText = collectParamsJson();
@@ -554,6 +631,7 @@
     $(document).ready(function () {
         ensureBatchAdminTable();
         ensureBatchLogTable();
+        ensureBatchItemFailTable();
         loadTasks();
         loadJobs();
         initTooltips($(document));
@@ -644,6 +722,22 @@
             var row = toBatchAdminRow(this);
             var jobId = row ? val(row, "job_id") : "";
             if (jobId) loadLogs(jobId);
+        });
+
+        // 실행 로그 행 클릭 시 FAIL 종목 상세 표시
+        $("#tblBatchLog tbody").on("click", "tr", function () {
+            var table = state.batchLogTable;
+            if (!table) return;
+            var $row = $(this).closest("tr");
+            var rowData = table.row($row).data();
+            if (!rowData) return;
+            var status = val(rowData, "status");
+            var execId = val(rowData, "exec_id");
+            if (status === "FAIL" || status === "ERROR") {
+                loadItemFailLog(execId, state.selectedJobId);
+            } else {
+                $("#div_item_fail_log").hide();
+            }
         });
 
         $("#modal_batch_admin_edit").on("shown.bs.modal", function () {

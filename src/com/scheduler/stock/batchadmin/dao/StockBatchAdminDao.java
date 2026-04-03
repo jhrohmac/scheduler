@@ -59,5 +59,7 @@ public interface StockBatchAdminDao {
 
     int markJobFinish(HashMap<String, String> map) throws Exception;
 
+    int purgeOldBatchExecLogs(HashMap<String, String> map) throws Exception;
+
     HashMap<String, Object> selectTaskDef(HashMap<String, String> map) throws Exception;
 }
