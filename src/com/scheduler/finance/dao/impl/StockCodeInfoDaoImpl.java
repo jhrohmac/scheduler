@@ -983,15 +983,14 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
             stockCountry = safeString(map.get("country"));
         }
 
-        if (stockMarket.isEmpty() || stockCountry.isEmpty()) {
-            StockInfoVo info = lookupStockInfo(trimmedCode);
-            if (info != null) {
-                if (stockMarket.isEmpty()) {
-                    stockMarket = safeString(info.getStock_market());
-                }
-                if (stockCountry.isEmpty()) {
-                    stockCountry = safeString(info.getStock_country_code());
-                }
+        // DB 우선으로 시장/국가 코드 확인 (프론트엔드 기본값 NAS → NYSE/AMS 보정 포함)
+        {
+            StockInfoVo dbInfo = lookupStockInfo(trimmedCode);
+            if (dbInfo != null) {
+                String dbMarket  = safeString(dbInfo.getStock_market());
+                String dbCountry = safeString(dbInfo.getStock_country_code());
+                if (!dbMarket.isEmpty())  { stockMarket  = dbMarket;  }
+                if (!dbCountry.isEmpty()) { stockCountry = dbCountry; }
             }
         }
 
@@ -1605,7 +1604,24 @@ public class StockCodeInfoDaoImpl extends SqlSessionDaoSupport implements StockC
 
     private List<StockDataVo> getOverseasIndexDailyChartData(String stockCode, LocalDate startDate, LocalDate endDate,
             String period) throws Exception {
-        return getOverseasDailyChartDataByMarketDiv("N", stockCode, startDate, endDate, period);
+        // KIS가 인식하지 못하는 코드(.INX 등)를 위해 후보 코드 순서대로 시도
+        // getOverseasIndexCodeCandidates()가 관리하는 fallback 목록 활용
+        String[] candidates = getOverseasIndexCodeCandidates(stockCode);
+        Exception lastEx = null;
+        for (String code : candidates) {
+            try {
+                List<StockDataVo> result = getOverseasDailyChartDataByMarketDiv("N", code, startDate, endDate, period);
+                if (result != null && !result.isEmpty()) {
+                    return result;
+                }
+            } catch (Exception e) {
+                lastEx = e; // 다음 후보로 재시도
+            }
+        }
+        if (lastEx != null) {
+            throw lastEx;
+        }
+        return new ArrayList<StockDataVo>();
     }
 
     private List<StockDataVo> getOverseasTimeIndexchartpriceNMin(String stockCode, LocalDate startDate,
