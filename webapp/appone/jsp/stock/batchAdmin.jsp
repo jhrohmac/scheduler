@@ -1,6 +1,6 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260403-2' />">
+<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/batchAdmin.css?v=20260406-1' />">
 
 <div class="container-fluid" id="div_stock_batch_admin">
     <div class="card card-info">
@@ -162,30 +162,119 @@
                     Schedule
                     <span class="batch-tip" data-toggle="tooltip" data-container="body" title="배치 실행 주기 설정입니다. CRON 또는 INTERVAL 중 하나를 사용합니다.">?</span>
                 </h6>
-                <div class="form-group row">
+                <div class="form-group row align-items-start">
                     <label class="col-sm-2 col-form-label text-right">
                         TYPE
-                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="CRON: 지정 시간 실행, INTERVAL: N초 간격 반복 실행">?</span>
+                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="CRON: 지정 시간 실행, INTERVAL: N분 간격 반복 실행">?</span>
                     </label>
                     <div class="col-sm-2">
                         <select id="edit_schedule_type" class="form-control form-control-sm">
-                            <option value="CRON">CRON</option>
-                            <option value="INTERVAL">INTERVAL</option>
+                            <option value="CRON">정해진 시간</option>
+                            <option value="INTERVAL">간격 실행</option>
                         </select>
                     </div>
-                    <label class="col-sm-2 col-form-label text-right">
-                        CRON_EXPR
-                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="CRON 타입일 때 사용합니다. 예: 0 0 2 ? * TUE-SAT (화~토 02:00 실행)">?</span>
-                    </label>
-                    <div class="col-sm-6"><input id="edit_cron_expr" class="form-control form-control-sm" placeholder="0 0 2 ? * TUE-SAT"></div>
+                    <div class="col-sm-8">
+                        <div id="cron_schedule_panel">
+                            <div class="schedule-help-text">정해진 시간은 간편 설정으로 먼저 만들고, 필요한 경우에만 고급 CRON 입력을 사용하세요.</div>
+                            <div class="btn-group btn-group-sm schedule-mode-switch mb-2" role="group" aria-label="CRON editor mode">
+                                <button type="button" class="btn btn-primary active" data-cron-mode="simple">간편 설정</button>
+                                <button type="button" class="btn btn-default" data-cron-mode="advanced">고급 CRON</button>
+                            </div>
+
+                            <div id="cron_simple_panel" class="schedule-builder-card">
+                                <div class="form-row align-items-end">
+                                    <div class="col-sm-4 mb-2">
+                                        <label class="schedule-field-label">
+                                            반복
+                                            <span class="batch-tip" data-toggle="tooltip" data-container="body" title="매일, 평일, 주간 반복 중 하나를 선택합니다.">?</span>
+                                        </label>
+                                        <select id="cron_simple_repeat" class="form-control form-control-sm">
+                                            <option value="DAILY">매일</option>
+                                            <option value="WEEKDAY">평일</option>
+                                            <option value="WEEKLY">주간</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-4 mb-2">
+                                        <label class="schedule-field-label">
+                                            실행 시간
+                                            <span class="batch-tip" data-toggle="tooltip" data-container="body" title="실행할 시각을 24시간 기준으로 선택합니다.">?</span>
+                                        </label>
+                                        <div class="d-flex align-items-center">
+                                            <select id="cron_simple_hour" class="form-control form-control-sm schedule-time-select"></select>
+                                            <span class="schedule-time-separator">:</span>
+                                            <select id="cron_simple_minute" class="form-control form-control-sm schedule-time-select"></select>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-4 mb-2">
+                                        <label class="schedule-field-label">
+                                            적용 시간대
+                                            <span class="batch-tip" data-toggle="tooltip" data-container="body" title="TIMEZONE 입력값을 기준으로 미리보기를 보여줍니다.">?</span>
+                                        </label>
+                                        <div class="schedule-readonly-pill" id="cron_timezone_preview">Asia/Seoul</div>
+                                    </div>
+                                </div>
+
+                                <div id="cron_simple_days_wrap" class="mb-2" style="display:none;">
+                                    <label class="schedule-field-label">
+                                        요일
+                                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="주간 반복일 때 실행할 요일을 하나 이상 선택하세요.">?</span>
+                                    </label>
+                                    <div class="schedule-day-group">
+                                        <label class="schedule-day-chip"><input type="checkbox" value="SUN"><span>일</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="MON"><span>월</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="TUE"><span>화</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="WED"><span>수</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="THU"><span>목</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="FRI"><span>금</span></label>
+                                        <label class="schedule-day-chip"><input type="checkbox" value="SAT"><span>토</span></label>
+                                    </div>
+                                </div>
+
+                                <div class="cron-preview-box">
+                                    <div class="schedule-field-label mb-1">미리보기</div>
+                                    <div id="cron_preview_text" class="cron-preview-text">매주 화, 수, 목, 금, 토 02:00 (Asia/Seoul)</div>
+                                    <div class="cron-preview-expr">저장될 CRON_EXPR: <code id="cron_preview_expr">0 0 2 ? * TUE-SAT</code></div>
+                                    <div id="cron_simple_warning" class="cron-preview-warning" style="display:none;"></div>
+                                </div>
+                            </div>
+
+                            <div id="cron_advanced_panel" class="schedule-builder-card" style="display:none;">
+                                <label class="schedule-field-label">
+                                    CRON_EXPR
+                                    <span class="batch-tip" data-toggle="tooltip" data-container="body" title="간편 설정으로 표현하기 어려운 식은 직접 입력합니다. 예: 0 0 2 ? * TUE-SAT">?</span>
+                                </label>
+                                <input id="edit_cron_expr" class="form-control form-control-sm" placeholder="0 0 2 ? * TUE-SAT" autocomplete="off">
+                                <small class="text-muted d-block mt-2">예: 0 0 5 ? * SUN = 매주 일요일 05:00, 0 30 8 ? * MON-FRI = 평일 08:30</small>
+                                <small id="cron_advanced_hint" class="text-muted d-block mt-1">간편 설정으로 표현하기 어려운 식은 고급 CRON으로 그대로 저장됩니다.</small>
+                            </div>
+                        </div>
+
+                        <div id="interval_schedule_panel" class="schedule-type-hint" style="display:none;">
+                            INTERVAL 타입에서는 분 단위 실행 간격만 설정하면 됩니다. 정해진 시간 실행이 필요하면 TYPE을 정해진 시간으로 변경하세요.
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group row">
+                <div class="form-group row align-items-start">
                     <label class="col-sm-2 col-form-label text-right">
-                        INTERVAL_SEC
-                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="INTERVAL 타입일 때 실행 간격(초)입니다. 예: 1800=30분, 3600=1시간">?</span>
+                        INTERVAL_MIN
+                        <span class="batch-tip" data-toggle="tooltip" data-container="body" title="INTERVAL 타입일 때 실행 간격(분)입니다. 예: 30=30분, 60=1시간">?</span>
                     </label>
-                    <div class="col-sm-2"><input id="edit_interval_sec" class="form-control form-control-sm" value="3600"></div>
+                    <div class="col-sm-2">
+                        <div id="interval_field_wrap">
+                            <div class="input-group input-group-sm">
+                                <input id="edit_interval_sec" class="form-control form-control-sm" value="60">
+                                <div class="input-group-append"><span class="input-group-text">분</span></div>
+                            </div>
+                            <div class="interval-quick-group mt-2">
+                                <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="10">10분</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="30">30분</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="60">60분</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="120">120분</button>
+                            </div>
+                            <small class="text-muted d-block mt-1">간격 실행일 때만 사용합니다.</small>
+                        </div>
+                    </div>
                     <label class="col-sm-2 col-form-label text-right">
                         MISFIRE
                         <span class="batch-tip" data-toggle="tooltip" data-container="body" title="SKIP: 놓친 실행 건너뜀, RUN_ONCE: 다음 tick에서 1회 보정 실행">?</span>
@@ -211,6 +300,34 @@
                         <span class="batch-tip" data-toggle="tooltip" data-container="body" title="TB_BATCH_EXEC_LOG 보관 일수입니다. 설정한 일수보다 오래된 로그는 스케줄러 tick 실행 시 자동 삭제됩니다. 0이면 자동 삭제하지 않습니다.">?</span>
                     </label>
                     <div class="col-sm-2"><input id="edit_log_retention_days" class="form-control form-control-sm" value="30" placeholder="0=삭제안함"></div>
+                </div>
+
+                <!-- STK_MASTER_REFRESH 전용 설정 패널 -->
+                <div id="stk_master_refresh_panel" style="display:none;">
+                    <hr>
+                    <h6>종목 마스터 갱신 설정</h6>
+                    <div class="form-group row">
+                        <label class="col-sm-2 col-form-label text-right">시장 구분</label>
+                        <div class="col-sm-10 d-flex align-items-center">
+                            <div class="btn-group btn-group-sm" id="stk_market_group_btn" role="group">
+                                <button type="button" class="btn btn-primary active" data-value="ALL">전체 (KR+US)</button>
+                                <button type="button" class="btn btn-default" data-value="KR">국내 (KR)</button>
+                                <button type="button" class="btn btn-default" data-value="US">해외 (US)</button>
+                            </div>
+                            <input type="hidden" id="stk_market_group_val" value="ALL">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label class="col-sm-2 col-form-label text-right">종목 구분</label>
+                        <div class="col-sm-10 d-flex align-items-center">
+                            <div class="btn-group btn-group-sm" id="stk_stock_type_btn" role="group">
+                                <button type="button" class="btn btn-primary active" data-value="ALL">전체</button>
+                                <button type="button" class="btn btn-default" data-value="STOCK">일반종목</button>
+                                <button type="button" class="btn btn-default" data-value="ETF">ETF</button>
+                            </div>
+                            <input type="hidden" id="stk_stock_type_val" value="ALL">
+                        </div>
+                    </div>
                 </div>
 
                 <hr>
@@ -259,4 +376,4 @@ window.batchAdminConfig = {
     jobLogItemFailListUrl: "<c:url value='/stock/batchAdmin/jobLogItemFailList.do' />"
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260403-2' />"></script>
+<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260406-1' />"></script>

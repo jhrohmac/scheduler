@@ -1,5 +1,15 @@
 (function () {
     var config = window.batchAdminConfig || {};
+    var DEFAULT_CRON_EXPR = "0 0 2 ? * TUE-SAT";
+    var CRON_DAY_OPTIONS = [
+        { value: "SUN", label: "일" },
+        { value: "MON", label: "월" },
+        { value: "TUE", label: "화" },
+        { value: "WED", label: "수" },
+        { value: "THU", label: "목" },
+        { value: "FRI", label: "금" },
+        { value: "SAT", label: "토" }
+    ];
     var state = {
         tasks: [],
         jobs: [],
@@ -34,6 +44,377 @@
         v = obj[key.toLowerCase()];
         if (v !== undefined && v !== null) return v;
         return "";
+    }
+
+    function intervalSecToMinutes(value) {
+        var text = $.trim(value == null ? "" : String(value));
+        var seconds;
+        if (!text) {
+            return "60";
+        }
+        seconds = Number(text);
+        if (isNaN(seconds)) {
+            return text;
+        }
+        return String(seconds / 60);
+    }
+
+    function intervalMinutesToSeconds(value) {
+        var text = $.trim(value == null ? "" : String(value));
+        var minutes;
+        if (!text) {
+            return "";
+        }
+        minutes = Number(text);
+        if (isNaN(minutes)) {
+            return text;
+        }
+        return String(Math.round(minutes * 60));
+    }
+
+    function pad2(value) {
+        var n = parseInt(value, 10);
+        if (isNaN(n)) return "00";
+        return n < 10 ? "0" + n : String(n);
+    }
+
+    function findCronDayIndex(day) {
+        var target = String(day || "").toUpperCase();
+        for (var i = 0; i < CRON_DAY_OPTIONS.length; i++) {
+            if (CRON_DAY_OPTIONS[i].value === target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function sortCronDays(days) {
+        var list = (days || []).slice(0);
+        list.sort(function (a, b) {
+            return findCronDayIndex(a) - findCronDayIndex(b);
+        });
+        return list;
+    }
+
+    function populateCronTimeOptions() {
+        var hourHtml = "";
+        var minuteHtml = "";
+        var i;
+
+        for (i = 0; i < 24; i++) {
+            hourHtml += '<option value="' + pad2(i) + '">' + pad2(i) + "</option>";
+        }
+        for (i = 0; i < 60; i++) {
+            minuteHtml += '<option value="' + pad2(i) + '">' + pad2(i) + "</option>";
+        }
+
+        $("#cron_simple_hour").html(hourHtml);
+        $("#cron_simple_minute").html(minuteHtml);
+    }
+
+    function getCronEditorMode() {
+        return $("#cron_schedule_panel").attr("data-cron-mode") || "simple";
+    }
+
+    function setCronEditorMode(mode) {
+        var nextMode = mode === "advanced" ? "advanced" : "simple";
+        var isSimple = nextMode === "simple";
+
+        $("#cron_schedule_panel").attr("data-cron-mode", nextMode);
+        $(".schedule-mode-switch [data-cron-mode]").removeClass("btn-primary active").addClass("btn-default");
+        $('.schedule-mode-switch [data-cron-mode="' + nextMode + '"]').removeClass("btn-default").addClass("btn-primary active");
+        $("#cron_simple_panel").toggle(isSimple);
+        $("#cron_advanced_panel").toggle(!isSimple);
+
+        if (isSimple) {
+            updateCronPreview();
+        } else {
+            updateAdvancedCronHint();
+        }
+    }
+
+    function selectedSimpleCronDays() {
+        var days = [];
+        $("#cron_simple_days_wrap input:checked").each(function () {
+            days.push($(this).val());
+        });
+        return sortCronDays(days);
+    }
+
+    function setSimpleCronDays(days) {
+        var sorted = sortCronDays(days);
+        $("#cron_simple_days_wrap input").prop("checked", false);
+        for (var i = 0; i < sorted.length; i++) {
+            $('#cron_simple_days_wrap input[value="' + sorted[i] + '"]').prop("checked", true);
+        }
+    }
+
+    function cronDayLabel(day) {
+        var index = findCronDayIndex(day);
+        return index > -1 ? CRON_DAY_OPTIONS[index].label : day;
+    }
+
+    function formatCronDayLabels(days) {
+        var labels = [];
+        var sorted = sortCronDays(days);
+        for (var i = 0; i < sorted.length; i++) {
+            labels.push(cronDayLabel(sorted[i]));
+        }
+        return labels.join(", ");
+    }
+
+    function updateCronSimpleDayVisibility() {
+        $("#cron_simple_days_wrap").toggle($("#cron_simple_repeat").val() === "WEEKLY");
+    }
+
+    function buildSimpleCronExpr() {
+        var repeatType = $("#cron_simple_repeat").val() || "DAILY";
+        var hour = parseInt($("#cron_simple_hour").val(), 10);
+        var minute = parseInt($("#cron_simple_minute").val(), 10);
+        var days = selectedSimpleCronDays();
+
+        if (isNaN(hour) || isNaN(minute)) {
+            return "";
+        }
+        if (repeatType === "DAILY") {
+            return "0 " + minute + " " + hour + " * * *";
+        }
+        if (repeatType === "WEEKDAY") {
+            return "0 " + minute + " " + hour + " ? * MON-FRI";
+        }
+        if (!days.length) {
+            return "";
+        }
+        return "0 " + minute + " " + hour + " ? * " + days.join(",");
+    }
+
+    function buildSimpleCronPreviewText() {
+        var repeatType = $("#cron_simple_repeat").val() || "DAILY";
+        var timezone = $.trim($("#edit_timezone").val()) || "Asia/Seoul";
+        var hour = $("#cron_simple_hour").val() || "00";
+        var minute = $("#cron_simple_minute").val() || "00";
+        var timeText = pad2(hour) + ":" + pad2(minute);
+        var days = selectedSimpleCronDays();
+
+        if (repeatType === "DAILY") {
+            return "매일 " + timeText + " (" + timezone + ")";
+        }
+        if (repeatType === "WEEKDAY") {
+            return "매주 평일 " + timeText + " (" + timezone + ")";
+        }
+        if (!days.length) {
+            return "요일을 선택하면 실행 일정을 미리 보여줍니다.";
+        }
+        return "매주 " + formatCronDayLabels(days) + " " + timeText + " (" + timezone + ")";
+    }
+
+    function parseCronDayToken(token) {
+        var text = $.trim(String(token || "")).toUpperCase();
+        var i;
+        var parts;
+        var start;
+        var end;
+        var days = [];
+
+        if (!text) {
+            return [];
+        }
+        if (text.indexOf(",") > -1) {
+            parts = text.split(",");
+            for (i = 0; i < parts.length; i++) {
+                var subDays = parseCronDayToken(parts[i]);
+                if (subDays == null) {
+                    return null;
+                }
+                for (var j = 0; j < subDays.length; j++) {
+                    if ($.inArray(subDays[j], days) === -1) {
+                        days.push(subDays[j]);
+                    }
+                }
+            }
+            return sortCronDays(days);
+        }
+        if (text.indexOf("-") > -1) {
+            parts = text.split("-");
+            if (parts.length !== 2) {
+                return null;
+            }
+            start = findCronDayIndex(parts[0]);
+            end = findCronDayIndex(parts[1]);
+            if (start < 0 || end < 0 || start > end) {
+                return null;
+            }
+            for (i = start; i <= end; i++) {
+                days.push(CRON_DAY_OPTIONS[i].value);
+            }
+            return days;
+        }
+        if (findCronDayIndex(text) < 0) {
+            return null;
+        }
+        return [text];
+    }
+
+    function parseSimpleCronExpr(expr) {
+        var text = $.trim(String(expr || "")).toUpperCase();
+        var tokens;
+        var minute;
+        var hour;
+        var days;
+
+        if (!text) {
+            return null;
+        }
+        tokens = text.split(/\s+/);
+        if (tokens.length !== 6 || tokens[0] !== "0" || tokens[4] !== "*") {
+            return null;
+        }
+
+        minute = parseInt(tokens[1], 10);
+        hour = parseInt(tokens[2], 10);
+        if (isNaN(minute) || isNaN(hour) || minute < 0 || minute > 59 || hour < 0 || hour > 23) {
+            return null;
+        }
+
+        if ((tokens[3] === "*" || tokens[3] === "?") && tokens[5] === "*") {
+            return { repeatType: "DAILY", hour: hour, minute: minute, days: [] };
+        }
+        if (tokens[3] !== "?" && tokens[3] !== "*") {
+            return null;
+        }
+        if (tokens[5] === "MON-FRI") {
+            return { repeatType: "WEEKDAY", hour: hour, minute: minute, days: ["MON", "TUE", "WED", "THU", "FRI"] };
+        }
+
+        days = parseCronDayToken(tokens[5]);
+        if (!days || !days.length) {
+            return null;
+        }
+        return { repeatType: "WEEKLY", hour: hour, minute: minute, days: days };
+    }
+
+    function applySimpleCronConfig(config) {
+        if (!config) {
+            return;
+        }
+        $("#cron_simple_repeat").val(config.repeatType || "DAILY");
+        $("#cron_simple_hour").val(pad2(config.hour));
+        $("#cron_simple_minute").val(pad2(config.minute));
+        setSimpleCronDays(config.days || []);
+        updateCronSimpleDayVisibility();
+        updateCronPreview();
+    }
+
+    function updateAdvancedCronHint() {
+        var expr = $.trim($("#edit_cron_expr").val());
+        var parsed = parseSimpleCronExpr(expr);
+        var message = "간편 설정으로 표현하기 어려운 식은 고급 CRON으로 그대로 저장됩니다.";
+
+        if (!expr) {
+            message = "예: 0 0 5 ? * SUN = 매주 일요일 05:00";
+        } else if (parsed) {
+            message = "현재 입력은 간편 설정으로도 표현할 수 있습니다. 필요하면 간편 설정 탭으로 전환하세요.";
+        } else if (expr) {
+            message = "현재 입력은 간편 설정으로 완전히 표현되지 않아 저장 시 그대로 사용됩니다.";
+        }
+        $("#cron_advanced_hint").text(message);
+    }
+
+    function updateCronPreview() {
+        var expr = buildSimpleCronExpr();
+        var previewExpr;
+        var warning = "";
+
+        updateCronSimpleDayVisibility();
+        $("#cron_timezone_preview").text($.trim($("#edit_timezone").val()) || "Asia/Seoul");
+        $("#cron_preview_text").text(buildSimpleCronPreviewText());
+
+        if ($("#cron_simple_repeat").val() === "WEEKLY" && !selectedSimpleCronDays().length) {
+            warning = "주간 반복은 최소 1개 요일을 선택해야 합니다.";
+        }
+
+        if (getCronEditorMode() === "simple" && expr) {
+            $("#edit_cron_expr").val(expr);
+        }
+        previewExpr = getCronEditorMode() === "simple"
+            ? (expr || "-")
+            : ($.trim($("#edit_cron_expr").val()) || "-");
+        $("#cron_preview_expr").text(previewExpr);
+
+        if (warning) {
+            $("#cron_simple_warning").text(warning).show();
+        } else {
+            $("#cron_simple_warning").hide();
+        }
+    }
+
+    function syncCronEditorFromExpr(expr, preferSimple) {
+        var parsed = parseSimpleCronExpr(expr);
+        var defaultParsed = parseSimpleCronExpr(DEFAULT_CRON_EXPR);
+
+        if (parsed) {
+            applySimpleCronConfig(parsed);
+            if (preferSimple !== false) {
+                setCronEditorMode("simple");
+            }
+            updateAdvancedCronHint();
+            return true;
+        }
+
+        if (!$.trim(expr) && defaultParsed) {
+            applySimpleCronConfig(defaultParsed);
+            $("#edit_cron_expr").val(DEFAULT_CRON_EXPR);
+            if (preferSimple !== false) {
+                setCronEditorMode("simple");
+            }
+            updateAdvancedCronHint();
+            return true;
+        }
+
+        if (preferSimple !== false) {
+            setCronEditorMode("advanced");
+        }
+        updateAdvancedCronHint();
+        return false;
+    }
+
+    function updateIntervalPresetState() {
+        var current = $.trim($("#edit_interval_sec").val());
+        $(".btn-interval-preset").removeClass("btn-primary").addClass("btn-outline-secondary");
+        $('.btn-interval-preset[data-minutes="' + current + '"]').removeClass("btn-outline-secondary").addClass("btn-primary");
+    }
+
+    function syncScheduleTypeUi() {
+        var isCron = $("#edit_schedule_type").val() === "CRON";
+
+        $("#cron_schedule_panel").toggle(isCron);
+        $("#interval_schedule_panel").toggle(!isCron);
+        $("#interval_field_wrap").toggleClass("schedule-disabled", isCron);
+        $("#edit_interval_sec").prop("disabled", isCron);
+        $(".btn-interval-preset").prop("disabled", isCron);
+    }
+
+    function refreshScheduleEditor(preferSimple) {
+        syncScheduleTypeUi();
+        updateIntervalPresetState();
+        if ($("#edit_schedule_type").val() === "CRON") {
+            if (!$.trim($("#edit_cron_expr").val())) {
+                $("#edit_cron_expr").val(DEFAULT_CRON_EXPR);
+            }
+            syncCronEditorFromExpr($.trim($("#edit_cron_expr").val()), preferSimple);
+            updateCronPreview();
+        } else {
+            updateAdvancedCronHint();
+        }
+    }
+
+    function initScheduleEditor() {
+        populateCronTimeOptions();
+        $("#edit_cron_expr").val(DEFAULT_CRON_EXPR);
+        applySimpleCronConfig(parseSimpleCronExpr(DEFAULT_CRON_EXPR));
+        setCronEditorMode("simple");
+        updateIntervalPresetState();
+        syncScheduleTypeUi();
     }
 
     function escapeHtml(value) {
@@ -464,10 +845,22 @@
     }
 
     function collectParamsJson() {
+        var taskKey = $("#edit_task_key").val();
+        var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
         var rows = [];
+
+        /* STK_MASTER_REFRESH: 전용 패널 값을 우선 수집 */
+        if (isRefreshTask) {
+            rows = collectStkMasterRefreshParams();
+        }
+
         $("#param_rows_container .param-row").each(function () {
             var $row = $(this);
             var paramKey = $row.find(".param-key").val().trim();
+            /* STK_MASTER_REFRESH 관리 키는 일반 파라미터 목록에서 제외 */
+            if (isRefreshTask && isStkMasterRefreshManagedKey(paramKey)) {
+                return;
+            }
             var paramType = $row.find(".param-type").val();
             var $valInput = $row.find(".param-value");
             var isSysdate = $valInput.attr("data-sysdate") === "Y";
@@ -487,6 +880,8 @@
         return JSON.stringify(rows, null, 2);
     }
 
+    var STK_MASTER_REFRESH_TASK = "STK_MASTER_REFRESH";
+
     function defaultParamsByTask(taskKey) {
         if (taskKey === "REC_SIGNAL_RUN") {
             return [
@@ -502,7 +897,54 @@
                 { paramKey: "baseDt", paramValue: "SYSDATE", paramType: "DATE", requiredYn: "N", maskedYn: "N" }
             ];
         }
+        /* STK_MASTER_REFRESH: 전용 패널에서 관리 — 일반 파라미터 목록 없음 */
         return [];
+    }
+
+    /* ── STK_MASTER_REFRESH 전용 패널 ─────────────────────────────── */
+
+    function setStkBtnGroupValue(groupId, hiddenId, value) {
+        $("#" + groupId + " button").removeClass("btn-primary active").addClass("btn-default");
+        var $btn = $('#' + groupId + ' button[data-value="' + value + '"]');
+        if ($btn.length) {
+            $btn.removeClass("btn-default").addClass("btn-primary active");
+        }
+        $("#" + hiddenId).val(value);
+    }
+
+    function syncStkMasterRefreshPanel(taskKey, paramsArr) {
+        var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
+        $("#stk_master_refresh_panel").toggle(isRefreshTask);
+        if (!isRefreshTask) {
+            return;
+        }
+
+        /* paramsArr에서 marketGroup / stockType 값을 읽어 패널에 반영 */
+        var marketGroup = "ALL";
+        var stockType   = "ALL";
+        if (paramsArr && paramsArr.length) {
+            for (var i = 0; i < paramsArr.length; i++) {
+                var k = paramsArr[i].paramKey;
+                var v = paramsArr[i].paramValue;
+                if (k === "marketGroup" && v) { marketGroup = v; }
+                if (k === "stockType"   && v) { stockType   = v; }
+            }
+        }
+        setStkBtnGroupValue("stk_market_group_btn", "stk_market_group_val", marketGroup);
+        setStkBtnGroupValue("stk_stock_type_btn",   "stk_stock_type_val",   stockType);
+    }
+
+    /** STK_MASTER_REFRESH 전용 params (패널 값 → 파라미터 배열) */
+    function collectStkMasterRefreshParams() {
+        return [
+            { paramKey: "marketGroup", paramValue: $("#stk_market_group_val").val() || "ALL", paramType: "STRING" },
+            { paramKey: "stockType",   paramValue: $("#stk_stock_type_val").val()   || "ALL", paramType: "STRING" }
+        ];
+    }
+
+    /** 일반 파라미터 수집 시 STK_MASTER_REFRESH 전용 키는 제외 */
+    function isStkMasterRefreshManagedKey(key) {
+        return (key === "marketGroup" || key === "stockType");
     }
 
     function openCreate() {
@@ -514,12 +956,14 @@
         $("#edit_timezone").val("Asia/Seoul");
         $("#edit_max_runtime_sec").val("7200");
         $("#edit_schedule_type").val("CRON");
-        $("#edit_cron_expr").val("0 0 2 ? * TUE-SAT");
-        $("#edit_interval_sec").val("3600");
+        $("#edit_cron_expr").val(DEFAULT_CRON_EXPR);
+        $("#edit_interval_sec").val("60");
         $("#edit_misfire_policy").val("SKIP");
         $("#edit_schedule_enabled_yn").val("Y");
         $("#edit_log_retention_days").val("30");
         renderParamRows([]);
+        syncStkMasterRefreshPanel("", []);
+        refreshScheduleEditor(true);
         $("#modal_batch_admin_edit").modal("show");
     }
 
@@ -540,15 +984,22 @@
 
             $("#edit_schedule_type").val(val(schedule, "schedule_type") || "CRON");
             $("#edit_cron_expr").val(val(schedule, "cron_expr") || "");
-            $("#edit_interval_sec").val(val(schedule, "interval_sec") || "3600");
+            $("#edit_interval_sec").val(intervalSecToMinutes(val(schedule, "interval_sec")));
             $("#edit_misfire_policy").val(val(schedule, "misfire_policy") || "SKIP");
             $("#edit_schedule_enabled_yn").val(val(schedule, "enabled_yn") || "Y");
             $("#edit_log_retention_days").val(val(schedule, "log_retention_days") || "30");
 
+            var taskKey = val(job, "task_key") || "";
+            var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
             var paramsJson = [];
             for (var i = 0; i < params.length; i++) {
+                var pKey = val(params[i], "param_key");
+                /* STK_MASTER_REFRESH 관리 키는 일반 파라미터 목록에서 제외 */
+                if (isRefreshTask && isStkMasterRefreshManagedKey(pKey)) {
+                    continue;
+                }
                 paramsJson.push({
-                    paramKey: val(params[i], "param_key"),
+                    paramKey: pKey,
                     paramValue: val(params[i], "param_value"),
                     paramType: val(params[i], "param_type"),
                     requiredYn: val(params[i], "required_yn"),
@@ -556,7 +1007,11 @@
                 });
             }
             renderParamRows(paramsJson);
+            syncStkMasterRefreshPanel(taskKey, params.map(function (p) {
+                return { paramKey: val(p, "param_key"), paramValue: val(p, "param_value") };
+            }));
 
+            refreshScheduleEditor(true);
             $("#modal_batch_admin_edit").modal("show");
         });
     }
@@ -570,10 +1025,31 @@
             return;
         }
 
+        if ($("#edit_schedule_type").val() === "CRON") {
+            if (getCronEditorMode() === "simple") {
+                var simpleCronExpr = buildSimpleCronExpr();
+                if (!simpleCronExpr) {
+                    alert("주간 반복은 최소 1개 요일을 선택하세요.");
+                    return;
+                }
+                $("#edit_cron_expr").val(simpleCronExpr);
+            }
+            if (!$.trim($("#edit_cron_expr").val())) {
+                alert("CRON 실행 규칙을 입력하세요.");
+                return;
+            }
+        } else {
+            var intervalSeconds = parseInt(intervalMinutesToSeconds($("#edit_interval_sec").val()), 10);
+            if (!intervalSeconds || intervalSeconds <= 0) {
+                alert("실행 간격(분)을 입력하세요.");
+                return;
+            }
+        }
+
         var scheduleJson = {
             scheduleType: $("#edit_schedule_type").val(),
-            cronExpr: $("#edit_cron_expr").val(),
-            intervalSec: $("#edit_interval_sec").val(),
+            cronExpr: $.trim($("#edit_cron_expr").val()),
+            intervalSec: intervalMinutesToSeconds($("#edit_interval_sec").val()),
             misfirePolicy: $("#edit_misfire_policy").val(),
             enabledYn: $("#edit_schedule_enabled_yn").val(),
             logRetentionDays: parseInt($("#edit_log_retention_days").val(), 10) || 0
@@ -632,6 +1108,7 @@
         ensureBatchAdminTable();
         ensureBatchLogTable();
         ensureBatchItemFailTable();
+        initScheduleEditor();
         loadTasks();
         loadJobs();
         initTooltips($(document));
@@ -645,9 +1122,67 @@
         });
 
         $("#edit_task_key").on("change", function () {
+            var taskKey = $(this).val();
             if (!$("#param_rows_container .param-row").length) {
-                renderParamRows(defaultParamsByTask($(this).val()));
+                renderParamRows(defaultParamsByTask(taskKey));
             }
+            syncStkMasterRefreshPanel(taskKey, []);
+        });
+
+        $("#edit_schedule_type").on("change", function () {
+            refreshScheduleEditor(true);
+        });
+
+        $(".schedule-mode-switch [data-cron-mode]").on("click", function () {
+            var mode = $(this).data("cronMode");
+            var currentExpr = $.trim($("#edit_cron_expr").val());
+            var shouldWarnOnSimple = false;
+
+            if (mode === "simple") {
+                if (!syncCronEditorFromExpr(currentExpr, false) && currentExpr) {
+                    shouldWarnOnSimple = true;
+                }
+            }
+            setCronEditorMode(mode);
+            if (shouldWarnOnSimple) {
+                $("#cron_simple_warning").text("현재 고급 CRON은 간편 설정으로 표현되지 않아, 저장 시 현재 간편 설정 값으로 바뀝니다.").show();
+            }
+        });
+
+        $("#cron_simple_repeat, #cron_simple_hour, #cron_simple_minute").on("change", function () {
+            updateCronPreview();
+        });
+
+        $("#cron_simple_days_wrap").on("change", "input", function () {
+            updateCronPreview();
+        });
+
+        $("#edit_cron_expr").on("input change", function () {
+            syncCronEditorFromExpr($.trim($(this).val()), false);
+            updateAdvancedCronHint();
+        });
+
+        $("#edit_timezone").on("input change", function () {
+            updateCronPreview();
+        });
+
+        $("#edit_interval_sec").on("input change", function () {
+            updateIntervalPresetState();
+        });
+
+        $(".btn-interval-preset").on("click", function () {
+            $("#edit_interval_sec").val(String($(this).data("minutes")));
+            updateIntervalPresetState();
+        });
+
+        /* STK_MASTER_REFRESH 전용 패널 — 버튼 그룹 토글 */
+        $("#stk_master_refresh_panel").on("click", ".btn-group button", function () {
+            var $btn    = $(this);
+            var $group  = $btn.closest(".btn-group");
+            var $hidden = $group.next("input[type=hidden]");
+            $group.find("button").removeClass("btn-primary active").addClass("btn-default");
+            $btn.removeClass("btn-default").addClass("btn-primary active");
+            $hidden.val($btn.data("value"));
         });
 
         $("#btn_add_param").on("click", function () {
@@ -741,6 +1276,7 @@
         });
 
         $("#modal_batch_admin_edit").on("shown.bs.modal", function () {
+            refreshScheduleEditor(false);
             initTooltips($(this));
         });
     });
