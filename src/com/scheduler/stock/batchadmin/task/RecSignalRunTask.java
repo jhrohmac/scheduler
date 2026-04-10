@@ -31,8 +31,11 @@ public class RecSignalRunTask implements StockBatchTask {
             runMap.putAll(params);
         }
 
-        // Keep defaults aligned with current RecSignal batch behavior.
-        if (isBlank(runMap.get("marketGroup"))) runMap.put("marketGroup", "KR");
+        // marketGroup 미지정 시 job_id 접미사로 자동 보정 (REC_SIGNAL_RUN_US → US)
+        if (isBlank(runMap.get("marketGroup"))) {
+            String jobId = toStr(jobDef != null ? jobDef.get("job_id") : "").toUpperCase();
+            runMap.put("marketGroup", jobId.endsWith("_US") ? "US" : "KR");
+        }
         if (isBlank(runMap.get("days"))) runMap.put("days", "400");
         if (isBlank(runMap.get("requestIntervalMs"))) {
             String retryOnly = runMap.get("retryOnly");

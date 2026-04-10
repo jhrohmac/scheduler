@@ -147,6 +147,11 @@ public class StockBatchAdminDaoImpl extends SqlSessionDaoSupport implements Stoc
     }
 
     @Override
+    public int purgeOldBatchExecLogs(HashMap<String, String> map) throws Exception {
+        return getSqlSession().delete(NS + "purgeOldBatchExecLogs", map);
+    }
+
+    @Override
     public HashMap<String, Object> selectTaskDef(HashMap<String, String> map) throws Exception {
         return getSqlSession().selectOne(NS + "selectTaskDef", map);
     }

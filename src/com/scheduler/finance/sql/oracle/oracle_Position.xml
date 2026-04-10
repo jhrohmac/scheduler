@@ -34,6 +34,8 @@
            <if test="positionId != null and positionId != ''">AND POSITION_ID = #{positionId}</if>
            <if test="stockGroup != null and stockGroup != ''">AND STOCK_GROUP = #{stockGroup}</if>
            <if test="stockCode != null and stockCode != ''">AND STOCK_CODE = #{stockCode}</if>
+         ORDER BY POSITION_ID DESC
+         FETCH FIRST 1 ROW ONLY
     </select>
 
     <insert id="insertPosition" parameterType="positionVo">
@@ -42,7 +44,7 @@
             CLOSE_FLAG, STATE_CODE, CREATE_USER, CREATE_DATE, MODIFY_DATE
         ) VALUES (
             #{stockGroup}, #{stockCode}, #{marketCode}, #{totalQty}, #{avgPrice},
-            NVL(#{closeFlag}, 'N'), NVL(#{stateCode}, 'HOLD'), #{createUser}, SYSDATE, SYSDATE
+            NVL(#{closeFlag}, 'N'), NVL(#{stateCode}, 'HOLD'), #{createUser,jdbcType=VARCHAR}, SYSDATE, SYSDATE
         )
     </insert>
 
@@ -92,8 +94,11 @@
             CREATE_USER, CREATE_DATE
         ) VALUES (
             #{positionId}, #{stockGroup}, #{stockCode}, #{actionType},
-            NVL(#{qty},0), NVL(#{price},0), #{beforeQty}, #{beforeAvg}, #{afterQty}, #{afterAvg},
-            #{reasonText}, #{jsonParams}, #{createUser}, SYSDATE
+            NVL(#{qty},0), NVL(#{price},0),
+            #{beforeQty,jdbcType=NUMERIC}, #{beforeAvg,jdbcType=NUMERIC},
+            #{afterQty,jdbcType=NUMERIC}, #{afterAvg,jdbcType=NUMERIC},
+            #{reasonText,jdbcType=VARCHAR}, #{jsonParams,jdbcType=VARCHAR},
+            #{createUser,jdbcType=VARCHAR}, SYSDATE
         )
     </insert>
 

@@ -1,73 +1,157 @@
 # CLAUDE.md
 
-## Project
-**scheduler** — KIS API 기반 주식 모니터링·분석 웹앱.
-목표: **TA 지표를 통한 매수/매도 시점 파악 도구** 구현.
+Guidance for Claude Code in this repository.
 
-## Claude Role
-- 금융 전문가 + 개발자: TA 도구 설계·구현. 더 나은 지표 조합 적극 제안.
-- 분석 결과는 가능하면 Highcharts 차트로 시각화 (필수 아님).
-- DO NOT commit: `kis.properties`, `oracle.db.properties`
+## Project Overview
+
+**scheduler** — KIS (Korea Investment & Securities) OpenAPI-based domestic stock monitoring and analysis web app.
+Core goal: **TA (Technical Analysis) indicator tool for identifying buy/sell timing**.
+
+## Claude's Role
+
+- **Finance expert + developer**: Design and implement TA tools. Proactively suggest better indicator combinations.
+- **Visualization preferred**: Represent analysis results with Highcharts charts where possible (not mandatory).
+- **YOU MUST NOT commit**: `kis.properties`, `oracle.db.properties` (API keys and DB secrets)
+
+## Development Direction
+
+### Trading Signal Generation
+- Generate TA-based buy/sell signals using MA(5/20/60/120/240), MACD, RSI, Bollinger Bands.
+- When implementing a signal, always specify all 4:
+  - **Buy condition**: Entry criteria (e.g. MA golden cross + volume surge)
+  - **Sell condition**: Exit criteria (e.g. RSI > 70 + MACD dead cross)
+  - **Market environment**: Trending / sideways / high-volatility
+  - **False signal cases**: When the signal typically fails
+- Mark buy/sell points visually on charts (Highcharts annotation/flag).
+
+### Stock Performance Tracking Batch (Core Feature)
+- Track watchlist / recommended / held stocks from registration date.
+- Daily batch (`RecPickDailyBatch`) records price changes and cumulative returns → `TB_S_RECO_PICK_DAILY`
+- Calculate **recommendation success rate**: target price reached, period return stats → `TB_S_RECO_PICK_EVAL`
+- Buy/sell timing alerts: link TA signals (`TB_REC_SIGNAL`) with positions (`TB_S_POSITION`)
 
 ## Tech Stack
-- Backend: Java 8, Spring 3.0.7 (+WebFlux 6.1.5), MyBatis 3.2.0
-- DB: Oracle (dual: primary + DEV), Apache Commons DBCP
-- Frontend: JSP/JSTL, jQuery 3.7.1, Bootstrap 5, AdminLTE 3, Highcharts
-- Real-time: KIS WebSocket + Java-WebSocket 1.5.6
-- Server: Tomcat 9.0 | Build: Eclipse (JARs in `webapp/WEB-INF/lib/`)
+
+- **Backend**: Java 8, Spring 3.0.7 (+ WebFlux 6.1.5), MyBatis 3.2.0
+- **Database**: Oracle RDBMS (dual datasource: primary + DEV), Apache Commons DBCP
+- **Frontend**: JSP/JSTL, jQuery 3.7.1, Bootstrap 5, AdminLTE 3, Highcharts
+- **Real-time**: KIS WebSocket API + Java-WebSocket 1.5.6
+- **Server**: Apache Tomcat 9.0
+- **Build**: Eclipse-based (no Maven/Gradle) — JARs in `webapp/WEB-INF/lib/`
 
 ## Build & Run
+
 ```bash
-./build.sh   # javac → webapp/WEB-INF/classes/
-./run.sh     # Tomcat restart
+./build.sh                  # javac compile → webapp/WEB-INF/classes/
+./run.sh                    # Restart Tomcat
+./start-work.sh             # Show git status + NEXT_ACTION
+./end-work.sh "summary"     # Update NEXT_ACTION.md + commit guide
 ```
-App: `http://scheduler.iptime.org:8080/scheduler/`
+
+- App URL: `http://scheduler.iptime.org:8080/scheduler/`
+- Mobile: `/finance/mobile/watchlist.do`
 
 ## Source Packages (`src/com/scheduler/`)
-| Package | Purpose |
+
+| Package | Role |
 |---|---|
-| `login` | Auth & session |
-| `comm` | Shared controllers, utilities, system init |
-| `management` | User/menu/code/calendar CRUD |
-| `finance` | Stock monitoring, charts, watchlist, batch |
-| `stock` | Core: batch, RecSignal, RecPick, Position, MA calc |
-| `kis_api` | KIS OpenAPI wrappers (REST + realtime 40+ types) |
-| `kis_client` | HTTP/WebSocket client, rate limit, auth middleware |
+| `login` | Auth / session |
+| `comm` | Common controllers, utils, system init |
+| `management` | User / menu / code / calendar management |
+| `finance` | Stock monitoring, charts, watchlist, batch controllers & DAO |
+| `stock` | Core business logic — batch/, RecSignal/RecPick/Position/MA services |
+| `kis_api` | KIS OpenAPI wrapper (REST + realtime, 40+ response types) |
+| `kis_client` | HTTP/WebSocket client, rate limiter, auth middleware |
 | `util` | Request/response handlers, session validation |
 
-## Architecture
-Request flow: `DispatcherServlet (*.do)` → Controller → DAO → MyBatis → Oracle
-
-Spring XML (`webapp/WEB-INF/resources/`):
-```
-scheduler-servlet.xml → mainService.xml | mngtService.xml | financeService.xml
-```
-MyBatis mapper XMLs: `*/sql/oracle/oracle_*.xml`
+Follow this package structure when adding new features.
 
 ## KIS API
-- Credentials: `webapp/WEB-INF/resources/kis/kis.properties`
-- 신규 API 연동 시 `한국투자증권_오픈API_전체_가이드_문서.xlsx`에서 TR_ID·필드 확인.
 
-## TA Signal (매매 신호 구현 필수)
-신호마다 **매수 조건 / 매도 조건 / 적합 시장 환경 / 오신호 케이스** 4가지 명시.
-차트에 매수·매도 포인트 Highcharts annotation/flag로 마킹.
+- **Auth config**: `webapp/WEB-INF/resources/kis/kis.properties`
+- **REST prod**: `https://openapi.koreainvestment.com:9443`
+- **REST mock**: `https://openapivts.koreainvestment.com:29443`
+- **Access token**: `POST /oauth2/tokenP` (valid 1 day)
+- **WebSocket key**: `POST /oauth2/Approval` (no re-issue needed while session active)
 
-## Conventions
-- Comments & UI: Korean | Encoding: UTF-8 | URLs: `*.do`
-- SQL: Oracle, MyBatis XML (`oracle_` prefix)
-- **New screen**: JSP / JS / CSS 반드시 별도 파일 분리 (inline `<script>/<style>` 금지)
-- Grid: `dataTableGridNew(gridObj, options)` in `common.js`
-- Ajax: `ajaxCall()` or `ajaxRequest()`
-- Response: `DataTableSettingVo` + `ResponseHandler.sendResponse()`
+> For new API integrations, always check TR_ID · Request/Response fields · domain in `한국투자증권_오픈API_전체_가이드_문서.xlsx`.
 
-## Source Protection
-1. Read before modify — 변경 범위·영향 파일 먼저 파악·보고
-2. 기존 메서드 파라미터·반환타입 변경 금지 (추가만 허용)
-3. `common.js`: 신규 함수 추가만 허용, 기존 동작 변경 금지
-4. Spring XML: 신규 빈/매퍼 추가만 허용, 기존 빈 변경 금지
-5. **사용자 승인 필수**: DB 스키마 변경 / 공통 함수 동작 변경 / 기존 API 시그니처 변경
-6. 기능 단위 분리 작업 → 즉시 커밋 (`feat:`/`fix:`/`ops:`/`docs:`)
+## DB Key Tables
 
-## Workflow
-- `NEXT_ACTION.md` — 현재 할 일 (세션 시작 시 반드시 확인)
-- `WORKFLOW.md` — 브랜치 규칙·커밋 컨벤션
+`TB_STK_MASTER`(stock master) · `TB_STK_DLY_PRICE`(daily) · `TB_STK_MON_PRICE`(monthly)
+`TB_REC_SIGNAL`(buy signal) · `TB_S_RECO_PICK`/`_DAILY`/`_EVAL`(recommendations & performance)
+`TB_S_POSITION`(position) · `TB_S_SIGNAL_EVENT`(signal events)
+`TB_BATCH_EXEC_LOG`/`_ITEM_LOG`(batch logs) · `TB_TRADE_CALENDAR`(trading calendar)
+
+DDL: `db/DDL_TB_*.sql`, `db/DDL_VW_*.sql`
+
+## Architecture
+
+**Request flow**: `DispatcherServlet (*.do)` → Controller → Service/DAO → MyBatis → Oracle
+
+**Spring XML beans** (`webapp/WEB-INF/resources/`): `scheduler-servlet.xml` imports `mainService.xml`, `mngtService.xml`, `financeService.xml`.
+
+**MyBatis**: mapper XMLs at `*/sql/oracle/oracle_*.xml` — 19 mappers registered in `oracle_mybatis-config.xml`.
+
+## Frontend (`webapp/appone/`)
+
+- **Main dashboard**: `jsp/finance/kis/kisFinance/`
+- **JS modules**: `webapp/appone/js/` (16 modules — chartScript, maScript, kisFinancePage, recSignalPanel, etc.)
+- **Common JS**: `appone/plugins/system/js/common.js`
+- **Common includes**: `system/css/cssLink.jsp`, `system/js/jsLink.jsp`
+
+### File Separation Rule
+
+New screens must separate JSP / JS / CSS into distinct files:
+
+```
+jsp/{module}/feature.jsp      ← HTML structure only
+jsp/{module}/js/feature.js    ← Scripts only
+jsp/{module}/css/feature.css  ← Styles only
+```
+
+No inline `<script>` or `<style>` blocks inside JSP files.
+
+## Project Conventions
+
+**Grid**: Use `dataTableGridNew(gridObj, options)` from `common.js`. Set `grid_id`, `url`, `param`, `columns`, `columnDefs` on `gridObj`.
+
+**Backend Response**: Set `DataTableSettingVo` fields (`data`, `draw`, `start_no`, `page_length`, `recordsFiltered`, `recordsTotal`), then return via `ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, msg, resultVo)`. Use `ERROR_CODE` in catch.
+
+**Ajax**: Simple calls use `ajaxCall(url, "json", param, callback)`. Option-controlled calls use `ajaxRequest({ url, data, onSuccess, onError })`.
+
+## Source Protection Rules
+
+### Before Modifying Any File
+- Always identify **change scope and affected files** before editing.
+- Explicitly notify if an existing screen will be impacted.
+
+### Common File Rules
+- `common.js`: add new functions / fix bugs only — never change existing function signatures
+- `cssLink.jsp` / `jsLink.jsp`: add libraries only — never remove or reorder existing entries
+- Spring XML beans: add new beans/mappers only — never change existing bean id/class/properties
+
+### Controller · DAO · SQL Mapper Rules
+- Fixing bugs, improving performance, or refactoring logic in existing methods is allowed.
+- **Never change** an existing method's parameter or return type — it breaks callers.
+- Need different behavior? **Add a new method**, keep the original.
+
+### Commit Rules
+- Work in single-feature units — don't mix multiple features in one commit.
+- Check `git status` before starting; commit immediately after finishing (`feat:` / `fix:` / `ops:`).
+- **YOU MUST get user approval before**: DB schema changes (ALTER TABLE), common function behavior changes, existing API signature changes.
+
+## Key Conventions
+
+- Code comments and UI text: **Korean**
+- Encoding: UTF-8
+- Controller URL pattern: `*.do`
+- SQL: Oracle-specific, MyBatis XML (`oracle_` prefix)
+- Dual datasource: primary + DEV (`oracle_mybatis-context.xml`)
+
+## Workflow Docs
+
+- `NEXT_ACTION.md` — current / next tasks (always check at session start)
+- `WORKFLOW.md` — branch rules (`feat/`, `fix/`, `ops/`, `docs/`), commit conventions
+- `PROGRESS_LOG.md` — completion history
+- `PROJECT_PLAN.md` — full roadmap

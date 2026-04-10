@@ -934,6 +934,54 @@ function fn_PageLoadInit(){
 }
 
 /************************************************************************
+* 테이블 로딩 오버레이 헬퍼 (공통)
+* dtShowLoading(tableId) / dtHideLoading(tableId) 로 외부에서도 사용 가능
+*************************************************************************/
+(function() {
+  if (document.getElementById('dt-loading-style')) return;
+  var s = document.createElement('style');
+  s.id = 'dt-loading-style';
+  s.textContent = [
+    '.dt-loading-wrap { position: relative !important; }',
+    '.dt-loading-overlay {',
+    '  position: absolute; top: 0; left: 0; right: 0; bottom: 0;',
+    '  background: rgba(255,255,255,0.72);',
+    '  display: flex; align-items: center; justify-content: center;',
+    '  z-index: 20; border-radius: 4px; pointer-events: none;',
+    '}',
+    '.dt-loading-spinner {',
+    '  width: 36px; height: 36px;',
+    '  border: 3px solid #ddd;',
+    '  border-top-color: #444;',
+    '  border-radius: 50%;',
+    '  animation: dt-spin 0.65s linear infinite;',
+    '}',
+    '@keyframes dt-spin { to { transform: rotate(360deg); } }'
+  ].join('\n');
+  document.head.appendChild(s);
+}());
+
+function dtShowLoading(tableId) {
+  var $tbl = $('#' + tableId);
+  var $wrap = $tbl.closest('.dataTables_wrapper');
+  if (!$wrap.length) $wrap = $tbl.parent();
+  $wrap.addClass('dt-loading-wrap');
+  var $ov = $wrap.find('.dt-loading-overlay');
+  if (!$ov.length) {
+    $wrap.append('<div class="dt-loading-overlay"><div class="dt-loading-spinner"></div></div>');
+  } else {
+    $ov.show();
+  }
+}
+
+function dtHideLoading(tableId) {
+  var $tbl = $('#' + tableId);
+  var $wrap = $tbl.closest('.dataTables_wrapper');
+  if (!$wrap.length) $wrap = $tbl.parent();
+  $wrap.find('.dt-loading-overlay').hide();
+}
+
+/************************************************************************
 * DATA TABLE Default Set List Version 3.5
 *************************************************************************/
 function dataTableGridNew(gridObj, gridOptions) {
@@ -992,7 +1040,8 @@ function dataTableGridNew(gridObj, gridOptions) {
 
 	    // (5) ajax data 교체 후 reload
 	    settings.ajax.data = param;
-	    table.ajax.reload(null, resetPaging);
+	    dtShowLoading(grid_id);
+	    table.ajax.reload(function() { dtHideLoading(grid_id); }, resetPaging);
 	    return;
 	}
 
@@ -1059,6 +1108,20 @@ function dataTableGridNew(gridObj, gridOptions) {
 
 	// (C) gridOptions 병합
 	var opts = $.extend(true, {}, defaultOptions, gridOptions);
+
+	// (C-1) 로딩 오버레이 — ajax beforeSend/complete 후킹
+	if (opts.ajax && typeof opts.ajax === 'object') {
+	  var _origBefore   = opts.ajax.beforeSend;
+	  var _origComplete = opts.ajax.complete;
+	  opts.ajax.beforeSend = function(xhr, settings) {
+	    dtShowLoading(grid_id);
+	    if (typeof _origBefore === 'function') _origBefore.call(this, xhr, settings);
+	  };
+	  opts.ajax.complete = function(xhr, status) {
+	    dtHideLoading(grid_id);
+	    if (typeof _origComplete === 'function') _origComplete.call(this, xhr, status);
+	  };
+	}
 
 	// (D) DataTable 초기화
 	var grid_table = $('#' + grid_id).DataTable(opts);

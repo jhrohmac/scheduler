@@ -22,6 +22,12 @@
       { value: MARKET_FILTER_DOW, label: "다우지수" }
     ]
   };
+  var GRADE_OPTIONS = [
+    { value: "ALL", label: "전체" },
+    { value: "A", label: "A" },
+    { value: "B", label: "B" },
+    { value: "C", label: "C" }
+  ];
   var state = {
     country: resolveInitialCountry(),
     marketFilter: MARKET_FILTER_ALL,
@@ -953,23 +959,68 @@
   }
 
   function renderGradeFilterState() {
-    Array.prototype.forEach.call(document.querySelectorAll("#signalGradeFilter .signal-rec-chip"), function (button) {
-      button.classList.toggle("is-active", safeStr(button.getAttribute("data-grade")).toUpperCase() === state.grade);
+    var button = $("signalGradeCycleBtn");
+    var currentGrade = safeStr(state.grade).toUpperCase() || "ALL";
+    var idx = 0;
+    var modeEl, dots, i;
+
+    if (!button) {
+      return;
+    }
+
+    for (i = 0; i < GRADE_OPTIONS.length; i++) {
+      if (GRADE_OPTIONS[i].value === currentGrade) {
+        idx = i;
+        break;
+      }
+    }
+
+    modeEl = button.querySelector(".signal-cycle-btn-mode");
+    dots = button.querySelectorAll(".signal-cycle-dot");
+
+    button.dataset.gradeMode = currentGrade;
+    button.title = "등급 " + GRADE_OPTIONS[idx].label;
+
+    if (modeEl) {
+      modeEl.textContent = GRADE_OPTIONS[idx].label;
+    }
+
+    Array.prototype.forEach.call(dots, function (dot, dotIdx) {
+      dot.classList.toggle("is-active", dotIdx === idx);
     });
   }
 
   function renderMarketFilterOptions() {
     var options = MARKET_OPTIONS[state.country] || MARKET_OPTIONS.KR;
-    var target = $("signalMarketFilter");
+    var button = $("signalMarketCycleBtn");
+    var currentVal = currentMarketFilter();
+    var idx = 0;
+    var modeEl, dots, i;
 
-    if (!target) {
+    if (!button) {
       return;
     }
 
-    target.innerHTML = options.map(function (option) {
-      var active = option.value === currentMarketFilter() ? " is-active" : "";
-      return '<button type="button" class="signal-rec-chip' + active + '" data-market-filter="' + option.value + '">' + option.label + "</button>";
-    }).join("");
+    for (i = 0; i < options.length; i++) {
+      if (options[i].value === currentVal) {
+        idx = i;
+        break;
+      }
+    }
+
+    modeEl = button.querySelector(".signal-cycle-btn-mode");
+    dots = button.querySelectorAll(".signal-cycle-dot");
+
+    button.dataset.marketMode = currentVal;
+    button.title = "시장 " + options[idx].label;
+
+    if (modeEl) {
+      modeEl.textContent = options[idx].label;
+    }
+
+    Array.prototype.forEach.call(dots, function (dot, dotIdx) {
+      dot.classList.toggle("is-active", dotIdx === idx);
+    });
   }
 
   function setError(message, kind) {
@@ -1098,6 +1149,12 @@
       if (typeof window.loadWatchlistItems === "function") {
         window.loadWatchlistItems();
       }
+
+      // 매수 자동 등록 (디폴트: 현재가, 수량1, 추천기준일, 진입규칙 자동추론)
+      var savedPick = extractSingle(json);
+      if (savedPick && savedPick.pickId && urls.recPickRegisterBuy && stock.currentPrice > 0) {
+        autoRegisterBuy(savedPick.pickId, stock);
+      }
     }).catch(function (error) {
       setError(error && error.message ? error.message : "관심종목 등록에 실패했습니다.");
       if (triggerEl) {
@@ -1105,6 +1162,55 @@
       }
     }).then(function () {
       finishSave();
+    });
+  }
+
+  function inferEntryRule(stock) {
+    var reason = safeStr(stock.recReason).toUpperCase();
+    if (reason.indexOf("BREAKOUT") >= 0) {
+      return "BREAKOUT_20";
+    }
+    if (reason.indexOf("PULLBACK") >= 0) {
+      return "PULLBACK_MA20";
+    }
+    return "MANUAL";
+  }
+
+  function autoRegisterBuy(pickId, stock) {
+    var registerUrl = urls.recPickRegisterBuy;
+    if (!registerUrl || !pickId) {
+      return;
+    }
+
+    var body = new URLSearchParams();
+    body.set("pickId",        String(pickId));
+    body.set("buyPrice",      String(stock.currentPrice));
+    body.set("qty",           "1");
+    body.set("buyDate",       stock.baseDt || "");
+    body.set("entryRuleCode", inferEntryRule(stock));
+
+    fetch(registerUrl, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+      },
+      credentials: "same-origin",
+      body: body.toString()
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+      return response.json();
+    }).then(function (json) {
+      if (!isSuccessResponse(json)) {
+        throw new Error(safeStr(json && (json.system_msg || json.result_msg)) || "매수 등록에 실패했습니다.");
+      }
+      var result = extractSingle(json);
+      var targetPriceText = result && result.targetPrice ? " (목표가: " + formatPrice(result.targetPrice, stock.market) + ")" : "";
+      setError(formatStockName(stock) + " 매수 등록 완료" + targetPriceText, "success");
+    }).catch(function (error) {
+      setError("매수 자동 등록 실패: " + (error && error.message ? error.message : "오류가 발생했습니다."));
     });
   }
 
@@ -1393,8 +1499,8 @@
     var reload = $("btnSignalReload");
     var watchMarket = $("wlMarket");
     var countrySwitch = $("signalCountrySwitchBtn");
-    var marketFilter = $("signalMarketFilter");
-    var gradeFilter = $("signalGradeFilter");
+    var marketCycleBtn = $("signalMarketCycleBtn");
+    var gradeCycleBtn = $("signalGradeCycleBtn");
     var sortFilter = $("signalSortFilter");
 
     if (!$("signalRecComparisonBody")) {
@@ -1415,21 +1521,23 @@
       });
     }
 
-    if (marketFilter) {
-      marketFilter.addEventListener("click", function (event) {
-        var button = event.target;
-        var nextMarketFilter;
+    if (marketCycleBtn) {
+      marketCycleBtn.addEventListener("click", function () {
+        var options = MARKET_OPTIONS[state.country] || MARKET_OPTIONS.KR;
+        var currentVal = currentMarketFilter();
+        var currentIdx = 0;
+        var nextVal;
+        var i;
 
-        if (!button || button.tagName !== "BUTTON") {
-          return;
+        for (i = 0; i < options.length; i++) {
+          if (options[i].value === currentVal) {
+            currentIdx = i;
+            break;
+          }
         }
 
-        nextMarketFilter = normalizeMarketFilterValue(button.getAttribute("data-market-filter"));
-        if (nextMarketFilter === currentMarketFilter()) {
-          return;
-        }
-
-        state.marketFilter = isValidMarketFilter(state.country, nextMarketFilter) ? nextMarketFilter : MARKET_FILTER_ALL;
+        nextVal = options[(currentIdx + 1) % options.length].value;
+        state.marketFilter = isValidMarketFilter(state.country, nextVal) ? nextVal : MARKET_FILTER_ALL;
         state.selectedCode = "";
         state.selectedMarket = state.country;
         renderMarketFilterOptions();
@@ -1437,15 +1545,20 @@
       });
     }
 
-    if (gradeFilter) {
-      gradeFilter.addEventListener("click", function (event) {
-        var button = event.target;
+    if (gradeCycleBtn) {
+      gradeCycleBtn.addEventListener("click", function () {
+        var currentGrade = safeStr(state.grade).toUpperCase() || "ALL";
+        var currentIdx = 0;
+        var i;
 
-        if (!button || button.tagName !== "BUTTON") {
-          return;
+        for (i = 0; i < GRADE_OPTIONS.length; i++) {
+          if (GRADE_OPTIONS[i].value === currentGrade) {
+            currentIdx = i;
+            break;
+          }
         }
 
-        state.grade = safeStr(button.getAttribute("data-grade")).toUpperCase() || "ALL";
+        state.grade = GRADE_OPTIONS[(currentIdx + 1) % GRADE_OPTIONS.length].value;
         renderGradeFilterState();
         renderTable();
       });

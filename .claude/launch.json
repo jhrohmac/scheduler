@@ -5,7 +5,8 @@
       "name": "Tomcat 9 (scheduler)",
       "runtimeExecutable": "./run.sh",
       "runtimeArgs": ["start"],
-      "port": 8080
+      "port": 8080,
+      "autoPort": false
     }
   ]
 }

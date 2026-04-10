@@ -239,6 +239,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         int recoveredLogCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleBatchExecLogs(empty));
         int releasedRuntimeCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleRuntimeLocks(empty));
+        int purgedLogCnt = normalizeUpdateCount(stockBatchAdminDao.purgeOldBatchExecLogs(empty));
 
         List<HashMap<String, Object>> dueJobs = stockBatchAdminDao.selectDueJobs(empty);
         int triggered = 0;
@@ -259,6 +260,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         meta.put("due", dueJobs == null ? 0 : dueJobs.size());
         meta.put("recoveredLogCnt", recoveredLogCnt);
         meta.put("releasedRuntimeCnt", releasedRuntimeCnt);
+        meta.put("purgedLogCnt", purgedLogCnt);
         return out("SUCCESS", "TICK", meta);
     }
 
@@ -422,9 +424,16 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         List<HashMap<String, Object>> paramRows = stockBatchAdminDao.selectJobParams(q);
         HashMap<String, String> params = new HashMap<String, String>();
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        String todayStr = sdf.format(new java.util.Date());
         for (HashMap<String, Object> row : paramRows) {
             String k = nvl(mapVal(row, "param_key"), "");
             String v = mapVal(row, "param_value");
+            String t = nvl(mapVal(row, "param_type"), "STRING").toUpperCase();
+            // DATE 타입이고 값이 SYSDATE이면 실행 시점의 오늘 날짜로 치환
+            if ("DATE".equals(t) && "SYSDATE".equalsIgnoreCase(v)) {
+                v = todayStr;
+            }
             if (!k.isEmpty()) params.put(k, v);
         }
 
@@ -503,6 +512,8 @@ public class StockBatchAdminService implements ApplicationContextAware {
         ZonedDateTime now = ZonedDateTime.now(zone);
         ZonedDateTime nextRun = computeNextRun(scheduleType, cronExpr, intervalSec, zone, now);
 
+        int logRetentionDays = parsePositiveInt(String.valueOf(obj.opt("logRetentionDays")), 30);
+
         out.put("schedule_type", scheduleType);
         out.put("cron_expr", cronExpr);
         out.put("interval_sec", String.valueOf(intervalSec));
@@ -510,6 +521,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         out.put("window_end_hh24mi", windowEnd);
         out.put("misfire_policy", misfirePolicy);
         out.put("enabled_yn", enabledYn);
+        out.put("log_retention_days", String.valueOf(logRetentionDays));
         out.put("next_run_at", toDateTime(nextRun));
         out.put("last_eval_at", toDateTime(now));
 

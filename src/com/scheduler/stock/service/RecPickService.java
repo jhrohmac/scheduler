@@ -153,62 +153,120 @@ public class RecPickService {
         HashMap<String, String> pickMap = new HashMap<String, String>();
         pickMap.put("pickId", RecPickUtil.trim(map.get("pickId")));
         RecPickDto pick = recPickDao.selectRecPick(pickMap);
-        if (pick == null)              throw new IllegalStateException("추천 저장 이력을 찾을 수 없습니다.");
+        if (pick == null) throw new IllegalStateException("추천 저장 이력을 찾을 수 없습니다.");
         if (pick.getPositionId() != null) throw new IllegalStateException("이미 매수 등록된 추천 이력입니다.");
 
-        // 포지션 생성
-        PositionVo position = new PositionVo();
-        position.setStockGroup(pick.getWatchGroupId());
-        position.setStockCode(pick.getStkCd());
-        position.setMarketCode(RecPickUtil.normalizeMarketGroup(pick.getSourceMktCd()));
-        position.setTotalQty(Integer.valueOf(qty));
-        position.setAvgPrice(Double.valueOf(buyPrice));
-        position.setCloseFlag("N");
-        position.setStateCode("HOLD");
-        position.setCreateUser(RecPickUtil.trim(map.get("userId")));
-        int insertCnt = positionDao.insertPosition(position);
-        if (isDmlFailure(insertCnt)) throw new IllegalStateException("보유종목 생성에 실패했습니다.");
+        // 기존 활성 포지션 조회 (있으면 누적, 없으면 신규 생성)
+        HashMap<String, String> existPosMap = new HashMap<String, String>();
+        existPosMap.put("stockGroup", pick.getWatchGroupId());
+        existPosMap.put("stockCode",  pick.getStkCd());
+        PositionVo existingPosition = positionDao.selectPosition(existPosMap);
+        boolean hasActivePosition = existingPosition != null
+                && existingPosition.getPositionId() != null
+                && "N".equals(existingPosition.getCloseFlag());
 
-        // 저장된 포지션 재조회 (POSITION_ID 확보)
-        HashMap<String, String> positionQueryMap = new HashMap<String, String>();
-        positionQueryMap.put("stockGroup", pick.getWatchGroupId());
-        positionQueryMap.put("stockCode",  pick.getStkCd());
-        PositionVo savedPosition = positionDao.selectPosition(positionQueryMap);
-        if (savedPosition == null || savedPosition.getPositionId() == null) {
-            throw new IllegalStateException("보유종목 생성에 실패했습니다.");
+        PositionVo savedPosition;
+        double targetPrice;
+        double stopPrice;
+        double tp1Price;
+
+        if (hasActivePosition) {
+            /* ── 기존 포지션 누적 (추가 매수) ── */
+            int    beforeQty = existingPosition.getTotalQty()  != null ? existingPosition.getTotalQty()  : 0;
+            double beforeAvg = existingPosition.getAvgPrice()  != null ? existingPosition.getAvgPrice()  : 0d;
+
+            HashMap<String, String> avgDownMap = new HashMap<String, String>();
+            avgDownMap.put("positionId", String.valueOf(existingPosition.getPositionId()));
+            avgDownMap.put("addQty",     String.valueOf(qty));
+            avgDownMap.put("addPrice",   String.valueOf(buyPrice));
+            positionDao.averageDownPosition(avgDownMap);
+
+            // 누적 후 재조회 (갱신된 totalQty, avgPrice 반영)
+            HashMap<String, String> reloadMap = new HashMap<String, String>();
+            reloadMap.put("positionId", String.valueOf(existingPosition.getPositionId()));
+            savedPosition = positionDao.selectPosition(reloadMap);
+            if (savedPosition == null) throw new IllegalStateException("포지션 누적 후 재조회에 실패했습니다.");
+
+            // 거래내역 저장
+            PositionTxnVo txn = new PositionTxnVo();
+            txn.setPositionId(savedPosition.getPositionId());
+            txn.setStockGroup(savedPosition.getStockGroup());
+            txn.setStockCode(savedPosition.getStockCode());
+            txn.setActionType("BUY");
+            txn.setQty(Integer.valueOf(qty));
+            txn.setPrice(Double.valueOf(buyPrice));
+            txn.setBeforeQty(Integer.valueOf(beforeQty));
+            txn.setBeforeAvg(Double.valueOf(beforeAvg));
+            txn.setAfterQty(savedPosition.getTotalQty());
+            txn.setAfterAvg(savedPosition.getAvgPrice());
+            txn.setReasonText("추천 종목 추가 매수");
+            txn.setCreateUser(RecPickUtil.trim(map.get("userId")));
+            int txnCnt = positionDao.insertPositionTxn(txn);
+            if (isDmlFailure(txnCnt)) throw new IllegalStateException("보유종목 거래내역 생성에 실패했습니다.");
+
+            // 기존 목표가/손절/TP1 유지 (없으면 신규 계산)
+            targetPrice = existingPosition.getTargetPrice() != null
+                    ? existingPosition.getTargetPrice() : RecPickUtil.round4(ruleTargetPrice(buyPrice, entryRuleCode));
+            stopPrice   = existingPosition.getStopPrice()   != null
+                    ? existingPosition.getStopPrice()   : RecPickUtil.round4(ruleStopPrice(buyPrice, entryRuleCode));
+            tp1Price    = existingPosition.getTp1Price()    != null
+                    ? existingPosition.getTp1Price()    : RecPickUtil.round4(ruleTp1Price(buyPrice, entryRuleCode));
+
+        } else {
+            /* ── 신규 포지션 생성 ── */
+            PositionVo position = new PositionVo();
+            position.setStockGroup(pick.getWatchGroupId());
+            position.setStockCode(pick.getStkCd());
+            position.setMarketCode(RecPickUtil.normalizeMarketGroup(pick.getSourceMktCd()));
+            position.setTotalQty(Integer.valueOf(qty));
+            position.setAvgPrice(Double.valueOf(buyPrice));
+            position.setCloseFlag("N");
+            position.setStateCode("HOLD");
+            position.setCreateUser(RecPickUtil.trim(map.get("userId")));
+            int insertCnt = positionDao.insertPosition(position);
+            if (isDmlFailure(insertCnt)) throw new IllegalStateException("보유종목 생성에 실패했습니다.");
+
+            // 저장된 포지션 재조회 (POSITION_ID 확보)
+            HashMap<String, String> positionQueryMap = new HashMap<String, String>();
+            positionQueryMap.put("stockGroup", pick.getWatchGroupId());
+            positionQueryMap.put("stockCode",  pick.getStkCd());
+            savedPosition = positionDao.selectPosition(positionQueryMap);
+            if (savedPosition == null || savedPosition.getPositionId() == null) {
+                throw new IllegalStateException("보유종목 생성에 실패했습니다.");
+            }
+
+            // 거래내역 저장
+            PositionTxnVo txn = new PositionTxnVo();
+            txn.setPositionId(savedPosition.getPositionId());
+            txn.setStockGroup(savedPosition.getStockGroup());
+            txn.setStockCode(savedPosition.getStockCode());
+            txn.setActionType("BUY");
+            txn.setQty(Integer.valueOf(qty));
+            txn.setPrice(Double.valueOf(buyPrice));
+            txn.setAfterQty(Integer.valueOf(qty));
+            txn.setAfterAvg(Double.valueOf(buyPrice));
+            txn.setReasonText("추천 종목 매수 등록");
+            txn.setCreateUser(RecPickUtil.trim(map.get("userId")));
+            int txnCnt = positionDao.insertPositionTxn(txn);
+            if (isDmlFailure(txnCnt)) throw new IllegalStateException("보유종목 거래내역 생성에 실패했습니다.");
+
+            // 목표가/손절가/TP1 계산 및 RECO_LINK 갱신
+            targetPrice = RecPickUtil.round4(ruleTargetPrice(buyPrice, entryRuleCode));
+            stopPrice   = RecPickUtil.round4(ruleStopPrice(buyPrice, entryRuleCode));
+            tp1Price    = RecPickUtil.round4(ruleTp1Price(buyPrice, entryRuleCode));
+
+            savedPosition.setSourcePickId(pick.getPickId());
+            savedPosition.setBuyDate(java.sql.Date.valueOf(buyDate));
+            savedPosition.setTargetPrice(Double.valueOf(targetPrice));
+            savedPosition.setStopPrice(Double.valueOf(stopPrice));
+            savedPosition.setTp1Price(Double.valueOf(tp1Price));
+            savedPosition.setSellGuideState("HOLD");
+            savedPosition.setLastSellSignalCode("NONE");
+            savedPosition.setLastTrackDate(java.sql.Date.valueOf(buyDate));
+            positionDao.updatePositionRecoLink(savedPosition);
         }
 
-        // 거래내역 저장
-        PositionTxnVo txn = new PositionTxnVo();
-        txn.setPositionId(savedPosition.getPositionId());
-        txn.setStockGroup(savedPosition.getStockGroup());
-        txn.setStockCode(savedPosition.getStockCode());
-        txn.setActionType("BUY");
-        txn.setQty(Integer.valueOf(qty));
-        txn.setPrice(Double.valueOf(buyPrice));
-        txn.setAfterQty(Integer.valueOf(qty));
-        txn.setAfterAvg(Double.valueOf(buyPrice));
-        txn.setReasonText("추천 종목 매수 등록");
-        txn.setCreateUser(RecPickUtil.trim(map.get("userId")));
-        int txnCnt = positionDao.insertPositionTxn(txn);
-        if (isDmlFailure(txnCnt)) throw new IllegalStateException("보유종목 거래내역 생성에 실패했습니다.");
-
-        // 목표가/손절가/TP1 계산 및 RECO_LINK 갱신
-        double targetPrice = RecPickUtil.round4(ruleTargetPrice(buyPrice, entryRuleCode));
-        double stopPrice   = RecPickUtil.round4(ruleStopPrice(buyPrice, entryRuleCode));
-        double tp1Price    = RecPickUtil.round4(ruleTp1Price(buyPrice, entryRuleCode));
-
-        savedPosition.setSourcePickId(pick.getPickId());
-        savedPosition.setBuyDate(java.sql.Date.valueOf(buyDate));
-        savedPosition.setTargetPrice(Double.valueOf(targetPrice));
-        savedPosition.setStopPrice(Double.valueOf(stopPrice));
-        savedPosition.setTp1Price(Double.valueOf(tp1Price));
-        savedPosition.setSellGuideState("HOLD");
-        savedPosition.setLastSellSignalCode("NONE");
-        savedPosition.setLastTrackDate(java.sql.Date.valueOf(buyDate));
-        positionDao.updatePositionRecoLink(savedPosition);
-
-        // PICK 상태 갱신
+        // PICK 상태 갱신 (신규/누적 공통)
         RecPickDto updatePick = new RecPickDto();
         updatePick.setPickId(pick.getPickId());
         updatePick.setPickStatus("BOUGHT");

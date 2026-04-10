@@ -62,10 +62,11 @@
 
   function normalizeSign(sign) {
     var s = (sign === null || sign === undefined) ? "" : String(sign).trim();
-    if (s === "+" || s === "1" || s === "4") {
+    // KIS 부호코드: 1=상한, 2=상승, 3=보합, 4=하한, 5=하락
+    if (s === "+" || s === "1" || s === "2") {
       return "+";
     }
-    if (s === "-" || s === "2" || s === "5") {
+    if (s === "-" || s === "4" || s === "5") {
       return "-";
     }
     if (s === "0" || s === "3") {
@@ -765,6 +766,13 @@
             markMessageReceived(WatchlistRealtime);
             setWlStatus("연결됨", "is-on", "message");
             queueWatchlistUpdate(msg);
+            return;
+          }
+
+          // 국내 실시간 구독 등록 완료 ack (첫 tick 도착 전 "연결됨" 표시)
+          if (msg.type === "WL_SUB") {
+            markMessageReceived(WatchlistRealtime);
+            setWlStatus("연결됨", "is-on", "subscribed");
             return;
           }
         } catch (e) {}

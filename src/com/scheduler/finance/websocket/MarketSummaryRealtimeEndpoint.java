@@ -321,11 +321,11 @@ public class MarketSummaryRealtimeEndpoint {
 
     private String normalizeSign(String prdyVrssSign) {
         String v = safe(prdyVrssSign);
-        // KIS: 1(?곸듅),2(?섎씫),3(蹂댄빀),4(?곹븳),5(?섑븳)
-        if ("1".equals(v) || "4".equals(v)) {
+        // KIS 부호코드: 1=상한, 2=상승, 3=보합, 4=하한, 5=하락
+        if ("1".equals(v) || "2".equals(v)) {
             return "+";
         }
-        if ("2".equals(v) || "5".equals(v)) {
+        if ("4".equals(v) || "5".equals(v)) {
             return "-";
         }
         return "0";
