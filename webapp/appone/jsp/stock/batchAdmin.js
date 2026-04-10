@@ -882,10 +882,11 @@
 
     var STK_MASTER_REFRESH_TASK = "STK_MASTER_REFRESH";
 
-    function defaultParamsByTask(taskKey) {
+    function defaultParamsByTask(taskKey, jobId) {
         if (taskKey === "REC_SIGNAL_RUN") {
+            var mktGrp = (String(jobId || "").toUpperCase().indexOf("_US") >= 0) ? "US" : "KR";
             return [
-                { paramKey: "marketGroup", paramValue: "KR", paramType: "STRING" },
+                { paramKey: "marketGroup", paramValue: mktGrp, paramType: "STRING" },
                 { paramKey: "retryOnly", paramValue: "N", paramType: "BOOLEAN" },
                 { paramKey: "days", paramValue: "400", paramType: "NUMBER" },
                 { paramKey: "requestIntervalMs", paramValue: "1000", paramType: "NUMBER" },
@@ -1092,14 +1093,36 @@
     }
 
     function runJob(jobId) {
-        api(config.jobRunNowUrl || "/stock/batchAdmin/jobRunNow.do", { job_id: jobId }, function () {
-            loadJobs();
-            loadLogs(jobId);
+        api(config.jobRunNowUrl || "/stock/batchAdmin/jobRunNow.do", { job_id: jobId }, function (res) {
+            var d = res && res.singleData ? res.singleData : {};
+            var status  = (d.status  || "").toUpperCase();
+            var message = d.message  || "";
+
+            if (status === "QUEUED") {
+                showAlert("success", "배치 실행이 요청되었습니다.", 2000);
+                setTimeout(function () {
+                    loadJobs();
+                    loadLogs(jobId);
+                }, 800);
+            } else if (status === "SKIP") {
+                showAlert("warning", "이미 실행 중입니다 (RUNNING_YN=Y)", 3000);
+                loadJobs();
+                loadLogs(jobId);
+            } else if (status === "ERROR") {
+                showAlert("error", "실행 실패: " + message, 4000);
+                loadJobs();
+            } else {
+                loadJobs();
+                loadLogs(jobId);
+            }
         });
     }
 
     function stopJob(jobId) {
-        api(config.jobStopUrl || "/stock/batchAdmin/jobStop.do", { job_id: jobId }, function () {
+        api(config.jobStopUrl || "/stock/batchAdmin/jobStop.do", { job_id: jobId }, function (res) {
+            var d = res && res.singleData ? res.singleData : {};
+            var message = d.message || "";
+            showAlert("info", "중지 요청 완료" + (message ? ": " + message : ""), 2000);
             loadJobs();
         });
     }
@@ -1124,7 +1147,8 @@
         $("#edit_task_key").on("change", function () {
             var taskKey = $(this).val();
             if (!$("#param_rows_container .param-row").length) {
-                renderParamRows(defaultParamsByTask(taskKey));
+                var jobId = $.trim($("#edit_job_id").val());
+                renderParamRows(defaultParamsByTask(taskKey, jobId));
             }
             syncStkMasterRefreshPanel(taskKey, []);
         });
