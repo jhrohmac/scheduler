@@ -1,0 +1,20 @@
+# Build output
+build/
+*.class
+*.jar
+*.war
+
+# IDE
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+webapp/appone/plugins/media/stock_logo/

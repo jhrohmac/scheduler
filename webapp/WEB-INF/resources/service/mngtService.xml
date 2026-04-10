@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+       
+<!--START IPSHOME -->
+	
+	<!-- 
+			============================================================
+			= Management
+			============================================================
+	-->
+	
+	<!-- UserManagement -->
+	<bean id="userManageController" class="com.scheduler.management.controller.UserManageController">
+		<property name="userManagementDao" ref="userManageDaoImpl"></property>
+	</bean>
+	<bean id="userManageDaoImpl" class="com.scheduler.management.dao.impl.UserManageDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<!-- MenuManagement -->
+	<bean id="menuManagementController" class="com.scheduler.management.controller.MenuManagementController">
+		<property name="menuManagementDao" ref="menuManagementDaoImpl"></property>
+	</bean>
+	<bean id="menuManagementDaoImpl" class="com.scheduler.management.dao.impl.MenuManagementDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<!-- CodeManagement -->
+	<bean id="codeManagementController" class="com.scheduler.management.controller.CodeManagementController">
+		<property name="codeManagementDao" ref="codeManagementDaoImpl"></property>
+	</bean>
+	<bean id="codeManagementDaoImpl" class="com.scheduler.management.dao.impl.CodeManagementDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<!-- CalendarManage DAO-->
+	<bean id="calendarManageController" class="com.scheduler.management.controller.CalendarManageController">
+		<property name="calendarManageDao" ref="calendarManageDaoImpl"></property>
+	</bean>	
+	<bean id="calendarManageDaoImpl" class="com.scheduler.management.dao.impl.CalendarManageDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+	<!-- Profile DAO-->
+	<bean id="profileController" class="com.scheduler.management.controller.ProfileController">
+		<property name="profileDao" ref="profileDaoImpl"></property>
+	</bean>
+	<bean id="profileDaoImpl" class="com.scheduler.management.dao.impl.ProfileDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+	
+</beans>

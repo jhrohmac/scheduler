@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="com.scheduler.finance.sql.StockAnalysis">
+  	
+	<!-- 종목 검색 -->
+	<select id="selectStockList" parameterType="string"  resultType="stockInfoVo">
+	
+	/* selectStockAnalysis */
+	SELECT *
+	FROM (
+		SELECT 
+			 A.*
+			,ROWNUM AS RNUM
+		FROM (
+			SELECT
+				TSIS.STOCK_ID,
+				TSIS.STOCK_CODE,
+				(CASE WHEN TSIS.STOCK_MARKET ='kosdaq' THEN '#'||TSIS.STOCK_KO_NAME ELSE TSIS.STOCK_KO_NAME END)AS STOCK_KO_NAME,
+				TSIS.STOCK_MARKET,
+				TSIS.STOCK_URL,
+				'' AS TOTAL_QUANTITY,
+				'' AS TOTAL_PURCHASE_PRICE
+				,TSSA.STOCK_SMA5 ||',' || TSSA.STOCK_SMA20 ||','|| TSSA.STOCK_SMA60 ||','||
+				TSSA.STOCK_SMA120 ||','|| TSSA.STOCK_SMA240 as STOCK_SMA
+				,STOCK_SMA5 AS STOCK_5BC
+                ,TSSA.STOCK_SMA_LINES
+                ,TSSC.SALES_TREND
+                ,TSSC.OP_TREND
+                ,TSSC.EPS_TREND                
+                ,TSSA.STOCK_AV_VOLUME
+                ,TSSA.STOCK_AV_VOLUMESIGNAL
+				,TSSA.STOCK_MACD_TIME
+				,TO_NUMBER(TSSA.STOCK_MACD_TIMEDAYS) AS STOCK_MACD_TIMEDAYS
+				,TSSA.STOCK_MACD_SIGNAL
+				,TSSA.STOCK_MACD_STREAKSIGNAL				
+				,TO_NUMBER(TSSA.STOCK_MACD_STREAKDAYS) AS STOCK_MACD_STREAKDAYS
+				,TO_NUMBER(TSSA.STOCK_CLOSE) AS STOCK_CLOSE				
+				,(TO_CHAR(TSSA.MODIFY_DATE,  (CASE WHEN #{groupMarket}='KR' THEN 'YYYYMMDDHH24' ELSE 'YYYYMMDD' END ))) AS MODIFY_DATE
+			FROM TB_S_STOCK_ANALYSIS TSSA LEFT JOIN TB_S_INTEREST_STOCK TSIS
+				ON TSSA.STOCK_CODE = TSIS.STOCK_CODE LEFT JOIN TB_S_STOCK_CONSENSUS TSSC
+                ON TSSA.STOCK_CODE = TSSC.STOCK_CODE
+                AND TSSC.SALES_TREND !='NULL'
+			WHERE 1=1
+				AND TSIS.STOCK_TYPE ='stock'
+				AND TSIS.STOCK_COUNTRY_CODE = #{groupMarket}
+                AND TSIS.STOCK_TYPE_SPECS ='CS'
+                <if test="STOCK_MARKET != null and STOCK_MARKET != ''">
+                AND TSIS.STOCK_MARKET = #{STOCK_MARKET}
+                </if>
+                AND TSSA.USE_DIV ='Y'
+                <if test="STATEMONTH != null and STATEMONTH != ''">
+                AND TSSA.STOCK_MON =#{STATEMONTH}
+                </if>
+				<if test="VOLUMESIGNAL != null ">
+					AND TSSA.STOCK_AV_VOLUMESIGNAL = #{VOLUMESIGNAL}
+				</if>
+				<if test="DAY5BC != null ">
+					AND TSSA.STOCK_SMA5 = #{DAY5BC}
+				</if>
+				<if test="MONTH5BC != null ">
+					AND TSSA.STOCK_SMA60 = #{MONTH5BC}
+				</if>
+				<if test="MACDSIGNAL != null ">					
+					AND TSSA.STOCK_MACD_SIGNAL = (CASE WHEN 'UP'=#{MACDSIGNAL} THEN 'BUY' ELSE 'DOWN' END)
+				</if>
+				<if test="STOKCSMALINES != null">
+			    	AND TSSA.STOCK_SMA_LINES =#{STOKCSMALINES}
+			    </if>
+				<if test="CONSENSUS != null">
+			    	AND TSSC.SALES_TREND =#{CONSENSUS}
+			    </if>
+                <if test="RANGE_FROM != null and RANGE_TO != null">
+                	AND TO_NUMBER(TSSA.STOCK_CLOSE) BETWEEN #{RANGE_FROM} AND #{RANGE_TO}
+                </if>
+				ORDER BY STOCK_SMA240 DESC,STOCK_SMA120 DESC,STOCK_SMA60 DESC,STOCK_SMA20 DESC,STOCK_SMA5 DESC
+					  ,STOCK_MACD_SIGNAL, STOCK_MACD_STREAKSIGNAL DESC, STOCK_MACD_STREAKDAYS
+					<if test="MACDTIMEDAYS != null ">
+						,TO_NUMBER(STOCK_MACD_TIMEDAYS) ${MACDTIMEDAYS}
+					</if>
+		)A
+	)
+	WHERE 1=1
+	AND RNUM <![CDATA[<= 100]]>
+  	</select>
+  	
+	<update id="update_stockCode" parameterType="hashmap">
+	  	UPDATE TB_S_INTEREST_STOCK
+  		SET USE_DIV = #{use_div}
+  		 ,STOCK_COUNTRY_CODE = #{stock_country_code}
+  		 ,STOCK_MARKET = #{stock_market}
+  		 ,STOCK_TYPE = #{stock_type}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stockAnalysis" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_ANALYSIS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stock3minAnalysis" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_30MINANALYSIS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  	
+	<update id="update_stockConsensus" parameterType="hashmap">
+	  	UPDATE TB_S_STOCK_CONSENSUS
+  		SET USE_DIV = #{use_div}
+  		WHERE STOCK_CODE = #{stock_code}
+  	</update>
+  		
+  	<delete id="deleteStockCode" parameterType="list">
+	  	DELETE 
+	  	  FROM TB_S_INTEREST_STOCK 
+	  	 WHERE STOCK_CODE IN
+	  	   <foreach item="item" index="index" collection="list" open="(" separator="," close=")">	  	 
+	  	     #{item} 
+	  	   </foreach>
+  	</delete>
+
+</mapper>

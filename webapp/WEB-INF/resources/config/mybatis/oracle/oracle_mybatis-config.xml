@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE configuration      
+    PUBLIC "-//mybatis.org//DTD Config 3.0//EN"      
+    "./mybatis-3-config.dtd">
+
+<configuration>
+	<settings>
+		<setting name="cacheEnabled" value="false" />		<!-- 각 mapper에 설정된 캐시를 전역적으로 사용할지 말지에 대한 여부 -->
+		<setting name="lazyLoadingEnabled" value="true" />	<!-- 늦은 로딩을 사용할지에 대한 여부. false:모두 즉시 로딩 -->
+		<setting name="useGeneratedKeys" value="false" />	<!-- 생성키에 대한 JDBC지원을 허용. true:생성키를 강제로 생성 -->				
+		<setting name="defaultExecutorType" value="BATCH" /><!-- 디폴트 실행자(executor) 설정. SIMPLE:default , REUSE:PreparedStatement 재사용 , BATCH:구문을 재사용하고 수정을 배치처리. -->
+		<setting name="defaultStatementTimeout" value="60" />	<!-- 응답타임아웃 -->
+	</settings>
+	
+	<!-- Vo 정의 -->
+	<typeAliases>
+		<!-- Common -->
+		<typeAlias alias="menuVo" 						type="com.scheduler.comm.vo.MenuVo"/>
+	 	<typeAlias alias="itemCodeVo" 					type="com.scheduler.comm.vo.ItemCodeVo"/>
+	 	<typeAlias alias="userSettingVo" 				type="com.scheduler.comm.vo.UserSettingVo"/>
+		
+	 	<!-- Management Vo -->
+		<typeAlias alias="userVo" 						type="com.scheduler.management.vo.UserVo"/>
+		<typeAlias alias="calendarManageVo"				type="com.scheduler.management.vo.CalendarManageVo"/>
+		<typeAlias alias="codeManagementVo" 			type="com.scheduler.management.vo.CodeManagementVo"/>
+		<typeAlias alias="profileVo" 					type="com.scheduler.management.vo.ProfileVo"/>
+		
+		<!-- Finance Vo -->
+		<typeAlias alias="stockInfoVo"					type="com.scheduler.finance.vo.StockInfoVo"/>
+		<typeAlias alias="stockPortfolioVo"				type="com.scheduler.finance.vo.StockPortfolioVo"/>
+		<typeAlias alias="stockGroupVo"					type="com.scheduler.finance.vo.StockGroupVo"/>
+		<typeAlias alias="modalOptionsVo"				type="com.scheduler.finance.vo.ModalOptionsVo"/>
+		<typeAlias alias="financeOptionsVo"				type="com.scheduler.finance.vo.FinanceOptionsVo"/>
+		<typeAlias alias="codeVo" 						type="com.scheduler.finance.vo.CodeVo"/>
+		<typeAlias alias="chartOptionVo"				type="com.scheduler.finance.vo.ChartOptionVo"/>
+		<typeAlias alias="stockChartOptionVo"			type="com.scheduler.finance.vo.StockChartOptionVo"/>
+		
+		<typeAlias alias="marketSummaryVo"			type="com.scheduler.finance.vo.MarketSummaryVo"/>
+		<!-- batch -->
+		<typeAlias alias="batchJobCtrlVo"			type="com.scheduler.finance.vo.BatchJobCtrlVo"/>
+		<!-- WF-2-4: 보유종목 관리 -->
+		<typeAlias alias="positionVo"				type="com.scheduler.finance.vo.PositionVo"/>
+		<typeAlias alias="positionTxnVo"			type="com.scheduler.finance.vo.PositionTxnVo"/>
+		<typeAlias alias="positionEventVo"			type="com.scheduler.finance.vo.PositionEventVo"/>
+		
+		<!-- Stock Rec Signal -->
+		<typeAlias alias="stkMasterDto"			type="com.scheduler.stock.dto.StkMasterDto"/>		                                              
+		<typeAlias alias="recSignalDto"			type="com.scheduler.stock.dto.RecSignalDto"/>
+		<typeAlias alias="dlyPriceDto"			type="com.scheduler.stock.dto.DlyPriceDto"/>
+		<typeAlias alias="maResultDto"			type="com.scheduler.stock.dto.MaResultDto"/>
+		<typeAlias alias="recPickDto"			type="com.scheduler.stock.dto.RecPickDto"/>
+		<typeAlias alias="recPickDailyDto"		type="com.scheduler.stock.dto.RecPickDailyDto"/>
+		<typeAlias alias="recPickEvalDto"		type="com.scheduler.stock.dto.RecPickEvalDto"/>
+		<typeAlias alias="recProbabilityDto"	type="com.scheduler.stock.dto.RecProbabilityDto"/>
+		<typeAlias alias="positionSellGuideDto"	type="com.scheduler.stock.dto.PositionSellGuideDto"/>
+		
+		<!-- batch 											  
+	 	<typeAlias alias="macroDailyVo"				type="com.scheduler.finance.vo.MacroDailyVo"/>
+	 	<typeAlias alias="stockDecisionVo"			type="com.scheduler.finance.vo.StockDecisionVo"/>
+	 	<typeAlias alias="stockNewsMentionVo"		type="com.scheduler.finance.vo.StockNewsMentionVo"/>
+	 	<typeAlias alias="stockSignalEvalVo"		type="com.scheduler.finance.vo.StockSignalEvalVo"/>-->
+	</typeAliases>
+ 
+<!-- Query.xml 정의 -->
+	<mappers>
+		<!-- Common -->
+		<mapper resource="com/scheduler/comm/sql/oracle/oracle_ItemCode.xml"/>
+		<mapper resource="com/scheduler/comm/sql/oracle/oracle_UserSetting.xml"/>
+		<mapper resource="com/scheduler/comm/sql/oracle/oracle_MenuInfo.xml"/>
+		
+		<!-- Management Mapper -->
+		<mapper resource="com/scheduler/management/sql/oracle/oracle_UserManage.xml"/>
+		<mapper resource="com/scheduler/management/sql/oracle/oracle_CalendarManage.xml"/>
+		<mapper resource="com/scheduler/management/sql/oracle/oracle_MenuManagement.xml"/>		
+		<mapper resource="com/scheduler/management/sql/oracle/oracle_CodeManagement.xml"/>
+		<mapper resource="com/scheduler/management/sql/oracle/oracle_Profile.xml"/>
+		
+		<!-- Finance Mapper -->
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockCodeInfo.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockManagement.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockAnalysis.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockUtil.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_BatchStock.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_CodeManage.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_ChartOptionManage.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockChartOption.xml"/>
+		
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_MarketSummary.xml"/>
+		<!-- batch -->
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_BatchJobCtrl.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_SignalEvent.xml"/>
+		
+		<!-- WF-2-4: 보유종목 관리 -->
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_Position.xml"/>
+		
+		<!-- Stock Rec Signal -->
+		<mapper resource="com/scheduler/stock/sql/oracle/RecSignalMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/StkMasterMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/TradeDateMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml"/>
+		<mapper resource="com/scheduler/stock/sql/oracle/RecPickMapper.xml"/>
+		
+		<!-- batch 
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_MacroDaily.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockDecision.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockNewsMention.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StockSignalEval.xml"/>-->
+		
+	</mappers>
+
+</configuration>

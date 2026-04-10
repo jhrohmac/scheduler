@@ -1,0 +1,35 @@
+/* ── Verify Tab ── */
+.verify-wrap{display:flex;flex-direction:column;gap:10px}
+.verify-panel{background:var(--surface-2);border:1px solid var(--border-color);border-radius:8px;padding:14px}
+.verify-title{font-size:14px;font-weight:800;color:var(--accent);margin-bottom:10px}
+.verify-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-color)}
+.verify-item{width:185px;font-size:10px;color:#B0BEC5;flex-shrink:0}
+.verify-status{width:75px;font-size:10px;flex-shrink:0}
+.verify-detail{flex:1;font-size:9px;color:var(--text-muted)}
+.verify-score{width:30px;text-align:right;font-size:11px;font-weight:700}
+.verify-bar-wrap{width:55px;height:4px;background:var(--border-color);border-radius:2px}
+.verify-bar{height:100%;border-radius:2px}
+.verify-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detect-title{font-size:12px;font-weight:800;color:#4ADE80;margin-bottom:8px}
+.detect-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.detect-name{font-size:9px;color:#B0BEC5;flex:1}
+.detect-cnt{font-size:9px;color:var(--text-muted);width:24px;text-align:right}
+.detect-bar-wrap{width:45px;height:3px;background:var(--border-color);border-radius:2px}
+.detect-bar{height:100%;border-radius:2px}
+.detect-wr{font-size:9px;font-weight:700;width:28px}
+.issues-title{font-size:12px;font-weight:800;color:#FFD700;margin-bottom:8px}
+.issue-item{margin-bottom:7px;padding:6px 8px;border-radius:3px;border-left-width:2px;border-left-style:solid}
+.issue-name{font-size:10px;font-weight:700}
+.issue-desc{font-size:9px;color:var(--text-muted);margin-top:2px}
+.pattern-table-title{font-size:12px;font-weight:800;color:#A78BFA;margin-bottom:8px}
+.pattern-table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px}
+.pt-row{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--surface-1);border-radius:5px;border-width:1px;border-style:solid}
+.pt-icon{font-size:12px}
+.pt-no{font-size:9px;color:var(--text-muted);width:22px}
+.pt-name{font-size:9px;font-weight:700;flex:1}
+.pt-custom{font-size:8px;color:#38BDF8}
+.pt-cnt{font-size:8px;color:var(--text-subtle);width:22px}
+.pt-wr{font-size:8px;font-weight:700;width:30px}
+
+body.theme-light .verify-item,
+body.theme-light .detect-name{color:var(--text-main) !important}

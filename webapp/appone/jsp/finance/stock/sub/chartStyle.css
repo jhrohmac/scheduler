@@ -1,0 +1,206 @@
+body {overflow-y: hidden; overflow-x: hidden;}
+
+.product-title{
+	color :#85888b;
+}
+.products-list .product-img img{
+    width: 2.1rem;
+    height: 2.1rem;
+}
+.review {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+.dropdown-menu {
+	min-width: 0.5rem;
+}
+.swal2-title {
+    position: relative;
+    max-width: 100%;
+    margin: 0 0 0.4em;
+    padding: 0;
+    color: #595959;
+    font-size: 1.2em;
+    font-weight: 600;
+    text-align: center;
+    text-transform: none;
+    word-wrap: break-word;
+}
+.swal2-popup {
+    width: 25em;
+}
+.swal2-content {
+    color: #545454;
+    font-size: 1em;
+    font-weight: 400;
+    line-height: normal;
+    text-align: center;
+    word-wrap: break-word;
+}
+.swal2-input {
+    height: 2.2em;
+    padding: 0 0.75em;
+}
+.swal2-styled.swal2-cancel {
+    border: 0;
+    border-radius: 0.15em;
+    background: initial;
+    background-color: #aaa;
+    color: #fff;
+    font-size: 1.0625em;
+}
+  
+.group_progress {
+	display: -ms-flexbox;
+	display: flex;
+	height: 2;
+	overflow: hidden;
+	line-height: 0;
+	font-size: .75rem;
+	background-color: #e9ecef;
+	border-radius: 0.25rem;
+	box-shadow: inset 0 0.1rem 0.1rem rgba(0, 0, 0, .1);
+}
+.nav-item.tab{
+	cursor: pointer;
+}
+.cursor{
+	cursor: pointer;
+}
+.scrollOff::-webkit-scrollbar {
+  display: none;
+}
+.text-xxs {
+    font-size: .65rem!important;
+}
+
+.text-overflow {
+  width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dot-badge {
+    font-size: .5rem;
+    font-weight: 300;
+    padding: 2px 2px;
+    position: absolute;
+    left: 1px;
+}
+
+.blink {
+  animation: blink-effect 1s step-end infinite;
+
+  /*
+  animation-name: blink-effect;
+  animation-duration: 1s;
+  animation-iteration-count:infinite;
+  animation-timing-function:step-end;
+  */
+}
+
+@keyframes blink-effect {
+  50% {
+    opacity: 0;
+  }
+}
+.h-95 {
+    height: 95%;
+}
+.h-90 {
+    height: 90%!important;
+}
+.h-85 {
+    height: 85%!important;
+}
+.h-80 {
+    height: 80%!important;
+}
+
+.market-info-box {
+    box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2);
+    border-radius: .25rem;
+    background-color: #fff;
+    display: -ms-flexbox;
+    display: flex;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    min-height: 20px;
+    padding: .2rem;
+    position: relative;
+    width: 100%;
+}
+.market-info-box .market-info-box-icon {
+	box-shadow: 0 0 1px rgba(0,0,0,.125), 0 2px 3px ;
+    border-radius: .25rem;
+    -ms-flex-align: center;
+    align-items: center;
+    display: -ms-flexbox;
+    display: flex;
+    font-size: 1rem;
+    -ms-flex-pack: center;
+    justify-content: center;
+    text-align: center;
+    width: 90px;
+}
+.market-info-box .market-info-box-content {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -ms-flex-pack: center;
+    justify-content: center;
+    line-height: 1.8;
+    -ms-flex: 1;
+    flex: 1;
+    padding: 0 5px;
+    min-height: 10px;
+    overflow: hidden;
+}
+.market-info-box .market-info-box-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -ms-flex-align: center;
+    align-items: center;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-pack: center;
+    height: 20px;
+}
+.market-info-box .market-info-box-number {
+    display: block;
+    margin-top: .25rem;
+    font-weight: 700;
+    -ms-flex-align: center;
+    align-items: center;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-pack: center;
+    height: 10px;
+}
+/*<div id="test" class="blinking">
+깜빡임
+.blinking{
+  -webkit-animation: blink 0.5s ease-in-out infinite alternate;
+  -moz-animation: blink 0.5s ease-in-out infinite alternate;
+  animation: blink 0.5s ease-in-out infinite alternate;
+}
+
+@-webkit-keyframes blink{
+  0% {opacity: 0;}
+  100% {opacity: 1;}
+}
+
+@-moz-keyframes blink{
+  0% {opacity: 0;}
+  100% {opacity: 1;}
+}
+
+@keyframes blink{
+  0% {opacity: 0;}
+  100% {opacity: 1;}
+}*/

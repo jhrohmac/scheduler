@@ -1,0 +1,125 @@
+<!DOCTYPE mapper      
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sql.UserSetting">
+
+	<select id="selectDuplicateUser" parameterType="hashmap" resultType="userSettingVo">
+		SELECT USER_ID
+		, PW
+		, USER_NM
+		, COUNT(*) OVER() AS TOTAL_COUNT
+		FROM TB_M_USERINFO
+		WHERE USER_ID = #{in_userId}
+ 	</select>
+	<select id="selectUserInfo" parameterType="hashmap" resultType="userSettingVo">
+		SELECT USER_ID, PW, USER_NM
+               ,(SELECT CODE_ID FROM TB_M_CODE_MANAGEMENT WHERE PARENT_ID = 'ROLE') AS ROLE_DESC
+               , DESK_DIV,EMAIL, HP_NO, MAIL_YN, SMS_YN, USER_COLOR,
+               to_char(USE_STA_DATE,'yyyy-MM-dd') as USE_STA_DATE,
+               to_char(USE_END_DATE,'yyyy-MM-dd') as USE_END_DATE
+		FROM TB_M_USERINFO
+		WHERE USER_ID = #{usr_id}
+ 	</select>
+ 	
+ 	<select id="updateUserInfo" parameterType="hashmap" resultType="userSettingVo">
+ 		UPDATE TB_M_USERINFO
+ 		   SET USER_NM = #{usr_nm},
+ 		       DESK_DIV = #{usr_dept},
+ 		       EMAIL = #{usr_email},
+ 		       HP_NO = #{usr_hp},
+ 		       MAIL_YN = #{usr_mailyn},
+ 		       SMS_YN = #{usr_smsyn}
+ 		 WHERE USER_ID = #{usr_id}
+ 	</select>
+ 	
+ 	<update id="updatePw" parameterType="hashmap">
+	  	UPDATE TB_M_USERINFO
+		   SET PW  = #{new_pwd}
+		 WHERE user_id = #{usr_id}
+  	</update>
+  	
+	<select id="selectUserDefaultInfo" parameterType="hashmap" resultType="userSettingVo">
+  		SELECT 	 MENU_ID
+  				,MENU_NM
+              	,CLASSIFICATION
+		  FROM TB_M_MENUCFG
+         WHERE URL = (SELECT DEFAULTPAGE_1 FROM TB_M_USERINFO WHERE USER_ID = #{usr_id})
+  	</select>
+	
+	<select id="selectUserSystemCodeInfo" parameterType="hashmap" resultType="userSettingVo">
+        <if test="usr_role == 1">
+	        SELECT 'ALL' AS SYSTEM_CD
+	        FROM DUAL
+        </if>
+        <if test="usr_role != 1">
+  		SELECT SYSTEM_CD
+        FROM TB_C_SYSTEMCODE_U
+        	WHERE USER_ID = #{usr_id}
+        </if>
+  	</select>
+	
+	<select id="selectUserTopMenu" parameterType="hashmap" resultType="userSettingVo">	
+		<if test="lang == 'KOR'">
+	  		SELECT MENU_ID AS CODE
+		         , MENU_NM AS VALUE
+		     FROM TB_M_MENUCFG 
+			 WHERE 1=1
+			   AND ACCESS_RIGHT >= (SELECT ROLE FROM TB_M_USERINFO WHERE USER_ID = #{usr_id})
+			   AND USE_FLAG = 'Y'
+			   AND TYPE = 'C'
+			 ORDER BY DP_SEQ ASC
+		 </if>
+		 <if test="lang == 'ENG'">
+	  		SELECT MENU_ID AS CODE
+		         , MENU_NM_ENG AS VALUE
+		     FROM TB_M_MENUCFG 
+			 WHERE 1=1
+			   AND ACCESS_RIGHT >= (SELECT ROLE FROM TB_M_USERINFO WHERE USER_ID = #{usr_id})
+			   AND USE_FLAG = 'Y'
+			   AND TYPE = 'C'
+			 ORDER BY DP_SEQ ASC
+		 </if>
+  	</select>
+  	
+  	<select id="selectUserSubMenu" parameterType="hashmap" resultType="userSettingVo">
+  		<if test="lang == 'KOR'">
+	  		SELECT MENU_ID AS CODE
+			     , MENU_NM AS VALUE
+			 FROM TB_M_MENUCFG 
+			 WHERE 1=1
+			   AND ACCESS_RIGHT >= (SELECT ROLE FROM TB_M_USERINFO WHERE USER_ID = #{usr_id})
+			   AND USE_FLAG = 'Y'
+			   AND TYPE = 'W'
+			   AND CLASSIFICATION = #{top_menu}
+			 ORDER BY DP_SEQ ASC
+		 </if>
+		 <if test="lang == 'ENG'">
+		 	SELECT MENU_ID AS CODE
+			     , MENU_NM_ENG AS VALUE
+			 FROM TB_M_MENUCFG 
+			 WHERE 1=1
+			   AND ACCESS_RIGHT >= (SELECT ROLE FROM TB_M_USERINFO WHERE USER_ID = #{usr_id})
+			   AND USE_FLAG = 'Y'
+			   AND TYPE = 'W'
+			   AND CLASSIFICATION = #{top_menu}
+			 ORDER BY DP_SEQ ASC
+		 </if>
+  	</select>
+  	
+  	<select id="selectUserLoginPage" parameterType="hashmap" resultType="userSettingVo">
+  		SELECT DEFAULTPAGE_1 FROM TB_M_USERINFO WHERE USER_ID = #{usr_id}
+  	</select>
+  	  	
+  	<select id="selectUserPWConfirm" parameterType="hashmap" resultType="userSettingVo">
+  		SELECT PW FROM TB_M_USERINFO WHERE USER_ID = #{usr_id}
+  	</select>
+  	<select id="selectUserList" parameterType="hashmap" resultType="userSettingVo">
+  		SELECT USER_ID, PW FROM TB_M_USERINFO 
+  	</select>
+  	<update id="updateUserLoginPage" parameterType="hashmap">
+  		UPDATE TB_M_USERINFO
+  		   SET DEFAULTPAGE_1 = (SELECT URL FROM TB_M_MENUCFG WHERE MENU_ID = #{menu_id})
+  		 WHERE USER_ID = #{usr_id}  
+  	</update>
+</mapper>

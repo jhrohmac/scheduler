@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이동평균선 정배열 + 장대양봉/연속양봉 감지 - 데모</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .demo-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .signal-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+        .long-bull {
+            background-color: #dc3545;
+        }
+        .consecutive-bull {
+            background-color: #17a2b8;
+        }
+        .algorithm-step {
+            background: #f0f4f8;
+            border-left: 4px solid #007bff;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .ma-alignment {
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        code {
+            color: #d63384;
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="mb-5">
+            <h1>📊 BullishMomentumDetector 데모</h1>
+            <p class="text-muted">이동평균선 정배열 + 장대양봉/연속양봉 패턴 감지 모듈</p>
+        </header>
+
+        <!-- 개념 설명 -->
+        <div class="demo-section">
+            <h2>📖 패턴 설명</h2>
+
+            <h4 class="mt-4">1️⃣ 이동평균선 완전 정배열</h4>
+            <div class="ma-alignment">
+                close > MA5 > MA20 > MA60 > MA120 > MA240
+            </div>
+            <p>모든 기간의 이동평균이 <strong>상승 정렬</strong> → <strong>매우 강한 상승 추세</strong></p>
+
+            <h4 class="mt-4">2️⃣ 장대양봉 (Long Bull Candle)</h4>
+            <div class="algorithm-step">
+                <strong>조건:</strong> 현재 캔들의 실체 ≥ 최근 20일 평균 실체 × 2.0배<br/>
+                <strong>실체:</strong> |close - open|<br/>
+                <strong>의미:</strong> 평소보다 2배 이상 큰 양봉 → 강력한 매수 추진력
+            </div>
+
+            <h4 class="mt-4">3️⃣ 연속양봉 (Consecutive Bullish Days)</h4>
+            <div class="algorithm-step">
+                <strong>조건:</strong> 3일 이상 연속 close > open<br/>
+                <strong>의미:</strong> 지속적인 상승 추세 확인 → 매수력 지속
+            </div>
+
+            <h4 class="mt-4">📈 종합 의미</h4>
+            <blockquote class="blockquote">
+                <p><strong>상승 추세 초입(Golden Cross) + 강한 매수 추진력</strong><br/>
+                   이 패턴이 나타나면 강한 상승 신호이며, 매수 시점 파악에 활용할 수 있습니다.</p>
+            </blockquote>
+        </div>
+
+        <!-- 구현 상세 -->
+        <div class="demo-section">
+            <h2>🔧 구현 상세</h2>
+
+            <h4 class="mt-4">최소 요구사항</h4>
+            <ul>
+                <li><strong>캔들 수:</strong> 최소 240개 (MA240 계산을 위해)</li>
+                <li><strong>데이터 구조:</strong> [time, open, high, low, close, volume]</li>
+                <li><strong>시간 단위:</strong> 일별 데이터 권장</li>
+            </ul>
+
+            <h4 class="mt-4">파라미터</h4>
+            <table class="table table-sm">
+                <tr>
+                    <th>파라미터</th>
+                    <th>기본값</th>
+                    <th>설명</th>
+                </tr>
+                <tr>
+                    <td><code>consecutiveBullDays</code></td>
+                    <td>3</td>
+                    <td>연속양봉 기준 일수</td>
+                </tr>
+                <tr>
+                    <td><code>longCandleRatio</code></td>
+                    <td>2.0</td>
+                    <td>장대양봉 배율 (평균 실체의 몇 배인지)</td>
+                </tr>
+            </table>
+
+            <h4 class="mt-4">신호 유형</h4>
+            <ul>
+                <li>
+                    <span class="badge signal-badge long-bull">LONG_BULL_BODY</span>
+                    장대양봉 신호 (실체가 2배 이상)
+                </li>
+                <li>
+                    <span class="badge signal-badge consecutive-bull">CONSECUTIVE_BULL</span>
+                    연속양봉 신호 (3일 이상)
+                </li>
+            </ul>
+        </div>
+
+        <!-- API 사용법 -->
+        <div class="demo-section">
+            <h2>🌐 API 사용법</h2>
+
+            <h4 class="mt-4">REST 엔드포인트</h4>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                <code>POST /scheduler/finance/detectBullishMomentum.do</code>
+            </div>
+
+            <h4 class="mt-4">요청 파라미터</h4>
+            <table class="table table-sm">
+                <tr>
+                    <th>파라미터</th>
+                    <th>필수</th>
+                    <th>설명</th>
+                </tr>
+                <tr>
+                    <td><code>stockCode</code></td>
+                    <td>✓</td>
+                    <td>종목 코드 (예: 005930)</td>
+                </tr>
+                <tr>
+                    <td><code>stockName</code></td>
+                    <td></td>
+                    <td>종목명 (선택)</td>
+                </tr>
+                <tr>
+                    <td><code>chartData</code></td>
+                    <td>✓</td>
+                    <td>JSON 차트 데이터: {"data": [[time, open, high, low, close, volume], ...]}</td>
+                </tr>
+                <tr>
+                    <td><code>consecutiveBullDays</code></td>
+                    <td></td>
+                    <td>기본값 3</td>
+                </tr>
+                <tr>
+                    <td><code>longCandleRatio</code></td>
+                    <td></td>
+                    <td>기본값 2.0</td>
+                </tr>
+            </table>
+
+            <h4 class="mt-4">응답 예시</h4>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>{
+  "success": true,
+  "signals": [
+    {
+      "signalTime": 1672531200000,
+      "stockCode": "005930",
+      "stockName": "삼성전자",
+      "closePrice": 52000,
+      "signalType": "LONG_BULL_BODY",
+      "bodyRatio": 2.15,
+      "consecutiveDays": 1,
+      "ma5": 51800,
+      "ma20": 51200,
+      "ma60": 50600,
+      "ma120": 49500,
+      "ma240": 48000
+    },
+    ...
+  ],
+  "count": 5,
+  "stockCode": "005930",
+  "stockName": "삼성전자"
+}</code></pre>
+        </div>
+
+        <!-- 클라이언트 사용법 -->
+        <div class="demo-section">
+            <h2>💻 클라이언트 라이브러리 사용법</h2>
+
+            <h4 class="mt-4">1. 라이브러리 로드</h4>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>&lt;script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/bullishMomentumDetector.js"&gt;&lt;/script&gt;</code></pre>
+
+            <h4 class="mt-4">2. 인스턴스 생성</h4>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>const detector = new BullishMomentumDetector({
+    consecutiveBullDays: 3,
+    longCandleRatio: 2.0,
+    apiEndpoint: '/scheduler/finance/detectBullishMomentum.do'
+});</code></pre>
+
+            <h4 class="mt-4">3. 신호 감지 (API)</h4>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>detector.detectFromChart(chartData, '005930', '삼성전자')
+    .then(signals => {
+        console.log('감지된 신호:', signals);
+        detector.renderSignalsTable(signals, 'tableContainerId');
+    });</code></pre>
+
+            <h4 class="mt-4">4. 신호 테이블 렌더링</h4>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>&lt;div id="bullishSignals"&gt;&lt;/div&gt;
+
+&lt;script&gt;
+    detector.renderSignalsTable(signals, 'bullishSignals');
+&lt;/script&gt;</code></pre>
+        </div>
+
+        <!-- 주의사항 -->
+        <div class="demo-section">
+            <h2>⚠️ 기술적 어드바이스</h2>
+
+            <h4 class="mt-4">이 패턴의 장점</h4>
+            <ul>
+                <li>✓ 강한 상승 추세를 명확하게 감지</li>
+                <li>✓ 여러 시간대의 이동평균을 동시에 확인</li>
+                <li>✓ 장대양봉과 연속양봉으로 추진력 확인</li>
+            </ul>
+
+            <h4 class="mt-4">한계 및 주의사항</h4>
+            <ul>
+                <li>⚠️ <strong>거짓 신호:</strong> 단독으로는 위험하며, 추가 필터 필수</li>
+                <li>⚠️ <strong>시간차:</strong> 차트 업데이트 지연으로 신호 지연 가능</li>
+                <li>⚠️ <strong>약세장:</strong> 약세장에서는 신뢰도가 낮음</li>
+            </ul>
+
+            <h4 class="mt-4">권장 추가 필터</h4>
+            <ul>
+                <li>💡 <strong>RSI:</strong> RSI < 70 (과매수 상태 제외)</li>
+                <li>💡 <strong>MACD:</strong> MACD 골든크로스 확인</li>
+                <li>💡 <strong>거래량:</strong> 거래량 증가 추세</li>
+                <li>💡 <strong>지지/저항:</strong> 주요 가격 수준 고려</li>
+            </ul>
+
+            <h4 class="mt-4">면책조항</h4>
+            <blockquote class="blockquote text-danger">
+                <p>이 분석 도구는 기술적 분석을 위한 참고만 되며, <strong>절대 투자 조언이 아닙니다.</strong><br/>
+                   실제 투자 결정 시에는 전문가의 조언을 반드시 구하시기 바랍니다.</p>
+            </blockquote>
+        </div>
+
+        <!-- 구현 정보 -->
+        <div class="demo-section">
+            <h2>📋 구현 정보</h2>
+            <table class="table table-sm">
+                <tr>
+                    <td><strong>구현 일자</strong></td>
+                    <td>2026-02-09</td>
+                </tr>
+                <tr>
+                    <td><strong>상태</strong></td>
+                    <td><span class="badge bg-success">프로덕션 준비 완료</span></td>
+                </tr>
+                <tr>
+                    <td><strong>파일 위치</strong></td>
+                    <td>
+                        <ul style="margin: 0;">
+                            <li>Java: src/com/scheduler/finance/module/BullishMomentumDetector.java</li>
+                            <li>VO: src/com/scheduler/finance/vo/BullishMomentumSignal.java</li>
+                            <li>API: src/com/scheduler/finance/controller/StockAnalysisController.java</li>
+                            <li>JS: webapp/appone/jsp/finance/kis/kisFinance/js/bullishMomentumDetector.js</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>빌드</strong></td>
+                    <td>./build.sh && ./run.sh</td>
+                </tr>
+            </table>
+        </div>
+
+        <footer class="text-center mt-5 text-muted">
+            <p>© 2026 Stock Analysis Scheduler | Bullish Momentum Detector Demo</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

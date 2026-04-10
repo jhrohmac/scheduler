@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+<!-- IPS TRADE Config -->
+
+	<!-- CommQryBroker -->
+	<bean id="commQryBrokerController" class="com.scheduler.trade.controller.CommQryBrokerController">										  
+		<property name="commQryBrokerDao" ref="commQryBrokerDaoImpl"></property>
+	</bean>
+	<bean id="commQryBrokerDaoImpl" class="com.scheduler.trade.dao.impl.CommQryBrokerDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate2"></property>
+	</bean>
+	<!-- CommQryBank -->
+	<bean id="commQryBankController" class="com.scheduler.trade.controller.CommQryBankController">										  
+		<property name="commQryBankDao" ref="commQryBankDaoImpl"></property>
+	</bean>
+	<bean id="commQryBankDaoImpl" class="com.scheduler.trade.dao.impl.CommQryBankDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate2"></property>
+	</bean>
+	<!-- HolidayCalendar -->
+	<bean id="holidayCalendarController" class="com.scheduler.trade.controller.HolidayCalendarController">										  
+		<property name="holidayCalendarDao" ref="holidayCalendarDaoImpl"></property>
+	</bean>	
+	<bean id="fXTenorUtils" class="com.scheduler.util.trade.FXTenorUtils">										  
+		<property name="holidayCalendarDao" ref="holidayCalendarDaoImpl"></property>
+	</bean>
+	<bean id="holidayCalendarDaoImpl" class="com.scheduler.trade.dao.impl.HolidayCalendarDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate2"></property>
+	</bean>
+	
+	<!-- TradeMenuAccMng -->
+	<bean id="tradeMenuAccMngController" class="com.scheduler.trade.controller.TradeMenuAccMngController">										  
+		<property name="tradeMenuAccMngDao" ref="tradeMenuAccMngDaoImpl"></property>
+	</bean>
+	<bean id="tradeMenuAccMngDaoImpl" class="com.scheduler.trade.dao.impl.TradeMenuAccMngDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate2"></property>
+	</bean>
+	
+	<!-- Trade User Management -->
+	<bean id="tradeUserManagementController" class="com.scheduler.trade.controller.TradeUserManagementController">										  
+		<property name="tradeUserManagementDao" ref="tradeUserManagementDaoImpl"></property>
+	</bean>
+	<bean id="tradeUserManagementDaoImpl" class="com.scheduler.trade.dao.impl.TradeUserManagementDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate2"></property>
+	</bean>
+</beans>

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+	<bean id="recSignalController" class="com.scheduler.stock.web.RecSignalController">
+		<property name="recSignalService" ref="recSignalService"></property>
+		<property name="recSignalBatch" ref="recSignalBatch"></property>
+		<property name="recSignalDailyBatch" ref="recSignalDailyBatch"></property>
+		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"></property>
+	</bean>
+
+	<bean id="recPickController" class="com.scheduler.stock.web.RecPickController">
+		<property name="recPickService" ref="recPickService"></property>
+		<property name="recPickTrackService" ref="recPickTrackService"></property>
+		<property name="recProbabilityService" ref="recProbabilityService"></property>
+		<property name="positionExitSignalService" ref="positionExitSignalService"></property>
+	</bean>
+
+	<bean id="stockBatchAdminController" class="com.scheduler.stock.web.StockBatchAdminController">
+		<property name="stockBatchAdminService" ref="stockBatchAdminService"></property>
+	</bean>
+
+	<bean id="recSignalBatch" class="com.scheduler.stock.batch.RecSignalBatch">
+		<property name="recSignalService" ref="recSignalService"></property>
+	</bean>
+
+	<bean id="recSignalDailyBatch" class="com.scheduler.stock.batch.RecSignalDailyBatch">
+		<property name="recSignalBatch" ref="recSignalBatch"></property>
+	</bean>
+
+	<bean id="recPickDailyBatch" class="com.scheduler.stock.batch.RecPickDailyBatch">
+		<property name="recPickTrackService" ref="recPickTrackService"></property>
+	</bean>
+
+	<bean id="positionMonitorDailyBatch" class="com.scheduler.stock.batch.PositionMonitorDailyBatch">
+		<property name="positionExitSignalService" ref="positionExitSignalService"></property>
+	</bean>
+
+	<bean id="recSignalMarketScheduler" class="com.scheduler.stock.batch.RecSignalMarketScheduler">
+		<property name="recSignalDailyBatch" ref="recSignalDailyBatch"></property>
+	    <property name="recPickDailyBatch" ref="recPickDailyBatch"></property>
+		<property name="positionMonitorDailyBatch" ref="positionMonitorDailyBatch"></property>
+	</bean>
+
+	<bean id="kisDlyPriceSyncService" class="com.scheduler.stock.service.KisDlyPriceSyncService">
+		<property name="stkMasterDao" ref="stkMasterDaoImpl"></property>
+	</bean>
+	<!-- 신규 추가 확인 1 -->
+	<bean id="recPickRunTask" class="com.scheduler.stock.batchadmin.task.RecPickRunTask">
+		<property name="recPickDailyBatch" ref="recPickDailyBatch"/>
+	</bean>
+
+	<!-- 신규 추가 확인 2 -->
+	<bean id="positionMonitorRunTask" class="com.scheduler.stock.batchadmin.task.PositionMonitorRunTask">
+		<property name="positionMonitorDailyBatch" ref="positionMonitorDailyBatch"/>
+	</bean>
+
+	<bean id="recSignalService" class="com.scheduler.stock.service.RecSignalService">
+		<property name="stkMasterDao" ref="stkMasterDaoImpl"></property>
+		<property name="recSignalDao" ref="recSignalDaoImpl"></property>
+		<property name="batchExecLogDao" ref="batchExecLogDaoImpl"></property>
+		<property name="batchExecItemLogDao" ref="batchExecItemLogDaoImpl"></property>
+		<property name="tradeDateDao" ref="tradeDateDaoImpl"></property>
+		<property name="tradeDateService" ref="tradeDateService"></property>
+		<property name="maCalculateService" ref="maCalculateService"></property>
+		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"></property>
+	</bean>
+
+	<bean id="recPickService" class="com.scheduler.stock.service.RecPickService">
+		<property name="recSignalService" ref="recSignalService"></property>
+		<property name="recPickDao" ref="recPickDaoImpl"></property>
+		<property name="marketSummaryDao" ref="marketSummaryDaoImpl"></property>
+		<property name="positionDao" ref="positionDaoImpl"></property>
+		<property name="tradeDateService" ref="tradeDateService"></property>
+	</bean>
+
+	<bean id="recPickTrackService" class="com.scheduler.stock.service.RecPickTrackService">
+		<property name="recPickDao" ref="recPickDaoImpl"></property>
+		<property name="tradeDateDao" ref="tradeDateDaoImpl"></property>
+		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"></property>
+		<property name="positionDao" ref="positionDaoImpl"></property>
+		<property name="tradeDateService" ref="tradeDateService"></property>
+	</bean>
+
+	<bean id="recProbabilityService" class="com.scheduler.stock.service.RecProbabilityService">
+		<property name="recPickDao" ref="recPickDaoImpl"></property>
+	</bean>
+
+	<bean id="positionExitSignalService" class="com.scheduler.stock.service.PositionExitSignalService">
+		<property name="positionDao" ref="positionDaoImpl"></property>
+		<property name="recPickDao" ref="recPickDaoImpl"></property>
+		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"></property>
+		<property name="tradeDateService" ref="tradeDateService"></property>
+	</bean>
+
+	<bean id="stockBatchAdminService" class="com.scheduler.stock.batchadmin.service.StockBatchAdminService">
+		<property name="stockBatchAdminDao" ref="stockBatchAdminDaoImpl"></property>
+	</bean>
+
+	<bean id="recSignalRunTask" class="com.scheduler.stock.batchadmin.task.RecSignalRunTask">
+		<property name="recSignalDailyBatch" ref="recSignalDailyBatch"></property>
+	</bean>
+
+	<!-- Index 자동 재빌드 Task (TASK_KEY: INDEX_REBUILD) -->
+	<bean id="indexRebuildTask" class="com.scheduler.stock.batchadmin.task.IndexRebuildTask">
+		<property name="indexMaintenanceService" ref="indexMaintenanceService"></property>
+	</bean>
+
+	<bean id="tradeDateService" class="com.scheduler.stock.service.TradeDateService">
+		<property name="tradeDateDao" ref="tradeDateDaoImpl"></property>
+	</bean>
+
+	<bean id="maCalculateService" class="com.scheduler.stock.service.MaCalculateService"/>
+
+	<bean id="recSignalDaoImpl" class="com.scheduler.stock.dao.impl.RecSignalDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="recPickDaoImpl" class="com.scheduler.stock.dao.impl.RecPickDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="stkMasterDaoImpl" class="com.scheduler.stock.dao.impl.StkMasterDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="tradeDateDaoImpl" class="com.scheduler.stock.dao.impl.TradeDateDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="batchExecLogDaoImpl" class="com.scheduler.stock.dao.impl.BatchExecLogDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="batchExecItemLogDaoImpl" class="com.scheduler.stock.dao.impl.BatchExecItemLogDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
+	<bean id="stockBatchAdminDaoImpl" class="com.scheduler.stock.batchadmin.dao.impl.StockBatchAdminDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplateSimple"></property>
+	</bean>
+
+</beans>

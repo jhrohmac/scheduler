@@ -1,0 +1,224 @@
+body {
+  margin: 0;
+  font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  text-align: left;
+  background-color: #fff;
+}
+
+.modal-content {
+    position: relative;
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    width: 100%;
+    pointer-events: auto;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, .2);
+    border-radius: 1rem;
+    box-shadow: 0 .25rem .5rem rgba(0, 0, 0, .5);
+    outline: 0;
+}
+
+.modal-header {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-align: start;
+  align-items: flex-start;
+  -ms-flex-pack: justify;
+  justify-content: space-between;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+  border-top-left-radius: calc(0.3rem - 1px);
+  border-top-right-radius: calc(0.3rem - 1px);
+}
+.modal-footer {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -ms-flex-align: center;
+    align-items: center;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    padding: .25rem;
+    border-top: 1px solid #e9ecef;
+    border-bottom-right-radius: calc(.3rem - 1px);
+    border-bottom-left-radius: calc(.3rem - 1px);
+}
+
+h6 {
+    margin-bottom: .5rem;
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    color: inherit;
+}
+
+.table tbody tr:hover {
+    background-color: #e7f3ff !important;
+}
+
+.grid-edit {
+    color: #f39c12; 
+	cursor: pointer;
+}
+.dropdown-menu-lg {
+    min-width: auto;
+    padding: 0;
+}
+
+.cursor{
+	cursor: pointer;
+}
+/* datatable 선택되는 컬럼에 밑줄 표시 */
+a:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.nav-treeview>.nav-item>.nav-link:hover {
+    background-color: #e7f3ff !important;
+    color: #e74c3c;
+}
+
+.form-control {
+    font-size: 0.8rem;
+}
+
+.dropdown-menu {
+    border-radius: 1rem;
+}
+
+.calendar-dropdown-menu {
+    min-width: 0rem;
+}
+.main-dropdown-menu {
+    min-width: 10rem;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: .25rem 1rem;
+    clear: both;
+    font-weight: 400;
+    text-align: inherit;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+    border-radius: 1rem;
+}
+
+.dropdown-colorItem {
+    padding: .25rem 1rem;
+    cursor: pointer;
+}
+
+.dropdown-avatarItem {
+	min-width: 11rem;
+    padding: .25rem;
+    height: 1.8em;
+    cursor: pointer;
+}
+
+input[type='color'] {
+  padding: 0;
+  width: 150%;
+  height: 150%;
+  margin: -25%;
+  cursor: pointer;
+}
+
+.input-group-check {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-align: center;
+    align-items: center;
+    padding: .375rem .75rem;
+    margin-bottom: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    text-align: center;
+    white-space: nowrap;
+    background-color: #e9ecef00;
+    border: 1px solid #ced4da00;
+    border-radius: .25rem;
+}
+
+.calendar-color-picker {
+  overflow: hidden;
+  height: 0.9em;
+  border-radius: 15%;  
+  display: block;
+  width: 100%;
+  padding: .25rem 1rem;
+  clear: both;
+  font-weight: 400;
+  text-align: inherit;
+  white-space: nowrap;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.user-color-picker {
+  overflow: hidden;
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 25%;
+  box-shadow: 1px 1px 3px 0px grey;
+}
+
+/* 필수값체크 */
+.required {
+  position: relative;
+}
+.required::before {
+  content: "* ";
+  color: red;
+  position: absolute;
+  left: -12px;
+}
+.error-message {
+  color: red;
+  font-size: 14px;
+  display: none;
+}
+td[class^="dt-ellipsis-"]:hover {
+    overflow: visible;
+    white-space: normal;
+    /* background-color: #f9f9f9; hover시 살짝 배경 변경 (선택사항) */
+    z-index: 1000; /* 위로 올라오게 */
+    position: relative; /* 다른 td 위로 띄움 */
+}
+@media (max-width: 768px) {
+    td.dt-ellipsis-10  { max-width: 8ch; }
+    td.dt-ellipsis-20  { max-width: 15ch; }
+    td.dt-ellipsis-30  { max-width: 20ch; }
+    td.dt-ellipsis-40  { max-width: 25ch; }
+    td.dt-ellipsis-50  { max-width: 30ch; }
+    td.dt-ellipsis-60  { max-width: 35ch; }
+    td.dt-ellipsis-70  { max-width: 40ch; }
+    td.dt-ellipsis-80  { max-width: 45ch; }
+    td.dt-ellipsis-90  { max-width: 50ch; }
+    td.dt-ellipsis-100 { max-width: 55ch; }
+}
+
+/* DataTables가 자동으로 selected 클래스를 추가해줍니다 */
+table.dataTable tr.selected {
+    background-color: #d0ebff; /* 원하는 색 */
+}
+
+.card-header, .card-title {
+    text-transform: uppercase;
+    color: rgba(37.8, 63.6, 129.6, .7);
+    font-weight: bold;
+    font-size: 1rem;
+}

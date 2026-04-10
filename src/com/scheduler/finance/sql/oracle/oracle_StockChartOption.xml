@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    TB_S_CHART_OPTION 전용 Mapper
+    SEQUENCE : SEQ_TB_S_CHART_OPTION
+-->
+<mapper namespace="sql.StockChartOptionManage">
+
+    <!-- 차트 옵션 리스트 조회 -->
+    <select id="selectChartOptionList" parameterType="map" resultType="stockChartOptionVo">
+        SELECT
+              OPTION_ID 		AS OPTIONID
+            , CHART_ID			AS CHARTID
+            , SERIES_TYPE		AS SERIESTYPE
+            , SERIES_KEY		AS SERIESKEY
+            , SERIES_LABEL		AS SERIESLABEL
+            , SERIES_PERIOD		AS SERIESPERIOD
+            , SERIES_COLOR		AS SERIESCOLOR
+            , LINE_WIDTH		AS LINEWIDTH
+            , ENABLED_YN		AS ENABLEDYN
+            , DISPLAY_ORDER		AS DISPLAYORDER
+            , MODIFY_DATE		AS MODIFYDATE
+            , CREATE_DATE		AS CREATEDATE
+        FROM TB_S_CHART_OPTION
+        WHERE 1 = 1
+          <if test="chartId != null and chartId != ''">
+            AND CHART_ID = #{chartId}
+          </if>
+          <if test="seriesType != null and seriesType != ''">
+            AND SERIES_TYPE = #{seriesType}
+          </if>
+        ORDER BY SERIES_PERIOD
+    </select>
+
+    <!-- 단일 옵션 갱신 -->
+    <update id="updateChartOption" parameterType="stockChartOptionVo">
+        UPDATE TB_S_CHART_OPTION
+           SET SERIES_LABEL  = #{seriesLabel}
+             , SERIES_PERIOD = #{seriesPeriod}
+             , SERIES_COLOR  = #{seriesColor}
+             , LINE_WIDTH   = #{lineWidth, jdbcType=NUMERIC}
+             , ENABLED_YN    = #{enabledYn}
+             , DISPLAY_ORDER = #{displayOrder}
+             , MODIFY_DATE   = SYSDATE
+         WHERE CHART_ID     = #{chartId}
+           AND SERIES_TYPE  = #{seriesType}
+           AND SERIES_KEY   = #{seriesKey}
+    </update>
+
+    <!-- 단일 옵션 신규 등록 -->
+    <insert id="insertChartOption" parameterType="stockChartOptionVo">
+        INSERT INTO TB_S_CHART_OPTION
+        (
+              OPTION_ID
+            , CHART_ID
+            , SERIES_TYPE
+            , SERIES_KEY
+            , SERIES_LABEL
+            , SERIES_PERIOD
+            , SERIES_COLOR
+            , LINE_WIDTH
+            , ENABLED_YN
+            , DISPLAY_ORDER
+            , MODIFY_DATE
+            , CREATE_DATE
+        )
+        VALUES
+        (
+              SEQ_TB_S_CHART_OPTION.NEXTVAL
+            , #{chartId}
+            , #{seriesType}
+            , #{seriesKey}
+            , #{seriesLabel}
+            , #{seriesPeriod}
+            , #{seriesColor}
+            , #{lineWidth, jdbcType=NUMERIC}
+            , #{enabledYn}
+            , #{displayOrder}
+            , SYSDATE
+            , SYSDATE
+        )
+    </insert>
+    
+    <delete id="deleteChartOptions"
+            parameterType="map">
+        DELETE FROM TB_S_CHART_OPTION
+         WHERE CHART_ID = #{chartId}
+           AND SERIES_TYPE = #{seriesType}
+    </delete>
+
+</mapper>
