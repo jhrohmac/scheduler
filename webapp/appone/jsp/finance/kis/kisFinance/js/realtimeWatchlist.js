@@ -88,6 +88,8 @@
 
   var __wlStatusText = "";
   var __wlStatusEl = null;
+  // 헤더 현재가 전일비 방향 캐시 (diff 없는 tick에서도 색상 유지)
+  var __hdrDaySign = "0";
 
   function wlStatusEl() {
     if (!__wlStatusEl || __wlStatusEl.length === 0) {
@@ -170,15 +172,24 @@
   function updateChartHeaderRealtime(msg) {
     if (!msg) return;
 
+    var hasDayChange = Number.isFinite(toNumber(msg.diff)) || Number.isFinite(toNumber(msg.rate));
     var priceSign = signFromDiff(msg);
+
+    // 전일비 정보가 있으면 캐시 갱신, 없으면 마지막 캐시된 방향 유지
+    if (hasDayChange) {
+      __hdrDaySign = priceSign;
+    } else {
+      priceSign = __hdrDaySign;
+    }
+
     var diffSigned = normalizeSignedValue(msg.diff, priceSign, 0);
     var rateSigned = normalizeSignedValue(msg.rate, priceSign, 2);
 
     var priceText = formatAuto(msg.price, 0);
-    var diffText = diffSigned.raw;
-    var rateText = rateSigned.raw;
+    var diffText = diffSigned.raw || "0";
+    var rateText = rateSigned.raw || "0";
 
-    if (rateText && rateText.indexOf("%") < 0) {
+    if (rateText.indexOf("%") < 0) {
       rateText = rateText + "%";
     }
 
@@ -195,7 +206,7 @@
     }
 
     var $pct = $("#kisHdrPct");
-    if ($pct.length && rateText) {
+    if ($pct.length && hasDayChange) {
       $pct.text(rateText).removeClass("kis-up kis-down kis-flat up down flat");
       if (rateCls === "up") $pct.addClass("kis-up");
       else if (rateCls === "down") $pct.addClass("kis-down");
@@ -203,7 +214,7 @@
     }
 
     var $diff = $("#kisHdrDiff");
-    if ($diff.length && diffText) {
+    if ($diff.length && hasDayChange) {
       $diff.text(diffText).removeClass("kis-up kis-down kis-flat up down flat");
       if (diffCls === "up") $diff.addClass("kis-up");
       else if (diffCls === "down") $diff.addClass("kis-down");
@@ -257,9 +268,7 @@
   }
 
   function signFromDiff(it) {
-    var explicit = normalizeSign(it && it.sign);
-    if (explicit) return explicit;
-
+    // 전일비(diff/rate) 기준 우선 — tick 부호(sign)는 fallback
     var n = toNumber(it && it.diff);
     if (Number.isFinite(n)) {
       if (n > 0) return "+";
@@ -273,6 +282,10 @@
       if (n < 0) return "-";
       return "0";
     }
+
+    // diff/rate 없을 때만 tick sign 사용
+    var explicit = normalizeSign(it && it.sign);
+    if (explicit) return explicit;
 
     return "0";
   }
@@ -385,12 +398,28 @@
       return;
     }
 
+    // 전일비(diff/rate) 유효 여부 판단
+    var hasDayChange = Number.isFinite(toNumber(diff)) || Number.isFinite(toNumber(rate));
     var priceSign = signFromDiff({ diff: diff, rate: rate, sign: sign });
+
+    // 전일비 정보가 없으면 행에 저장된 마지막 방향 유지
+    if (!hasDayChange) {
+      var cachedSign = $row.data("daySign");
+      if (cachedSign) {
+        priceSign = cachedSign === "up" ? "+" : (cachedSign === "down" ? "-" : "0");
+      }
+    }
+
     var diffSigned = normalizeSignedValue(diff, priceSign, 0);
     var rateSigned = normalizeSignedValue(rate, priceSign, 2);
     var priceCls = signClass(priceSign);
     var diffCls = signClass(diffSigned.sign);
     var rateCls = signClass(rateSigned.sign);
+
+    // 유효한 전일비가 있을 때만 방향 저장
+    if (hasDayChange) {
+      $row.data("daySign", priceCls);
+    }
 
     var prevPrice = toNumber($row.data("lastPrice"));
     if (!Number.isFinite(prevPrice)) {
@@ -414,11 +443,11 @@
       rateText = rateText + "%";
     }
 
-    $row.find(".wl-price")
-      .text(priceText)
-      .attr("title", diffText + " / " + rateText)
-      .removeClass("up down flat")
-      .addClass(priceCls);
+    var $priceEl = $row.find(".wl-price");
+    if (priceText) {
+      $priceEl.text(priceText).attr("title", diffText + " / " + rateText);
+    }
+    $priceEl.removeClass("up down flat").addClass(priceCls);
 
     var $diffEl = $row.find(".wl-diff");
     if ($diffEl.length) {

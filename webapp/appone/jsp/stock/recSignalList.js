@@ -270,7 +270,7 @@
       name: String(raw.stkNm || raw.stk_nm || raw.name || ""),
       mktCd: String(raw.mktCd || raw.mkt_cd || raw.marketGroup || "KR"),
       listingMarket: String(raw.listingMarket || raw.listing_market || raw.market || ""),
-      dowMemberYn: String(raw.dowMemberYn || raw.dow_member_yn || "N"),
+      indexCd: String(raw.indexCd || raw.index_cd || ""),
       grade: String(raw.recGrade || raw.rec_grade || raw.grade || ""),
       recYn: String(raw.recYn || raw.rec_yn || "N"),
       baseDt: String(raw.baseDt || raw.base_dt || state.baseDt || ""),

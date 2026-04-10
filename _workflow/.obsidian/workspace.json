@@ -1,0 +1,243 @@
+{
+  "main": {
+    "id": "12691287b60ca3ea",
+    "type": "split",
+    "children": [
+      {
+        "id": "c45c632581f1170f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "29bee147559112f9",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "canvas/BATCH JOB/REC_SIGNAL_US_PRIMARY.canvas",
+                "viewState": {
+                  "x": 741.9741896338663,
+                  "y": 2872.1914221973975,
+                  "zoom": -0.1826285287012483
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "REC_SIGNAL_US_PRIMARY"
+            }
+          },
+          {
+            "id": "db156612046f0fae",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "notes/40_DB_FLOW.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "40_DB_FLOW"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "243e465d3c4bc9ce",
+    "type": "split",
+    "children": [
+      {
+        "id": "718c4e6c7f59a611",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "5d90e7010a0c8e0e",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "파일 탐색기"
+            }
+          },
+          {
+            "id": "190ea628767caffd",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "검색"
+            }
+          },
+          {
+            "id": "e5a172a5b2d12d8a",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "북마크"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 340.5
+  },
+  "right": {
+    "id": "0f35a313380bb488",
+    "type": "split",
+    "children": [
+      {
+        "id": "234cf3e0f7034f7d",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "3423af3fa413c38f",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "canvas/CURRENT_RUNTIME_FLOW.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "CURRENT_RUNTIME_FLOW 의 백링크"
+            }
+          },
+          {
+            "id": "2ca25138f4ef51b9",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "canvas/CURRENT_RUNTIME_FLOW.canvas",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "CURRENT_RUNTIME_FLOW 의 나가는 링크"
+            }
+          },
+          {
+            "id": "bb3eb1dbb27cc1e6",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "태그"
+            }
+          },
+          {
+            "id": "ebc70520466efaeb",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "모든 속성"
+            }
+          },
+          {
+            "id": "e92f3bc398179854",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "canvas/CURRENT_RUNTIME_FLOW.canvas",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "CURRENT_RUNTIME_FLOW 의 개요"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:빠른 전환기 열기": false,
+      "graph:그래프 뷰 열기": false,
+      "canvas:새 캔버스 만들기": false,
+      "daily-notes:오늘의 일일 노트 열기": false,
+      "templates:템플릿 삽입": false,
+      "command-palette:명령어 팔레트 열기": false,
+      "bases:새 베이스 생성하기": false
+    }
+  },
+  "active": "29bee147559112f9",
+  "lastOpenFiles": [
+    "canvas/BATCH JOB/REC_SIGNAL_US_RETRY.canvas",
+    "canvas/BATCH JOB/STK_MASTER_REFRESH_ALL.canvas",
+    "canvas/BATCH JOB/REC_SIGNAL_KR_PRIMARY.canvas",
+    "canvas/BATCH JOB/REC_SIGNAL_US_PRIMARY.canvas",
+    "canvas/BATCH JOB/POSITION_MONITOR_KR.canvas",
+    "canvas/BATCH JOB/POSITION_MONITOR_US.canvas",
+    "canvas/BATCH JOB/REC_PICK_TRACK_US.canvas",
+    "canvas/BATCH JOB/REC_PICK_TRACK_KR.canvas",
+    "canvas/MASTER_WORKFLOW.canvas",
+    "canvas/BATCH JOB/REC_SIGNAL_KR_RETRY.canvas",
+    "canvas/BATCH JOB",
+    "notes/40_DB_FLOW.md",
+    "notes/54_REC_SIGNAL_PARTITION_DESIGN_2026-04-06.md",
+    "00_START_HERE.md",
+    "README.md",
+    "03_STATUS.md",
+    "무제.md",
+    "notes/53_RECOMMENDATION_TRACKING_IMPLEMENTATION_SPEC_2026-03-20.md",
+    "notes/52_RECOMMENDATION_TRACKING_DESIGN_2026-03-20.md",
+    "kjc_42pattern_v2_financial.html",
+    "notes/00_INDEX.md",
+    "notes/36_REC_SIGNAL_BATCH_ADMIN_DESIGN_2026-03-12.md",
+    "notes/10_WORKFLOW_BACKTEST.md",
+    "notes/01_PROJECT_STRUCTURE_TREE.md",
+    "notes/35_REC_SIGNAL_DB_MIGRATION_RUNBOOK_2026-03-11.md",
+    "notes/34_REC_SIGNAL_MEMORY_BATCH_REPORT_2026-03-11.md",
+    "notes/24_AI_PREDICTION_FLOW.md",
+    "notes/23_PICK_MONITORING_FLOW.md",
+    "notes/22_UI_WATCHLIST_DETAIL.md",
+    "notes/21_UI_RECOMMEND_DETAIL.md",
+    "notes/20_UI_UX_FLOW.md",
+    "notes/MASTER_WORKFLOW_NOTE.md",
+    "notes/DD_DATA_DICTIONARY.md",
+    "notes/92_SOURCE_SYNC_MATRIX.md",
+    "canvas/CURRENT_RUNTIME_FLOW.canvas",
+    "notes/33_REC_SIGNAL_V110_IMPLEMENTATION_PREP.md",
+    "notes/32_WEBSOCKET_RECONNECT_HARDENING.md"
+  ]
+}

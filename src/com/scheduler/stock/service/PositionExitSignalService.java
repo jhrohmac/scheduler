@@ -48,7 +48,9 @@ public class PositionExitSignalService {
     public HashMap<String, Object> runDailySellGuide(HashMap<String, String> map) throws Exception {
         HashMap<String, String> queryMap = new HashMap<String, String>();
         if (map != null) queryMap.putAll(map);
-        queryMap.put("closeFlag", "N");
+        if (RecPickUtil.isBlank(queryMap.get("closeFlag"))) {
+            queryMap.put("closeFlag", "N");
+        }
         if (!RecPickUtil.isBlank(queryMap.get("mktCd")) && RecPickUtil.isBlank(queryMap.get("marketCode"))) {
             queryMap.put("marketCode", RecPickUtil.normalizeMarketGroup(queryMap.get("mktCd")));
         }

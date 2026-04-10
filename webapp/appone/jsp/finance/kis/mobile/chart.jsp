@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KIS Mobile Chart</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
-<link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/mobile/css/mobile.css?v=20260224-2' />">
+<link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/mobile/css/mobile.css?v=20260404-1' />">
 </head>
-<body>
+<body class="chart-page">
 <div id="mobileProgress" class="mobile-progress"></div>
 <!-- 상단 툴바 -->
 <header class="toolbar">
@@ -195,7 +195,7 @@ window.__MOBILE = {
 </script>
 <script src="<c:url value='/appone/plugins/Highcharts-Stock-11.1.0/code/highstock.js' />"></script>
 <script src="<c:url value='/appone/jsp/finance/kis/mobile/js/toolbar.js?v=20260220-2' />"></script>
-<script src="<c:url value='/appone/jsp/finance/kis/mobile/js/chart.js?v=20260323-1' />"></script>
+<script src="<c:url value='/appone/jsp/finance/kis/mobile/js/chart.js?v=20260404-1' />"></script>
 <script src="<c:url value='/appone/jsp/finance/kis/mobile/js/navigation.js?v=20260218-6' />"></script>
 </body>
 </html>

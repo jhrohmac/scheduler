@@ -36,7 +36,7 @@ public class TradeDateService {
             return resolveToday();
         }
 
-        String value = inputBaseDate.trim();
+        String value = trimDateTimePortion(inputBaseDate.trim());
         try {
             if (value.contains("-")) {
                 return LocalDate.parse(value, ISO_DATE).format(ISO_DATE);
@@ -45,6 +45,46 @@ public class TradeDateService {
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException("baseDt 형식이 올바르지 않습니다. yyyy-MM-dd 또는 yyyyMMdd 를 사용하세요.");
         }
+    }
+
+    private String trimDateTimePortion(String value) {
+        if (value == null) {
+            return null;
+        }
+        if (isIsoDateTime(value)) {
+            return value.substring(0, 10);
+        }
+        if (isBasicDateTime(value)) {
+            return value.substring(0, 8);
+        }
+        return value;
+    }
+
+    private boolean isIsoDateTime(String value) {
+        return value.length() > 10
+                && value.charAt(4) == '-'
+                && value.charAt(7) == '-'
+                && isDateTimeSeparator(value.charAt(10));
+    }
+
+    private boolean isBasicDateTime(String value) {
+        if (value.length() <= 8 || !isAllDigits(value, 8)) {
+            return false;
+        }
+        return isDateTimeSeparator(value.charAt(8));
+    }
+
+    private boolean isAllDigits(String value, int length) {
+        for (int i = 0; i < length; i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isDateTimeSeparator(char ch) {
+        return Character.isWhitespace(ch) || ch == 'T';
     }
 
     public String resolveEffectiveBaseDate(String inputBaseDate) throws Exception {

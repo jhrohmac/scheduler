@@ -9,6 +9,15 @@ var RP_STATE = {
   selectedPickStatus: ''
 };
 
+var RP_REALTIME = {
+  ws: null,
+  reconnectTimer: null,
+  lastCodesKey: '',
+  syncTimer: null,
+  priceCache: {},
+  priceInflight: {}
+};
+
 function rpAjax(url, data, cb) {
   var params = Object.keys(data).map(function(k) {
     return encodeURIComponent(k) + '=' + encodeURIComponent(data[k] == null ? '' : data[k]);
@@ -24,6 +33,56 @@ function rpPct(v) {
   var n = parseFloat(v);
   var cls = n > 0 ? 'text-danger' : (n < 0 ? 'text-primary' : '');
   return '<span class="' + cls + ' font-weight-bold">' + (n > 0 ? '+' : '') + n.toFixed(2) + '%</span>';
+}
+
+function rpToNumber(v) {
+  if (v == null || v === '') return null;
+  var n = Number(String(v).replace(/,/g, ''));
+  return isFinite(n) ? n : null;
+}
+
+function rpFormatPrice(v) {
+  var n = rpToNumber(v);
+  return n == null ? '-' : n.toLocaleString();
+}
+
+function rpFormatRecDiff(row) {
+  var currentPrice = rpToNumber(row.currentPrice);
+  var recAnchorPrice = rpToNumber(row.recAnchorPrice);
+  if (currentPrice == null || recAnchorPrice == null || recAnchorPrice === 0) return '-';
+  var diff = currentPrice - recAnchorPrice;
+  var pct = (diff / recAnchorPrice * 100).toFixed(2);
+  var cls = diff >= 0 ? 'text-danger' : 'text-primary';
+  var sign = diff >= 0 ? '+' : '';
+  return '<span class="' + cls + ' font-weight-bold">' + sign + pct + '%</span>'
+       + '<br><small class="' + cls + '">' + sign + Math.round(diff).toLocaleString() + '</small>';
+}
+
+function rpFormatBuyDiff(row) {
+  var currentPrice = rpToNumber(row.currentPrice);
+  var firstBuyPrice = rpToNumber(row.firstBuyPrice);
+  if (currentPrice == null || firstBuyPrice == null || firstBuyPrice === 0) return '-';
+  var diff = currentPrice - firstBuyPrice;
+  var pct = (diff / firstBuyPrice * 100).toFixed(2);
+  var cls = diff >= 0 ? 'text-danger' : 'text-primary';
+  var sign = diff >= 0 ? '+' : '';
+  return '<span class="' + cls + ' font-weight-bold">' + sign + pct + '%</span>'
+       + '<br><small class="' + cls + '">' + sign + Math.round(diff).toLocaleString() + '</small>';
+}
+
+function rpUnwrapSingle(res) {
+  if (!res) return null;
+  if (res.data) {
+    if (res.data.singleData) return res.data.singleData;
+    if (res.data.data && res.data.data.singleData) return res.data.data.singleData;
+  }
+  return res.singleData || null;
+}
+
+function rpExtractCurrentPrice(single) {
+  var out = single && (single.output || single.out || (single.data && single.data.output));
+  if (!out) return null;
+  return rpToNumber(out.stckPrpr || out.stck_prpr || out.ovrsNmixPrpr || out.ovrs_nmix_prpr || out.last || out.lastPrice || out.price);
 }
 
 function rpPickBadge(s) {
@@ -61,6 +120,268 @@ function rpSelectionLabel() {
   if (stockText) parts.push(stockText);
   if (RP_STATE.selectedPickId) parts.push('PICK ' + RP_STATE.selectedPickId);
   return parts.length ? parts.join(' / ') : '미선택';
+}
+
+function rpBuildWsUrl(path, query) {
+  if (!path) return '';
+  if (path.indexOf('ws://') === 0 || path.indexOf('wss://') === 0) {
+    return query ? path + (path.indexOf('?') >= 0 ? '&' : '?') + query : path;
+  }
+  var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  var normalized = path.charAt(0) === '/' ? path : '/' + path;
+  var url = proto + location.host + normalized;
+  if (query) {
+    url += (url.indexOf('?') >= 0 ? '&' : '?') + query;
+  }
+  return url;
+}
+
+function rpResolveRealtimeMarket(row) {
+  var sourceMktCd = String(row && row.sourceMktCd || '').toUpperCase();
+  var listingMarket = String(row && row.listingMarket || '').toUpperCase();
+
+  if (sourceMktCd === 'KR' || listingMarket === 'KOSPI' || listingMarket === 'KOSDAQ' || listingMarket === 'KRX') {
+    return { country: 'KR', market: 'KRX' };
+  }
+
+  if (sourceMktCd === 'US') {
+    if (listingMarket.indexOf('NYSE') >= 0 || listingMarket === 'NYS') {
+      return { country: 'US', market: 'NYSE' };
+    }
+    if (listingMarket.indexOf('AMEX') >= 0 || listingMarket === 'AMS') {
+      return { country: 'US', market: 'AMEX' };
+    }
+    return { country: 'US', market: listingMarket || 'NASDAQ' };
+  }
+
+  if (sourceMktCd) {
+    return { country: sourceMktCd, market: listingMarket || sourceMktCd };
+  }
+
+  if (listingMarket) {
+    return { country: 'US', market: listingMarket };
+  }
+
+  return { country: 'KR', market: 'KRX' };
+}
+
+function rpPickRealtimeToken(row) {
+  var code = String(row && row.stkCd || '').trim();
+  if (!code) return '';
+  var market = rpResolveRealtimeMarket(row);
+  return market.country + '|' + market.market + '|' + code;
+}
+
+function rpIsDomesticRow(row) {
+  return rpResolveRealtimeMarket(row).country === 'KR';
+}
+
+function rpUpdatePickRowCells(table, rowIdx, row, price) {
+  var currentPriceCell;
+  var recDiffCell;
+  var buyDiffCell;
+
+  if (!table || !row) return;
+
+  row.currentPrice = price;
+  currentPriceCell = table.cell(rowIdx, 7).node();
+  recDiffCell = table.cell(rowIdx, 8).node();
+  buyDiffCell = table.cell(rowIdx, 9).node();
+
+  if (currentPriceCell) currentPriceCell.innerHTML = rpFormatPrice(row.currentPrice);
+  if (recDiffCell) recDiffCell.innerHTML = rpFormatRecDiff(row);
+  if (buyDiffCell) buyDiffCell.innerHTML = rpFormatBuyDiff(row);
+}
+
+function rpClosePickRealtime(resetKey) {
+  if (RP_REALTIME.reconnectTimer) {
+    clearTimeout(RP_REALTIME.reconnectTimer);
+    RP_REALTIME.reconnectTimer = null;
+  }
+  if (RP_REALTIME.ws) {
+    try {
+      RP_REALTIME.ws.__manualClose = true;
+      RP_REALTIME.ws.close();
+    } catch (e) {}
+  }
+  RP_REALTIME.ws = null;
+  if (resetKey !== false) {
+    RP_REALTIME.lastCodesKey = '';
+  }
+}
+
+function rpGetCurrentPageRealtimeTokens() {
+  var table = rpPickTable();
+  var seen = {};
+  var tokens = [];
+
+  if (!table) return tokens;
+
+  table.rows({ page: 'current' }).every(function() {
+    var row = this.data();
+    var token;
+    if (!row) return;
+    token = rpPickRealtimeToken(row);
+    if (!token || seen[token]) return;
+    seen[token] = true;
+    tokens.push(token);
+  });
+
+  return tokens;
+}
+
+function rpApplyRealtimeQuote(msg) {
+  var table = rpPickTable();
+  var token;
+  var code;
+  var price;
+
+  if (!table || !msg) return;
+
+  token = String(msg.token || '').trim();
+  code = String(msg.code || '').trim();
+  price = rpToNumber(msg.price);
+  if (price == null) return;
+
+  table.rows({ page: 'current' }).every(function() {
+    var row = this.data();
+    var rowToken;
+    var rowCode;
+
+    if (!row) return;
+
+    rowToken = rpPickRealtimeToken(row);
+    rowCode = String(row.stkCd || '').trim();
+    if (token) {
+      if (rowToken !== token) return;
+    } else if (code) {
+      if (rowCode !== code) return;
+    } else {
+      return;
+    }
+
+    rpUpdatePickRowCells(table, this.index(), row, price);
+  });
+}
+
+function rpSyncCurrentPriceByCode(code, force) {
+  var cache;
+  var url;
+
+  if (!RP_URL.currentPrice || !code) return;
+
+  cache = RP_REALTIME.priceCache[code];
+  if (!force && cache && (Date.now() - cache.ts) < 3000) {
+    rpApplyRealtimeQuote({ code: code, price: cache.price });
+    return;
+  }
+
+  if (RP_REALTIME.priceInflight[code]) return;
+  RP_REALTIME.priceInflight[code] = true;
+
+  url = RP_URL.currentPrice + '?in_stockCode=' + encodeURIComponent(code);
+  fetch(url, { method: 'GET' })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(res) {
+      var single = rpUnwrapSingle(res);
+      var price = rpExtractCurrentPrice(single);
+      if (price == null) return;
+      RP_REALTIME.priceCache[code] = { ts: Date.now(), price: price };
+      rpApplyRealtimeQuote({ code: code, price: price });
+    })
+    .catch(function() {})
+    .then(function() {
+      delete RP_REALTIME.priceInflight[code];
+    }, function() {
+      delete RP_REALTIME.priceInflight[code];
+    });
+}
+
+function rpSyncVisibleDomesticPrices(force) {
+  var table = rpPickTable();
+  var seen = {};
+
+  if (!table || !RP_URL.currentPrice) return;
+
+  table.rows({ page: 'current' }).every(function() {
+    var row = this.data();
+    var code;
+
+    if (!row || !rpIsDomesticRow(row)) return;
+    code = String(row.stkCd || '').trim();
+    if (!code || seen[code]) return;
+    seen[code] = true;
+    rpSyncCurrentPriceByCode(code, force);
+  });
+}
+
+function rpEnsureDomesticSyncTimer() {
+  if (RP_REALTIME.syncTimer || !RP_URL.currentPrice) return;
+  RP_REALTIME.syncTimer = setInterval(function() {
+    rpSyncVisibleDomesticPrices(false);
+  }, 5000);
+}
+
+function rpConnectPickRealtime(tokens) {
+  var codes = [];
+  var seen = {};
+  var key;
+  var ws;
+
+  if (!RP_URL.wsWatchlist) return;
+
+  (tokens || []).forEach(function(token) {
+    if (!token || seen[token]) return;
+    seen[token] = true;
+    codes.push(token);
+  });
+
+  if (!codes.length) {
+    rpClosePickRealtime();
+    return;
+  }
+
+  key = codes.join(',');
+  if (RP_REALTIME.ws && (RP_REALTIME.ws.readyState === 0 || RP_REALTIME.ws.readyState === 1) && RP_REALTIME.lastCodesKey === key) {
+    return;
+  }
+
+  rpClosePickRealtime();
+  RP_REALTIME.lastCodesKey = key;
+
+  ws = new WebSocket(rpBuildWsUrl(RP_URL.wsWatchlist, 'codes=' + encodeURIComponent(key)));
+  RP_REALTIME.ws = ws;
+
+  ws.onmessage = function(evt) {
+    try {
+      var msg = JSON.parse(evt.data);
+      if (!msg || !msg.type) return;
+      if (msg.type === 'WL') {
+        rpApplyRealtimeQuote(msg);
+        return;
+      }
+      if (msg.type === 'WL_SUB') {
+        rpSyncCurrentPriceByCode(String(msg.code || '').trim(), true);
+      }
+    } catch (e) {}
+  };
+
+  ws.onclose = function() {
+    if (ws.__manualClose) return;
+    if (RP_REALTIME.ws === ws) {
+      RP_REALTIME.ws = null;
+    }
+    RP_REALTIME.reconnectTimer = setTimeout(function() {
+      rpRefreshPickRealtimeSubscription();
+    }, 1500);
+  };
+}
+
+function rpRefreshPickRealtimeSubscription() {
+  rpConnectPickRealtime(rpGetCurrentPageRealtimeTokens());
 }
 
 function rpPositionLabel() {
@@ -169,33 +490,21 @@ function rpBuildPickListGrid() {
         data: 'currentPrice',
         className: 'text-right',
         render: function(data) {
-          return data ? Number(data).toLocaleString() : '-';
+          return rpFormatPrice(data);
         }
       },
       {
         data: null,
         className: 'text-right',
         render: function(data, type, row) {
-          if (!row.currentPrice || !row.recAnchorPrice) return '-';
-          var diff = row.currentPrice - row.recAnchorPrice;
-          var pct = (diff / row.recAnchorPrice * 100).toFixed(2);
-          var cls = diff >= 0 ? 'text-danger' : 'text-primary';
-          var sign = diff >= 0 ? '+' : '';
-          return '<span class="' + cls + ' font-weight-bold">' + sign + pct + '%</span>'
-               + '<br><small class="' + cls + '">' + sign + Math.round(diff).toLocaleString() + '</small>';
+          return rpFormatRecDiff(row);
         }
       },
       {
         data: null,
         className: 'text-right',
         render: function(data, type, row) {
-          if (!row.currentPrice || !row.firstBuyPrice) return '-';
-          var diff = row.currentPrice - row.firstBuyPrice;
-          var pct = (diff / row.firstBuyPrice * 100).toFixed(2);
-          var cls = diff >= 0 ? 'text-danger' : 'text-primary';
-          var sign = diff >= 0 ? '+' : '';
-          return '<span class="' + cls + ' font-weight-bold">' + sign + pct + '%</span>'
-               + '<br><small class="' + cls + '">' + sign + Math.round(diff).toLocaleString() + '</small>';
+          return rpFormatBuyDiff(row);
         }
       },
       {
@@ -248,6 +557,18 @@ function rpBuildPickListGrid() {
 
   dataTableGridNew(gridObj, gridOptions);
   rpBindPickListTableEvents();
+  $('#rp_pickListTable')
+    .off('.rpRealtime')
+    .on('draw.dt.rpRealtime', function() {
+      rpRefreshPickRealtimeSubscription();
+      rpSyncVisibleDomesticPrices(true);
+    });
+
+  setTimeout(function() {
+    rpRefreshPickRealtimeSubscription();
+    rpSyncVisibleDomesticPrices(true);
+    rpEnsureDomesticSyncTimer();
+  }, 0);
 }
 
 function rpBuildTrackGrid() {

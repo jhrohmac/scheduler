@@ -1,0 +1,71 @@
+PROMPT === TB_STK_MASTER INDEX_CD migration start ===
+
+-- 1. INDEX_CD 컬럼 추가 (없는 경우에만)
+DECLARE
+    v_cnt NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_cnt
+      FROM USER_TAB_COLUMNS
+     WHERE TABLE_NAME  = 'TB_STK_MASTER'
+       AND COLUMN_NAME = 'INDEX_CD';
+
+    IF v_cnt = 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE TB_STK_MASTER ADD INDEX_CD VARCHAR2(20) DEFAULT NULL';
+        DBMS_OUTPUT.PUT_LINE('INDEX_CD 컬럼 추가 완료');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('INDEX_CD 컬럼 이미 존재 — skip');
+    END IF;
+END;
+/
+
+COMMENT ON COLUMN TB_STK_MASTER.INDEX_CD IS '주요지수 편입: KOSPI200, KOSDAQ150, SNP500, DOW (NULL=해당없음)';
+
+-- 2. 기존 DOW_MEMBER_YN 데이터 → INDEX_CD 이관 (DOW_MEMBER_YN 컬럼이 있는 경우에만)
+DECLARE
+    v_cnt NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_cnt
+      FROM USER_TAB_COLUMNS
+     WHERE TABLE_NAME  = 'TB_STK_MASTER'
+       AND COLUMN_NAME = 'DOW_MEMBER_YN';
+
+    IF v_cnt > 0 THEN
+        EXECUTE IMMEDIATE '
+            UPDATE TB_STK_MASTER
+               SET INDEX_CD = ''DOW''
+             WHERE DOW_MEMBER_YN = ''Y''
+               AND INDEX_CD IS NULL';
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('DOW_MEMBER_YN → INDEX_CD 이관 완료: ' || SQL%ROWCOUNT || '건');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('DOW_MEMBER_YN 컬럼 없음 — 이관 skip');
+    END IF;
+END;
+/
+
+-- 3. DOW_MEMBER_YN 컬럼 제거 (있는 경우에만)
+DECLARE
+    v_cnt NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_cnt
+      FROM USER_TAB_COLUMNS
+     WHERE TABLE_NAME  = 'TB_STK_MASTER'
+       AND COLUMN_NAME = 'DOW_MEMBER_YN';
+
+    IF v_cnt > 0 THEN
+        EXECUTE IMMEDIATE 'ALTER TABLE TB_STK_MASTER DROP COLUMN DOW_MEMBER_YN';
+        DBMS_OUTPUT.PUT_LINE('DOW_MEMBER_YN 컬럼 제거 완료');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('DOW_MEMBER_YN 컬럼 없음 — skip');
+    END IF;
+END;
+/
+
+COMMIT;
+
+PROMPT === TB_STK_MASTER INDEX_CD migration done ===
+PROMPT - INDEX_CD values: KOSPI200, KOSDAQ150, SNP500, DOW, NULL
+PROMPT - DOW_MEMBER_YN column removed

@@ -13,6 +13,8 @@ public interface RecSignalDao {
 
     int deleteRecSignalByMarket(HashMap<String, String> map) throws Exception;
 
+    int truncateRecSignalPartition(HashMap<String, String> map) throws Exception;
+
     List<RecSignalDto> selectRecSignalList(HashMap<String, String> map) throws Exception;
 
     RecSignalDto selectRecSignalDetail(HashMap<String, String> map) throws Exception;
@@ -20,4 +22,6 @@ public interface RecSignalDao {
     String selectLatestBaseDt() throws Exception;
 
     String selectLatestBaseDtByMarket(HashMap<String, String> map) throws Exception;
+
+    String selectRecSignalPartitionedYn() throws Exception;
 }

@@ -196,11 +196,6 @@
     return isValidMarketFilter(state.country, state.marketFilter) ? state.marketFilter : MARKET_FILTER_ALL;
   }
 
-  function currentKeyword() {
-    var input = $("signalKeyword");
-    return input ? safeStr(input.value).trim().toUpperCase() : "";
-  }
-
   function monthChangeRate(stock) {
     if (!stock) {
       return 0;
@@ -845,25 +840,9 @@
 
   function filteredList() {
     var list = state.allStocks || [];
-    var keyword = currentKeyword();
 
     return list.filter(function (stock) {
-      var matchedGrade = state.grade === "ALL" || safeStr(stock.grade).toUpperCase() === state.grade;
-      if (!matchedGrade) {
-        return false;
-      }
-
-      if (!keyword) {
-        return true;
-      }
-
-      var haystack = [
-        safeStr(stock.name).toUpperCase(),
-        safeStr(stock.code).toUpperCase(),
-        safeStr(stock.recReason).toUpperCase(),
-        safeStr(stock.grade).toUpperCase()
-      ].join(" ");
-      return haystack.indexOf(keyword) >= 0;
+      return state.grade === "ALL" || safeStr(stock.grade).toUpperCase() === state.grade;
     });
   }
 
@@ -920,7 +899,6 @@
 
   function setMeta(list, totalCount) {
     var asOf = $("signalRecAsOf");
-    var count = $("signalRecCount");
     var sourceList = list && list.length ? list : state.allStocks;
     var baseDt = sourceList && sourceList[0] ? sourceList[0].baseDt : "";
 
@@ -929,16 +907,6 @@
         asOf.textContent = "조회 기준일 " + baseDt;
       } else {
         asOf.textContent = "조회 기준일 -";
-      }
-    }
-
-    if (count) {
-      if (!totalCount) {
-        count.textContent = "";
-      } else if (list && list.length !== totalCount) {
-        count.textContent = "표시 " + list.length + " / 총 " + totalCount + "건";
-      } else {
-        count.textContent = "총 " + totalCount + "건";
       }
     }
   }
@@ -1495,7 +1463,6 @@
   }
 
   function bind() {
-    var keyword = $("signalKeyword");
     var reload = $("btnSignalReload");
     var watchMarket = $("wlMarket");
     var countrySwitch = $("signalCountrySwitchBtn");
@@ -1560,12 +1527,6 @@
 
         state.grade = GRADE_OPTIONS[(currentIdx + 1) % GRADE_OPTIONS.length].value;
         renderGradeFilterState();
-        renderTable();
-      });
-    }
-
-    if (keyword) {
-      keyword.addEventListener("input", function () {
         renderTable();
       });
     }

@@ -54,11 +54,15 @@ public class StkMasterRefreshService {
        36 = 관리종목           (width 1, Y/N)
        49 = 상장일자           (width 8, YYYYMMDD)
     */
-    private static final int KOSPI_IDX_KOSPI200   = 8;
-    private static final int KOSPI_IDX_HALT       = 34;
-    private static final int KOSPI_IDX_LIQUIDATION = 35;
-    private static final int KOSPI_IDX_CAUTION    = 36;
-    private static final int KOSPI_IDX_LIST_DT    = 49;
+    private static final int KOSPI_IDX_MKT_CAP_SIZE  = 1;
+    private static final int KOSPI_IDX_SECTOR_CD     = 2;
+    private static final int KOSPI_IDX_KOSPI200      = 8;
+    private static final int KOSPI_IDX_HALT          = 34;
+    private static final int KOSPI_IDX_LIQUIDATION   = 35;
+    private static final int KOSPI_IDX_CAUTION       = 36;
+    private static final int KOSPI_IDX_LIST_DT       = 49;
+    private static final int KOSPI_IDX_SETTLE_MONTH  = 52;
+    private static final int KOSPI_IDX_PREF_YN       = 54;
 
     /** KOSDAQ Part2 = 마지막 222바이트, 63필드 */
     private static final int   KOSDAQ_PART2_LEN  = 222;
@@ -75,23 +79,31 @@ public class StkMasterRefreshService {
        31 = 관리종목여부        (width 2)
        44 = 주식상장일자        (width 15, YYYYMMDD 포함)
     */
-    private static final int KOSDAQ_IDX_KOSDAQ150  = 25;
-    private static final int KOSDAQ_IDX_HALT       = 29;
-    private static final int KOSDAQ_IDX_LIQUIDATION = 30;
-    private static final int KOSDAQ_IDX_CAUTION    = 31;
-    private static final int KOSDAQ_IDX_LIST_DT    = 44;
+    private static final int KOSDAQ_IDX_MKT_CAP_SIZE = 1;
+    private static final int KOSDAQ_IDX_SECTOR_CD    = 2;
+    private static final int KOSDAQ_IDX_KOSDAQ150    = 25;
+    private static final int KOSDAQ_IDX_HALT         = 29;
+    private static final int KOSDAQ_IDX_LIQUIDATION  = 30;
+    private static final int KOSDAQ_IDX_CAUTION      = 31;
+    private static final int KOSDAQ_IDX_LIST_DT      = 44;
+    private static final int KOSDAQ_IDX_SETTLE_MONTH = 46;
+    private static final int KOSDAQ_IDX_PREF_YN      = 48;
 
     /* ─── 해외 .cod TSV 컬럼 인덱스 (0-based, 첫 행=헤더 skip) ── */
     /* overseas_stock_code.py 기준
        2  = Exchange code  ('NAS' → NASDAQ, 'NYS' → NYSE)
        4  = Symbol         (종목코드)
        6  = Korea name     (한글종목명)
+       7  = English name   (영문종목명)
        8  = Security type  ('2' = 주식만 처리)
+       9  = currency       (통화코드: USD 등)
     */
     private static final int COD_IDX_EXCH_CODE   = 2;
     private static final int COD_IDX_SYMBOL       = 4;
     private static final int COD_IDX_KOREA_NAME   = 6;
+    private static final int COD_IDX_ENG_NAME     = 7;
     private static final int COD_IDX_SEC_TYPE     = 8;
+    private static final int COD_IDX_CURRENCY     = 9;
 
     private static final int HTTP_TIMEOUT_MS = 30_000;
 
@@ -320,6 +332,42 @@ public class StkMasterRefreshService {
                 listDt = extractDate8(getField(fields, KOSDAQ_IDX_LIST_DT));
             }
 
+            /* 시가총액규모구분 (1=대형, 2=중형, 3=소형) */
+            String mktCapSize = null;
+            if (isKospi) {
+                mktCapSize = toNullIfBlank(getField(fields, KOSPI_IDX_MKT_CAP_SIZE));
+            } else if (isKosdaq) {
+                mktCapSize = toNullIfBlank(getField(fields, KOSDAQ_IDX_MKT_CAP_SIZE));
+            }
+
+            /* 업종대분류코드 */
+            String sectorCd = null;
+            if (isKospi) {
+                sectorCd = toNullIfBlank(getField(fields, KOSPI_IDX_SECTOR_CD));
+            } else if (isKosdaq) {
+                sectorCd = toNullIfBlank(getField(fields, KOSDAQ_IDX_SECTOR_CD));
+            }
+
+            /* 결산월 (01~12) */
+            String settleMonth = null;
+            if (isKospi) {
+                settleMonth = toNullIfBlank(getField(fields, KOSPI_IDX_SETTLE_MONTH));
+            } else if (isKosdaq) {
+                settleMonth = toNullIfBlank(getField(fields, KOSDAQ_IDX_SETTLE_MONTH));
+            }
+
+            /* 우선주여부: '0' 또는 공백=보통주(N), 그 외=우선주(Y) */
+            String prefYn = "N";
+            String prefRaw = null;
+            if (isKospi) {
+                prefRaw = getField(fields, KOSPI_IDX_PREF_YN);
+            } else if (isKosdaq) {
+                prefRaw = getField(fields, KOSDAQ_IDX_PREF_YN);
+            }
+            if (!isBlank(prefRaw) && !"0".equals(prefRaw.trim())) {
+                prefYn = "Y";
+            }
+
             StkMasterDto dto = new StkMasterDto();
             dto.setStkCd(stkCd);
             dto.setStkNm(stkNm);
@@ -328,6 +376,10 @@ public class StkMasterRefreshService {
             dto.setStkType(stkType);
             dto.setListDt(listDt);
             dto.setIndexCd(indexCd);
+            dto.setMktCapSize(mktCapSize);
+            dto.setSectorCd(sectorCd);
+            dto.setSettleMonth(settleMonth);
+            dto.setPrefYn(prefYn);
             list.add(dto);
         }
 
@@ -424,6 +476,8 @@ public class StkMasterRefreshService {
 
             String symbol    = trim(cols[COD_IDX_SYMBOL]);
             String koreaName = trim(cols[COD_IDX_KOREA_NAME]);
+            String engName   = cols.length > COD_IDX_ENG_NAME  ? trim(cols[COD_IDX_ENG_NAME])  : "";
+            String currency  = cols.length > COD_IDX_CURRENCY  ? trim(cols[COD_IDX_CURRENCY])  : "";
 
             if (isBlank(symbol)) {
                 continue;
@@ -432,11 +486,13 @@ public class StkMasterRefreshService {
             StkMasterDto dto = new StkMasterDto();
             dto.setStkCd(symbol);
             dto.setStkNm(isBlank(koreaName) ? symbol : koreaName);
+            dto.setStkNmEn(isBlank(engName) ? null : engName);
             dto.setMktCd(mktCd);
             dto.setStkStatus("NORMAL");
             dto.setStkType("STOCK"); /* .cod secType=2(주식)만 파싱 */
             dto.setListDt(null);
             dto.setIndexCd(null); /* S&P500/DOW 정보는 .cod 파일에 없음 */
+            dto.setCurrency(isBlank(currency) ? null : currency);
             list.add(dto);
         }
 
@@ -576,6 +632,11 @@ public class StkMasterRefreshService {
 
     private boolean isBlank(String v) {
         return v == null || v.trim().length() == 0;
+    }
+
+    /** blank/null → null 변환 (DB NULL 저장용) */
+    private String toNullIfBlank(String v) {
+        return isBlank(v) ? null : v.trim();
     }
 
     private void closeQuietly(InputStream is) {

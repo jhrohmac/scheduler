@@ -46,6 +46,7 @@
 		
 		<!-- Stock Rec Signal -->
 		<typeAlias alias="recSignalDto"			type="com.scheduler.stock.dto.RecSignalDto"/>
+		<typeAlias alias="stkMasterDto"			type="com.scheduler.stock.dto.StkMasterDto"/>
 		<typeAlias alias="dlyPriceDto"			type="com.scheduler.stock.dto.DlyPriceDto"/>
 		<typeAlias alias="maResultDto"			type="com.scheduler.stock.dto.MaResultDto"/>
 		<typeAlias alias="recPickDto"			type="com.scheduler.stock.dto.RecPickDto"/>

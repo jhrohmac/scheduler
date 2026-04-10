@@ -6,7 +6,7 @@ public class RecSignalDto {
     private String stkNm;
     private String mktCd;
     private String listingMarket;
-    private String dowMemberYn;
+    private String indexCd;
     private String baseDt;
     private Double curPrice;
     private Double monOpenPrice;
@@ -64,12 +64,12 @@ public class RecSignalDto {
         this.listingMarket = listingMarket;
     }
 
-    public String getDowMemberYn() {
-        return dowMemberYn;
+    public String getIndexCd() {
+        return indexCd;
     }
 
-    public void setDowMemberYn(String dowMemberYn) {
-        this.dowMemberYn = dowMemberYn;
+    public void setIndexCd(String indexCd) {
+        this.indexCd = indexCd;
     }
 
     public Double getCurPrice() {

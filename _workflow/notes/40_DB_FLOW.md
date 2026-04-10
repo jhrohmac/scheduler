@@ -35,6 +35,7 @@
   - `db/DDL_TB_BATCH_EXEC_ITEM_LOG.sql`
   - `db/DDL_TB_STK_BATCH_ADMIN.sql`
   - `db/MIGRATE_REC_SIGNAL_MEMORY_MODEL.sql`
+  - `db/MIGRATE_TB_REC_SIGNAL_LIST_PARTITION.sql`
   - `db/DDL_DROP_TB_STK_PRICE_TABLES.sql`
   - `db/tools/DbRecSignalDdlRunner.java`
   - `db/apply_rec_signal_ddl.sh`
@@ -55,6 +56,12 @@
 - `BASE_DT + MKT_CD + STK_CD` PK
 - 조회 런타임과 배치 런타임이 공통으로 참조하는 결과 저장소
 - `TB_STK_MASTER` 조인으로 `listingMarket`, `dowMemberYn` 메타를 확장한다.
+- 파티션 전환 설계안:
+  - `MKT_CD` 기준 `LIST PARTITION`
+  - 권장 파티션: `P_KR`, `P_US`, `P_ETC(DEFAULT)`
+  - full refresh primary 는 시장 partition 만 `TRUNCATE PARTITION`
+  - retry / 부분 실행은 기존 `MERGE` 유지
+  - 상세 설계: `54_REC_SIGNAL_PARTITION_DESIGN_2026-04-06.md`
 
 ### WF-3-1A-3 배치 로그 / Batch Admin 테이블 묶음
 

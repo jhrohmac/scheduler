@@ -28,6 +28,11 @@ public class RecSignalDaoImpl extends SqlSessionDaoSupport implements RecSignalD
     }
 
     @Override
+    public int truncateRecSignalPartition(HashMap<String, String> map) throws Exception {
+        return getSqlSession().update(NS + "truncateRecSignalPartition", map);
+    }
+
+    @Override
     public List<RecSignalDto> selectRecSignalList(HashMap<String, String> map) throws Exception {
         return getSqlSession().selectList(NS + "selectRecSignalList", map);
     }
@@ -45,5 +50,10 @@ public class RecSignalDaoImpl extends SqlSessionDaoSupport implements RecSignalD
     @Override
     public String selectLatestBaseDtByMarket(HashMap<String, String> map) throws Exception {
         return getSqlSession().selectOne(NS + "selectLatestBaseDtByMarket", map);
+    }
+
+    @Override
+    public String selectRecSignalPartitionedYn() throws Exception {
+        return getSqlSession().selectOne(NS + "selectRecSignalPartitionedYn");
     }
 }

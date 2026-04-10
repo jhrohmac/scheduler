@@ -137,6 +137,11 @@ public class StockBatchAdminDaoImpl extends SqlSessionDaoSupport implements Stoc
     }
 
     @Override
+    public int fixOrphanRunningStatus(HashMap<String, String> map) throws Exception {
+        return getSqlSession().update(NS + "fixOrphanRunningStatus", map);
+    }
+
+    @Override
     public int markJobStart(HashMap<String, String> map) throws Exception {
         return getSqlSession().update(NS + "markJobStart", map);
     }

@@ -574,6 +574,24 @@
     return d;
   }
 
+  // 차트 영역 동적 높이 계산 (화면 꽉 채우기)
+  function getChartHeights() {
+    var totalH = window.innerHeight;
+    var usedTop = 0;
+    ['.toolbar', '.market-switch', '.features', '.ma-info'].forEach(function(sel) {
+      var el = document.querySelector(sel);
+      if (el && el.offsetParent !== null) usedTop += el.getBoundingClientRect().height;
+    });
+    // .timeframe(fixed bottom:62px 위치, ~38px) + .bottom-nav(~62px)
+    var fixedBottom = 100;
+    var available = totalH - usedTop - fixedBottom;
+    available = Math.max(available, 260);
+    var volH = Math.round(available * 0.22);
+    volH = Math.max(volH, 60);
+    var priceH = available - volH;
+    return { price: priceH, volume: volH };
+  }
+
   function resetChartArea() {
     if (state.chart) {
       try { state.chart.destroy(); } catch (e) {}
@@ -1150,9 +1168,11 @@
       });
     }
 
+    var chartHeights = getChartHeights();
+
     state.chart = Highcharts.stockChart('priceChart', {
       chart: {
-        height: 300,
+        height: chartHeights.price,
         backgroundColor: chartBg,
         animation: false,
         zoomType: undefined,
@@ -1254,7 +1274,7 @@
 
     if (volEnabled) {
       state.volumeChart = Highcharts.stockChart('volumeChart', {
-        chart: { height: 120, backgroundColor: chartBg, animation: false },
+        chart: { height: chartHeights.volume, backgroundColor: chartBg, animation: false },
         rangeSelector: { enabled: false },
         navigator:     { enabled: false },
         scrollbar:     { enabled: false },

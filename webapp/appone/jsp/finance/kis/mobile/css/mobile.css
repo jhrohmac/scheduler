@@ -5,11 +5,23 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #fff;
   color: #333;
   overflow-x: hidden;
+}
+
+/* 차트 페이지: 화면 꽉 채우기 */
+body.chart-page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
 }
 
 .mobile-progress {
@@ -218,13 +230,21 @@ body.theme-dark .mobile-progress {
   padding: 0;
 }
 
+body.chart-page .chart-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .chart {
   width: 100%;
-  height: 300px;
+  flex: 1;
+  min-height: 0;
 }
 
 .chart.volume {
-  height: 120px;
+  flex: none;
 }
 
 body.theme-dark {

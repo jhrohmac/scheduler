@@ -312,8 +312,10 @@ window.recPickManageConfig = {
     dailyTrack: "<c:url value='/stock/recPick/dailyTrack.do'/>",
     probability: "<c:url value='/stock/recPick/probability.do'/>",
     sellGuide: "<c:url value='/stock/recPick/sellGuide.do'/>",
-    registerBuy: "<c:url value='/stock/recPick/registerBuy.do'/>"
+    registerBuy: "<c:url value='/stock/recPick/registerBuy.do'/>",
+    wsWatchlist: "<c:url value='/finance/watchlistRealtime.ws'/>",
+    currentPrice: "<c:url value='/finance/getCurrentPriceByInquirePrice.do'/>"
   }
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/recPickManage.js?v=20260403-1' />"></script>
+<script src="<c:url value='/appone/jsp/stock/recPickManage.js?v=20260406-2' />"></script>

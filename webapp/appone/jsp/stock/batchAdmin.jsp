@@ -174,8 +174,7 @@
                         </select>
                     </div>
                     <div class="col-sm-8">
-                        <div id="cron_schedule_panel">
-                            <div class="schedule-help-text">정해진 시간은 간편 설정으로 먼저 만들고, 필요한 경우에만 고급 CRON 입력을 사용하세요.</div>
+                        <div id="cron_schedule_panel">                            
                             <div class="btn-group btn-group-sm schedule-mode-switch mb-2" role="group" aria-label="CRON editor mode">
                                 <button type="button" class="btn btn-primary active" data-cron-mode="simple">간편 설정</button>
                                 <button type="button" class="btn btn-default" data-cron-mode="advanced">고급 CRON</button>
@@ -271,8 +270,7 @@
                                 <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="30">30분</button>
                                 <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="60">60분</button>
                                 <button type="button" class="btn btn-xs btn-outline-secondary btn-interval-preset" data-minutes="120">120분</button>
-                            </div>
-                            <small class="text-muted d-block mt-1">간격 실행일 때만 사용합니다.</small>
+                            </div>                            
                         </div>
                     </div>
                     <label class="col-sm-2 col-form-label text-right">
@@ -376,4 +374,4 @@ window.batchAdminConfig = {
     jobLogItemFailListUrl: "<c:url value='/stock/batchAdmin/jobLogItemFailList.do' />"
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260406-1' />"></script>
+<script src="<c:url value='/appone/jsp/stock/batchAdmin.js?v=20260407-1' />"></script>

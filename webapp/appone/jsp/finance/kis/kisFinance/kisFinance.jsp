@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/scheduler/appone/plugins/login/css/bootstrap.min.css">
 <script defer src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script defer src="/scheduler/appone/plugins/bootstrap/js/bootstrap.min.js"></script>
+<script defer src="/scheduler/appone/plugins/system/js/common.js"></script>
 
 <script>
   // Highstock는 차트 최초 조회 시점에 동적 로딩합니다.
@@ -26,133 +27,15 @@
   };
 </script>
 
-<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.css?v=20260320-2" />
+<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.css?v=20260404-1" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/common.css" />
-<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css?v=20260311-2" />
+<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css?v=20260406-7" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css?v=20260305-1" />
-<style>
-  .kis-toolbar-left .double-chart-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 10px;
-    min-width: auto;
-  }
-  .kis-toolbar-left .double-chart-btn.is-active {
-    border-color: #1d4ed8;
-    background: #eff6ff;
-    color: #1d4ed8;
-  }
-  .kis-toolbar-left .double-chart-btn-label {
-    white-space: nowrap;
-    font-weight: 700;
-  }
-  .kis-toolbar-left .double-chart-btn-mode {
-    font-size: 9px;
-    font-weight: 800;
-    color: #64748b;
-  }
-  .kis-toolbar-left .double-chart-dots {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .kis-toolbar-left .double-chart-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #cbd5e1;
-    opacity: .45;
-  }
-  .kis-toolbar-left .double-chart-dot.is-active {
-    opacity: 1;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="recent"] .double-chart-btn-mode {
-    color: #f59e0b;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="recent"] .double-chart-dot.is-active {
-    background: #f59e0b;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="all"] .double-chart-btn-mode {
-    color: #38bdf8;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="all"] .double-chart-dot.is-active {
-    background: #38bdf8;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="off"] .double-chart-btn-mode {
-    color: #64748b;
-  }
-  .kis-toolbar-left .double-chart-btn[data-double-mode="off"] .double-chart-dot.is-active {
-    background: #64748b;
-  }
-  /* signal-rec toolbar 사이클 버튼 */
-  .signal-rec-toolbar .signal-cycle-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 10px;
-    height: 28px;
-    border: 1px solid #d1d5db;
-    border-radius: 999px;
-    background: #ffffff;
-    font-size: 12px;
-    font-weight: 800;
-    color: #374151;
-    cursor: pointer;
-  }
-  .signal-rec-toolbar .signal-cycle-btn:hover {
-    border-color: #94a3b8;
-  }
-  .signal-rec-toolbar .signal-cycle-btn-label {
-    white-space: nowrap;
-    font-weight: 700;
-  }
-  .signal-rec-toolbar .signal-cycle-btn-mode {
-    font-size: 9px;
-    font-weight: 800;
-    color: #64748b;
-  }
-  .signal-rec-toolbar .signal-cycle-dots {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .signal-rec-toolbar .signal-cycle-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #cbd5e1;
-    opacity: .45;
-  }
-  .signal-rec-toolbar .signal-cycle-dot.is-active {
-    opacity: 1;
-    background: #374151;
-  }
-  /* 시장: KOSPI/NASDAQ - 파랑 */
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSPI"] .signal-cycle-btn-mode,
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="NASDAQ"] .signal-cycle-btn-mode { color: #1d4ed8; }
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSPI"] .signal-cycle-dot.is-active,
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="NASDAQ"] .signal-cycle-dot.is-active { background: #1d4ed8; }
-  /* 시장: KOSDAQ/DOW - 틸 */
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSDAQ"] .signal-cycle-btn-mode,
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="DOW"] .signal-cycle-btn-mode { color: #0d9488; }
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="KOSDAQ"] .signal-cycle-dot.is-active,
-  .signal-rec-toolbar .signal-cycle-btn[data-market-mode="DOW"] .signal-cycle-dot.is-active { background: #0d9488; }
-  /* 등급 A - 앰버 */
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="A"] .signal-cycle-btn-mode { color: #d97706; }
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="A"] .signal-cycle-dot.is-active { background: #d97706; }
-  /* 등급 B - 파랑 */
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="B"] .signal-cycle-btn-mode { color: #1d4ed8; }
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="B"] .signal-cycle-dot.is-active { background: #1d4ed8; }
-  /* 등급 C - 초록 */
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="C"] .signal-cycle-btn-mode { color: #16a34a; }
-  .signal-rec-toolbar .signal-cycle-btn[data-grade-mode="C"] .signal-cycle-dot.is-active { background: #16a34a; }
-</style>
 
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/maScript.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/doubleMonthChartScript.js?v=20260203-7"></script>
-<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisDashboardChartRenderer.js?v=20260305-1"></script>
-<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartScript.js?v=20260312-4"></script>
+<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisDashboardChartRenderer.js?v=20260406-2"></script>
+<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartScript.js?v=20260404-1"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartFeatureToggle.js?v=20260305-1"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/chartCrossSignals.js"></script>
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/stockSearch.js"></script>
@@ -204,10 +87,24 @@
 
 		<!-- 1) 종목검색 영역(배치 변경): 상단 좌측에 고정, 입력 폭은 CSS에서 제어 -->
 		<div class="search">
-			<div class="top-search-wrap">
-				<input type="text" id="topSearchInput" placeholder="종목 검색 (Alt + S)" autocomplete="off" />
-				<button type="button" class="top-search-clear" id="topSearchClear" title="Clear">×</button>
-				<div class="top-suggest" id="topSuggest" style="display: none;"></div>
+			<div class="top-search-wrap search-wrapper" id="topSearchWrap">
+				<div class="input-holder">
+					<input type="text" class="search-input" id="topSearchInput" placeholder="Type to search" autocomplete="off" />
+					<button type="button" class="search-icon" id="topSearchTrigger" aria-label="종목 검색 열기">
+						<span></span>
+					</button>
+					<button type="button" class="top-search-clear" id="topSearchClear" title="Clear" aria-label="입력 지우기">×</button>
+				</div>
+				<button type="button" class="btn-close" id="topSearchClose" aria-label="검색 닫기"></button>
+				<div class="top-suggest" id="topSuggest" aria-hidden="true"></div>
+			</div>
+			<div class="mobile-panel-buttons" id="mobilePanelButtons" aria-hidden="true">
+				<button type="button" class="mpb-btn is-watch" id="btnMobileOpenWatch" title="관심종목" aria-label="관심종목">
+					<i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+				</button>
+				<button type="button" class="mpb-btn" id="btnMobileOpenSummary" title="매매신호" aria-label="매매신호">
+					<i class="fa-solid fa-thumbs-up" aria-hidden="true"></i>
+				</button>
 			</div>
 		</div>
 
@@ -244,16 +141,10 @@
 			<!-- 추천 팝업 제거: 매매신호 탭에서 직접 검색 -->
 		</div>
 	</div>
-	<!-- Mobile: side panels toggle buttons -->
-	<div class="mobile-panel-buttons" id="mobilePanelButtons" aria-hidden="true">
-		<button type="button" class="mpb-btn" id="btnMobileOpenWatch">관심종목</button>
-		<button type="button" class="mpb-btn" id="btnMobileOpenSummary">매매신호</button>
-	</div>
-	
 	<div class="dash-shell">
 		<div class="mobile-panel-backdrop" id="mobilePanelBackdrop" aria-hidden="true"></div>
 		<!-- LEFT: Watchlist -->
-		<div class="panel left-panel" id="leftPanel">
+		<div class="panel left-panel is-collapsed" id="leftPanel">
 			<div class="panel-head">
 				<div class="title" id="btnWgToggle" style="cursor: pointer;">관심종목</div>
 				<div class="tools">
@@ -322,12 +213,10 @@
 				<div class="kis-toolbar">
 					<input type="hidden" id="stockCode" value="005930"
 						style="width: 120px;" />
-					<div class="kis-toolbar-left">
-						<div class="kis-toolbar-row kis-toolbar-row-dates">
-							<input type="date" id="fromDate" />
-							<input type="date" id="toDate" />
-						</div>
-						<div class="kis-toolbar-row kis-toolbar-row-controls">
+						<div class="kis-toolbar-left">
+							<div class="kis-toolbar-row kis-toolbar-row-dates">
+								<input type="date" id="fromDate" />
+								<input type="date" id="toDate" />
 							<select id="periodDivCode">
 								<option value="D" selected>일</option>
 								<option value="W">주</option>
@@ -349,24 +238,51 @@
 							</button>							
 							<button type="button" id="btnChartOptions"
 								class="btn btn-default btn-sm"><i class="fa-solid fa-gear"></i></button>
-							<button type="button" class="kis-ghost" id="kisHdrFav" title="관심">☆</button>						
+							<button type="button" class="kis-ghost" id="kisHdrFav" title="관심">☆</button>	
+						</div>
+						<!-- <div class="kis-toolbar-row kis-toolbar-row-controls">
+							<select id="periodDivCode">
+								<option value="D" selected>일</option>
+								<option value="W">주</option>
+								<option value="M">월</option>
+								<option value="Y">년</option>
+								<option value="T">30분</option>
+								<option value="T1">1m</option>
+								<option value="T5">5m</option>
+								<option value="T10">10m</option>
+							</select>
+							<button type="button" class="zoom-step-btn double-chart-btn" id="kisDoubleChartBtn" data-zoom-action="double-chart" data-double-mode="off" title="더블차트 OFF">
+								<span class="double-chart-btn-label">더블차트</span>
+								<span class="double-chart-btn-mode">OFF</span>
+								<span class="double-chart-dots" aria-hidden="true">
+									<span class="double-chart-dot"></span>
+									<span class="double-chart-dot"></span>
+									<span class="double-chart-dot is-active"></span>
+								</span>
+							</button>							
+							<button type="button" id="btnChartOptions"
+								class="btn btn-default btn-sm"><i class="fa-solid fa-gear"></i></button>
+								<button type="button" class="kis-ghost" id="kisHdrFav" title="관심">☆</button>						
+							</div> -->
+						</div>
+						<div id="kisIntradayHint" class="mini-muted" style="display:none; padding-top:4px;"></div>
+					</div>				
+					<div class="chart-wrap">
+					<div id="kisChartHeader" class="kis-h">
+						<div class="kis-info-line">
+							<div class="kis-info-left">		
+								<img id="kisHdrLogo" class="kis-logo" alt="logo" style="display:none;" />
+								<span class="kis-flag" id="kisHdrFlag" aria-hidden="true">🇰🇷</span> 
+								<span class="kis-name" id="kisHdrName">-</span> 
+								<span class="kis-code" id="kisHdrCode">-</span> 
+								<span class="kis-sub" id="kisHdrMarket">-</span>
+								<span class="kis-dot">·</span> 
+								<span class="kis-now" id="kisHdrNow">-</span> 
+								<span class="kis-pct" id="kisHdrPct">-</span>
+								<span class="kis-diff" id="kisHdrDiff">-</span> 
+							</div>
 						</div>
 					</div>
-				</div>
-				<div class="kis-info-line">
-					<div class="kis-info-left">		
-						<img id="kisHdrLogo" class="kis-logo" alt="logo" style="display:none;" />
-						<span class="kis-flag" id="kisHdrFlag" aria-hidden="true">🇰🇷</span> 
-						<span class="kis-name" id="kisHdrName">-</span> 
-						<span class="kis-code" id="kisHdrCode">-</span> 
-						<span class="kis-sub" id="kisHdrMarket">-</span>
-						<span class="kis-dot">·</span> 
-						<span class="kis-now" id="kisHdrNow">-</span> 
-						<span class="kis-pct" id="kisHdrPct">-</span>
-						<span class="kis-diff" id="kisHdrDiff">-</span> 
-					</div>
-				</div>
-				<div class="chart-wrap">
 					<div id="kisChartHeader" class="kis-h">
 						<div class="kis-info-line">
 							<div class="kis-info-left">								
@@ -384,24 +300,15 @@
 								</span> 
 								<!-- <span class="kis-dot">·</span> -->
 								<!-- <span class="kis-meta" id="kisHdrVol">거래량 -</span> -->
-							</div>
-
-							<div class="kis-info-right" id="kisMaLegend">
-								<span class="kis-ma-label">단순이동평균</span>
+								<div id="kisMaLegend">
 								<!-- MA 뱃지는 DB 옵션 기반으로 JS에서 렌더링 -->
-							</div>
+								</div>
+							</div>						
 						</div>
 						<div class="kis-sr-list" id="kisMaSrList"></div>
                         </div>
-
-						<!-- 기존 ChartScript 호환용(숨김) -->
-						<div class="kis-compat" aria-hidden="true">
-							<div id="kisStockName"></div>
-							<div id="kisStockPrice"></div>
-							<div id="kisStockDate"></div>
-						</div>
+						<div id="kisChartContainer"></div>
 					</div>
-					<div id="kisChartContainer"></div>
 				</div>
 			</div>
 			
@@ -418,24 +325,17 @@
 			</div>
 
 			<div class="right-body">
-				<div class="right-tabs" id="rightTabs">
+				<div class="right-tabs p-0" id="rightTabs">
 					<button type="button" class="rt-tab is-active" data-tab="signal">추천 종목</button>
                     <button type="button" class="rt-tab" data-tab="holding">보유종목</button>
 						<button type="button" class="rt-tab" data-tab="theme">테마종목</button>
 				</div>
 
 				<div class="rt-pane is-active" data-pane="signal">
-					<section class="signal-rec-panel">
-						<div class="signal-rec-head">
-							<div>
-								<div class="signal-rec-title">추천 종목 비교</div>
-								<span id="signalRecAsOf" class="signal-rec-base-date">조회 기준일 -</span>
-							</div>
-						</div>
+					<section class="signal-rec-panel">					
 						<div class="signal-rec-toolbar">
 							<div class="signal-rec-toolbar-left">
 								<div class="signal-rec-toolbar-group">
-									<span class="signal-rec-toolbar-label">국가</span>
 									<button type="button" class="wl-market-pill signal-country-pill" id="signalCountrySwitchBtn" aria-label="시장 전환">
 										<span class="wl-market-pill-text" id="signalCountryPillText">한국</span>
 										<span class="wl-market-pill-dot" aria-hidden="true"></span>
@@ -443,8 +343,7 @@
 								</div>
 								<div class="signal-rec-toolbar-group">
 									<button type="button" class="signal-cycle-btn" id="signalMarketCycleBtn" data-market-mode="ALL" title="시장 전체">
-										<span class="signal-cycle-btn-label">시장</span>
-										<span class="signal-cycle-btn-mode">전체</span>
+										<span class="signal-cycle-btn-mode">A</span>
 										<span class="signal-cycle-dots" aria-hidden="true">
 											<span class="signal-cycle-dot is-active"></span>
 											<span class="signal-cycle-dot"></span>
@@ -454,8 +353,7 @@
 								</div>
 								<div class="signal-rec-toolbar-group">
 									<button type="button" class="signal-cycle-btn" id="signalGradeCycleBtn" data-grade-mode="ALL" title="등급 전체">
-										<span class="signal-cycle-btn-label">등급</span>
-										<span class="signal-cycle-btn-mode">전체</span>
+										<span class="signal-cycle-btn-mode">A</span>
 										<span class="signal-cycle-dots" aria-hidden="true">
 											<span class="signal-cycle-dot is-active"></span>
 											<span class="signal-cycle-dot"></span>
@@ -467,7 +365,6 @@
 							</div>
 							<div class="signal-rec-toolbar-right">
 								<div class="signal-rec-sort">
-									<span class="signal-rec-toolbar-label">랭킹 정렬</span>
 									<select id="signalSortFilter" class="signal-rec-select">
 										<option value="rank">기본 순위</option>
 										<option value="monthChange">월간 상승률</option>
@@ -475,12 +372,6 @@
 										<option value="tradeValue">평균 거래대금</option>
 									</select>
 								</div>
-							</div>
-						</div>
-						<div class="signal-rec-meta">
-							<span id="signalRecCount" class="signal-count"></span>
-							<div class="signal-search signal-rec-search">
-								<input type="text" id="signalKeyword" class="holding-input" placeholder="추천신호 검색 (종목명/코드/사유)" />
 							</div>
 						</div>
 						<div id="signalRecError" class="err" style="display: none;"></div>
@@ -738,798 +629,8 @@
 			<input type="radio" name="optDoubleChartMode" value="all" />
 		</div>
 
-	<script>
-	(function () {
-		var doubleChartStateResolved = false;
-
-		function normalizeDoubleChartMode(mode) {
-			mode = String(mode || "").toLowerCase();
-			if (mode !== "recent" && mode !== "all" && mode !== "off") {
-				return "";
-			}
-			return mode;
-		}
-
-		function resolveModeFromState(state) {
-			var mode;
-
-			if (!state) {
-				return "";
-			}
-
-			mode = normalizeDoubleChartMode(state.doubleChartMode || "");
-			if (mode) {
-				return mode;
-			}
-
-			if (typeof state.doubleChartEnabled === "boolean") {
-				return state.doubleChartEnabled ? "all" : "off";
-			}
-
-			return "";
-		}
-
-		function extractDoubleChartModeFromOptionList(list) {
-			var mode = "";
-			var i;
-			var item;
-			var key;
-			var enabled;
-			var period;
-
-			if (!Array.isArray(list)) {
-				return "";
-			}
-
-			for (i = 0; i < list.length; i += 1) {
-				item = list[i] || {};
-				key = String(item.seriesKey || "");
-
-				if (key === "doubleChartEnabled") {
-					enabled = String(item.enabledYn || "").toUpperCase() === "Y";
-					mode = enabled ? "all" : "off";
-				}
-
-				if (key === "doubleChartMode") {
-					period = parseInt(item.seriesPeriod || 0, 10);
-					mode = (period === 1 ? "recent" : (period === 2 ? "all" : "off"));
-				}
-			}
-
-			return normalizeDoubleChartMode(mode);
-		}
-
-		function nextDoubleChartMode(mode) {
-			mode = normalizeDoubleChartMode(mode) || "off";
-			if (mode === "recent") return "all";
-			if (mode === "all") return "off";
-			return "recent";
-		}
-
-		function doubleChartModeLabel(mode) {
-			if (mode === "recent") return "최근월봉";
-			if (mode === "all") return "전체월봉";
-			return "OFF";
-		}
-
-		function readChartScriptMode() {
-			var options = window.ChartScript && window.ChartScript.options;
-			var mode;
-
-			if (!options) {
-				return "";
-			}
-
-			mode = normalizeDoubleChartMode(options.doubleChartMode || "");
-			if (mode) {
-				return mode;
-			}
-
-			if (typeof options.doubleChartEnabled === "boolean") {
-				return options.doubleChartEnabled ? "all" : "off";
-			}
-
-			return "";
-		}
-
-		function readHiddenDoubleChartMode() {
-			var checked = document.querySelector("input[name='optDoubleChartMode']:checked");
-			if (checked && checked.value) {
-				return normalizeDoubleChartMode(checked.value) || "";
-			}
-
-			if (document.getElementById("optDoubleChart")) {
-				return document.getElementById("optDoubleChart").checked ? "all" : "off";
-			}
-
-			return "";
-		}
-
-		function writeHiddenDoubleChartMode(mode) {
-			var checkbox = document.getElementById("optDoubleChart");
-			var radio;
-
-			mode = normalizeDoubleChartMode(mode) || "off";
-			radio = document.querySelector("input[name='optDoubleChartMode'][value='" + mode + "']");
-
-			if (!checkbox || !radio) {
-				return;
-			}
-
-			checkbox.checked = mode !== "off";
-			radio.checked = true;
-		}
-
-		function markDoubleChartModeResolved(mode) {
-			mode = normalizeDoubleChartMode(mode);
-			if (!mode) {
-				return "";
-			}
-
-			doubleChartStateResolved = true;
-			writeHiddenDoubleChartMode(mode);
-			return mode;
-		}
-
-		function resolveDoubleChartMode() {
-			var chartMode = readChartScriptMode();
-			var hiddenMode;
-
-			if (doubleChartStateResolved && chartMode) {
-				writeHiddenDoubleChartMode(chartMode);
-				return chartMode;
-			}
-
-			hiddenMode = readHiddenDoubleChartMode();
-			if (doubleChartStateResolved && hiddenMode) {
-				return hiddenMode;
-			}
-
-			return "";
-		}
-
-		function applyDoubleChartMode(mode) {
-			var checkbox = document.getElementById("optDoubleChart");
-			var radio = document.querySelector("input[name='optDoubleChartMode'][value='" + mode + "']");
-
-			if (!checkbox || !radio) {
-				return;
-			}
-
-			mode = markDoubleChartModeResolved(mode) || "off";
-			writeHiddenDoubleChartMode(mode);
-			radio.dispatchEvent(new Event("change", { bubbles: true }));
-		}
-
-		function syncDoubleChartButton(mode) {
-			var button = document.getElementById("kisDoubleChartBtn");
-			var modeEl;
-			var dots;
-
-			if (!button) {
-				return;
-			}
-
-			if (mode && typeof mode === "object" && typeof mode.type === "string") {
-				mode = readHiddenDoubleChartMode() || readChartScriptMode();
-			}
-
-			mode = normalizeDoubleChartMode(mode) || resolveDoubleChartMode();
-			modeEl = button.querySelector(".double-chart-btn-mode");
-			dots = button.querySelectorAll(".double-chart-dot");
-
-			if (!mode) {
-				button.dataset.doubleMode = "";
-				button.title = "더블차트 설정 확인중";
-				button.classList.remove("is-active");
-
-				if (modeEl) {
-					modeEl.textContent = "-";
-				}
-
-				if (dots.length === 3) {
-					dots[0].classList.remove("is-active");
-					dots[1].classList.remove("is-active");
-					dots[2].classList.remove("is-active");
-				}
-				return;
-			}
-
-			button.dataset.doubleMode = mode;
-			button.title = "더블차트 " + doubleChartModeLabel(mode);
-			button.classList.toggle("is-active", mode !== "off");
-
-			if (modeEl) {
-				modeEl.textContent = doubleChartModeLabel(mode);
-			}
-
-			if (dots.length === 3) {
-				dots[0].classList.toggle("is-active", mode === "recent");
-				dots[1].classList.toggle("is-active", mode === "all");
-				dots[2].classList.toggle("is-active", mode === "off");
-			}
-		}
-
-		function requestHasValue(requestData, key, expectedValue) {
-			var pair;
-
-			if (requestData == null) {
-				return false;
-			}
-
-			if (typeof requestData === "string") {
-				pair = key + "=" + encodeURIComponent(expectedValue);
-				if (requestData.indexOf(pair) >= 0) {
-					return true;
-				}
-
-				pair = key + "=" + expectedValue;
-				return requestData.indexOf(pair) >= 0;
-			}
-
-			return String(requestData[key] || "") === expectedValue;
-		}
-
-		function bindDoubleChartAjaxSync() {
-			if (!window.jQuery || window.__kisDoubleChartAjaxBound) {
-				return;
-			}
-
-			window.__kisDoubleChartAjaxBound = true;
-			$(document).off("ajaxSuccess.kisDoubleChartSync").on("ajaxSuccess.kisDoubleChartSync", function (event, xhr, settings, data) {
-				var dataUrl = window.__URLS && window.__URLS.kisItemchartpriceOptionData;
-				var mode;
-
-				if (!dataUrl || !settings || String(settings.url || "").indexOf(dataUrl) === -1) {
-					return;
-				}
-
-				if (!requestHasValue(settings.data, "chartId", "KIS_ITEMCHART") || !requestHasValue(settings.data, "seriesType", "FEATURE")) {
-					return;
-				}
-
-				mode = extractDoubleChartModeFromOptionList(data && data.data);
-				if (!mode) {
-					return;
-				}
-
-				syncDoubleChartButton(markDoubleChartModeResolved(mode));
-			});
-		}
-
-		function patchChartScriptSync() {
-			var chartScript = window.ChartScript;
-			var originalSetOptions;
-
-			if (!chartScript || typeof chartScript.setOptions !== "function" || chartScript.__kisDoubleChartPatched) {
-				return;
-			}
-
-			originalSetOptions = chartScript.setOptions;
-			chartScript.setOptions = function () {
-				var result = originalSetOptions.apply(this, arguments);
-				var next = arguments[0] || {};
-				var mode = normalizeDoubleChartMode(next.doubleChartMode || "");
-
-				if (!mode && typeof next.doubleChartEnabled === "boolean") {
-					mode = next.doubleChartEnabled ? "all" : "off";
-				}
-
-				if (mode) {
-					mode = markDoubleChartModeResolved(mode);
-				}
-
-				syncDoubleChartButton(mode);
-				return result;
-			};
-			chartScript.__kisDoubleChartPatched = true;
-		}
-
-		function patchChartFeatureToggleSync() {
-			var toggle = window.ChartFeatureToggle;
-			var originalWriteModal;
-			var originalApply;
-
-			if (!toggle || toggle.__kisDoubleChartPatched) {
-				return;
-			}
-
-			if (typeof toggle.writeModal === "function") {
-				originalWriteModal = toggle.writeModal;
-				toggle.writeModal = function () {
-					var result = originalWriteModal.apply(this, arguments);
-					var mode = resolveModeFromState(arguments[0] || {});
-					if (mode) {
-						mode = markDoubleChartModeResolved(mode);
-					}
-					syncDoubleChartButton(mode);
-					return result;
-				};
-			}
-
-			if (typeof toggle.apply === "function") {
-				originalApply = toggle.apply;
-				toggle.apply = function () {
-					var result = originalApply.apply(this, arguments);
-					var mode = resolveModeFromState(arguments[0] || {});
-					if (mode) {
-						mode = markDoubleChartModeResolved(mode);
-					}
-					syncDoubleChartButton(mode);
-					return result;
-				};
-			}
-
-			toggle.__kisDoubleChartPatched = true;
-		}
-
-		function installDoubleChartSync() {
-			bindDoubleChartAjaxSync();
-			patchChartScriptSync();
-			patchChartFeatureToggleSync();
-			syncDoubleChartButton();
-		}
-
-		function scheduleInitialDoubleChartSync() {
-			[0, 100, 300, 700, 1500].forEach(function (delay) {
-				window.setTimeout(function () {
-					installDoubleChartSync();
-				}, delay);
-			});
-		}
-
-		function bindDoubleChartButton() {
-			var button = document.getElementById("kisDoubleChartBtn");
-			var checkbox = document.getElementById("optDoubleChart");
-			var radios = document.querySelectorAll("input[name='optDoubleChartMode']");
-
-			if (!button || !checkbox || !radios.length) {
-				return;
-			}
-
-			if (button.__kisDoubleChartBound) {
-				installDoubleChartSync();
-				return;
-			}
-
-			button.__kisDoubleChartBound = true;
-			button.addEventListener("click", function () {
-				applyDoubleChartMode(nextDoubleChartMode(resolveDoubleChartMode()));
-			});
-
-			checkbox.addEventListener("change", syncDoubleChartButton);
-			Array.prototype.forEach.call(radios, function (radio) {
-				radio.addEventListener("change", syncDoubleChartButton);
-			});
-
-			installDoubleChartSync();
-			scheduleInitialDoubleChartSync();
-		}
-
-		if (document.readyState === "loading") {
-			document.addEventListener("DOMContentLoaded", bindDoubleChartButton);
-		} else {
-			bindDoubleChartButton();
-		}
-	})();
-	</script>
-	<script>
-	(function () {
-		var watchPriceCache = {};
-		var watchPriceInflight = {};
-		var watchPriceTimers = {};
-		var WATCH_PRICE_CACHE_MS = 2500;
-
-		function toNumber(value) {
-			var text;
-
-			if (value === null || value === undefined) {
-				return NaN;
-			}
-
-			text = String(value).replace(/,/g, "").trim();
-			if (!text) {
-				return NaN;
-			}
-
-			if (text.charAt(0) === "+") {
-				text = text.substring(1);
-			}
-
-			return parseFloat(text);
-		}
-
-		function decimalsHint(value, fallback) {
-			var text;
-			var dot;
-			var decimals;
-
-			if (value === null || value === undefined) {
-				return fallback;
-			}
-
-			text = String(value);
-			dot = text.indexOf(".");
-			if (dot < 0) {
-				return fallback;
-			}
-
-			decimals = text.length - dot - 1;
-			if (decimals < 0) {
-				return fallback;
-			}
-
-			return decimals > 4 ? 4 : decimals;
-		}
-
-		function formatNumber(value, decimals) {
-			if (!Number.isFinite(value)) {
-				return "-";
-			}
-
-			return value.toLocaleString("en-US", {
-				useGrouping: true,
-				minimumFractionDigits: decimals,
-				maximumFractionDigits: decimals
-			});
-		}
-
-		function formatSignedNumber(value, decimals) {
-			if (!Number.isFinite(value)) {
-				return "-";
-			}
-
-			if (value > 0) {
-				return "+" + formatNumber(Math.abs(value), decimals);
-			}
-			if (value < 0) {
-				return "-" + formatNumber(Math.abs(value), decimals);
-			}
-			return "0";
-		}
-
-		function formatSignedPct(value) {
-			if (!Number.isFinite(value)) {
-				return "-";
-			}
-
-			if (value > 0) {
-				return "+" + Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
-			}
-			if (value < 0) {
-				return "-" + Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
-			}
-			return "0.00%";
-		}
-
-		function unwrapSingle(res) {
-			if (!res) {
-				return null;
-			}
-
-			if (res.data) {
-				if (res.data.singleData) {
-					return res.data.singleData;
-				}
-				if (res.data.data && res.data.data.singleData) {
-					return res.data.data.singleData;
-				}
-			}
-
-			if (res.singleData) {
-				return res.singleData;
-			}
-
-			return null;
-		}
-
-		function extractPriceOutput(single) {
-			if (!single) {
-				return null;
-			}
-			if (single.output) {
-				return single.output;
-			}
-			if (single.out) {
-				return single.out;
-			}
-			if (single.data && single.data.output) {
-				return single.data.output;
-			}
-			return null;
-		}
-
-		function pickNumber(source, keys) {
-			var i;
-			var value;
-			var numeric;
-
-			if (!source || !keys || !keys.length) {
-				return NaN;
-			}
-
-			for (i = 0; i < keys.length; i += 1) {
-				value = source[keys[i]];
-				numeric = toNumber(value);
-				if (Number.isFinite(numeric)) {
-					return numeric;
-				}
-			}
-
-			return NaN;
-		}
-
-		function buildWatchPriceState(single) {
-			var out = extractPriceOutput(single);
-			var current;
-			var diff;
-			var prevClose;
-			var pct;
-			var diffDecimals;
-			var priceDecimals;
-			var dir;
-
-			if (!out) {
-				return null;
-			}
-
-			current = pickNumber(out, ["stckPrpr", "stck_prpr", "price", "last"]);
-			diff = pickNumber(out, ["prdyVrss", "prdy_vrss", "diff", "change"]);
-			prevClose = pickNumber(out, ["stckSdpr", "stck_sdpr", "prevClose", "base"]);
-
-			if (!Number.isFinite(diff) && Number.isFinite(current) && Number.isFinite(prevClose)) {
-				diff = current - prevClose;
-			}
-			if (!Number.isFinite(prevClose) && Number.isFinite(current) && Number.isFinite(diff)) {
-				prevClose = current - diff;
-			}
-			if (!Number.isFinite(current)) {
-				return null;
-			}
-
-			pct = (Number.isFinite(prevClose) && prevClose !== 0 && Number.isFinite(diff))
-				? (diff / prevClose * 100)
-				: NaN;
-
-			priceDecimals = decimalsHint(out.stckPrpr || out.stck_prpr || out.price || out.last, 0);
-			diffDecimals = decimalsHint(out.prdyVrss || out.prdy_vrss || out.diff || out.change, 0);
-			dir = Number.isFinite(diff) ? (diff > 0 ? "up" : (diff < 0 ? "down" : "flat")) : "flat";
-
-			return {
-				priceText: formatNumber(current, priceDecimals),
-				diffText: formatSignedNumber(diff, diffDecimals),
-				rateText: formatSignedPct(pct),
-				dir: dir
-			};
-		}
-
-		function applyWatchPriceStateToRow(row, state) {
-			var priceEl;
-			var diffEl;
-			var rateEl;
-			var eventEl;
-
-			if (!row || !state) {
-				return;
-			}
-
-			priceEl = row.querySelector(".wl-price");
-			diffEl = row.querySelector(".wl-diff");
-			rateEl = row.querySelector(".wl-rate");
-			eventEl = row.querySelector(".wl-event");
-
-			if (priceEl) {
-				priceEl.textContent = state.priceText;
-				priceEl.title = state.diffText + " / " + state.rateText;
-				priceEl.classList.remove("up", "down", "flat");
-				priceEl.classList.add(state.dir);
-			}
-
-			if (diffEl) {
-				diffEl.textContent = state.diffText;
-				diffEl.classList.remove("up", "down", "flat");
-				diffEl.classList.add(state.dir);
-			}
-
-			if (rateEl) {
-				rateEl.textContent = state.rateText;
-				rateEl.classList.remove("up", "down", "flat");
-				rateEl.classList.add(state.dir);
-			}
-
-			if (eventEl) {
-				eventEl.classList.remove("up", "down", "flat");
-				eventEl.classList.add(state.dir);
-			}
-		}
-
-		function applyWatchPriceStateByCode(code, state) {
-			var rows = document.querySelectorAll("#watchlist .wl-item");
-			var i;
-			var row;
-
-			if (!code || !state) {
-				return;
-			}
-
-			for (i = 0; i < rows.length; i += 1) {
-				row = rows[i];
-				if (String(row.getAttribute("data-code") || "").trim() === code) {
-					applyWatchPriceStateToRow(row, state);
-				}
-			}
-		}
-
-		function isDomesticWatchRow(row) {
-			var country = String(row && row.getAttribute("data-country") || "").trim().toUpperCase();
-			return !country || country === "KR";
-		}
-
-		function getWatchCurrentPriceUrl() {
-			return (window.__CTX_PATH || "") + "/finance/getCurrentPriceByInquirePrice.do";
-		}
-
-		function syncWatchRowFromApi(row, force) {
-			var code;
-			var cached;
-			var nowTs;
-
-			if (!row || !window.jQuery || !isDomesticWatchRow(row)) {
-				return;
-			}
-
-			code = String(row.getAttribute("data-code") || "").trim();
-			if (!code) {
-				return;
-			}
-
-			nowTs = Date.now();
-			cached = watchPriceCache[code];
-			if (!force && cached && (nowTs - cached.ts) < WATCH_PRICE_CACHE_MS) {
-				applyWatchPriceStateByCode(code, cached.state);
-				return;
-			}
-
-			if (watchPriceInflight[code]) {
-				return;
-			}
-
-			watchPriceInflight[code] = true;
-			$.ajax({
-				url: getWatchCurrentPriceUrl(),
-				type: "GET",
-				dataType: "json",
-				data: { in_stockCode: code },
-				success: function (res) {
-					var single = unwrapSingle(res);
-					var state = buildWatchPriceState(single);
-
-					if (!state) {
-						return;
-					}
-
-					watchPriceCache[code] = {
-						ts: Date.now(),
-						state: state
-					};
-					applyWatchPriceStateByCode(code, state);
-				},
-				complete: function () {
-					delete watchPriceInflight[code];
-				}
-			});
-		}
-
-		function scheduleWatchRowSync(row, force) {
-			var code;
-
-			if (!row || !isDomesticWatchRow(row)) {
-				return;
-			}
-
-			code = String(row.getAttribute("data-code") || "").trim();
-			if (!code) {
-				return;
-			}
-
-			if (watchPriceTimers[code]) {
-				clearTimeout(watchPriceTimers[code]);
-			}
-
-			watchPriceTimers[code] = window.setTimeout(function () {
-				delete watchPriceTimers[code];
-				syncWatchRowFromApi(row, force === true);
-			}, force === true ? 0 : 120);
-		}
-
-		function collectWatchRows(node, rows) {
-			var row;
-			var found;
-			var i;
-
-			if (!node) {
-				return;
-			}
-
-			if (node.nodeType === 3) {
-				row = node.parentElement ? node.parentElement.closest(".wl-item") : null;
-				if (row) {
-					rows.add(row);
-				}
-				return;
-			}
-
-			if (node.nodeType !== 1) {
-				return;
-			}
-
-			row = node.closest(".wl-item");
-			if (row) {
-				rows.add(row);
-			}
-
-			if (node.matches(".wl-item")) {
-				rows.add(node);
-			}
-
-			if (typeof node.querySelectorAll !== "function") {
-				return;
-			}
-
-			found = node.querySelectorAll(".wl-item");
-			for (i = 0; i < found.length; i += 1) {
-				rows.add(found[i]);
-			}
-		}
-
-		function bindWatchlistQuoteSync() {
-			var wrap = document.getElementById("watchlist");
-			var observer;
-
-			if (!wrap || wrap.__watchlistQuoteSyncBound) {
-				return;
-			}
-
-			wrap.__watchlistQuoteSyncBound = true;
-
-			Array.prototype.forEach.call(wrap.querySelectorAll(".wl-item"), function (row) {
-				scheduleWatchRowSync(row, true);
-			});
-
-			observer = new MutationObserver(function (mutations) {
-				var rows = new Set();
-
-				mutations.forEach(function (mutation) {
-					var i;
-
-					collectWatchRows(mutation.target, rows);
-
-					if (mutation.addedNodes && mutation.addedNodes.length) {
-						for (i = 0; i < mutation.addedNodes.length; i += 1) {
-							collectWatchRows(mutation.addedNodes[i], rows);
-						}
-					}
-				});
-
-				rows.forEach(function (row) {
-					scheduleWatchRowSync(row, false);
-				});
-			});
-
-			observer.observe(wrap, {
-				childList: true,
-				characterData: true,
-				subtree: true
-			});
-		}
-
-		if (document.readyState === "loading") {
-			document.addEventListener("DOMContentLoaded", bindWatchlistQuoteSync);
-		} else {
-			bindWatchlistQuoteSync();
-		}
-	})();
-	</script>
-	<script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js?v=20260312-2" defer></script>
+	<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/doubleChartSync.js?v=20260404-1"></script>
+	<script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/watchlistQuoteSync.js?v=20260404-1"></script>
+	<script src="/scheduler/appone/jsp/finance/kis/kisFinance/js/kisFinancePage.js?v=20260406-1" defer></script>
 </body>
 </html>

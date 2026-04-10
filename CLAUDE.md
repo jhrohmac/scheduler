@@ -76,6 +76,27 @@ Follow this package structure when adding new features.
 
 > For new API integrations, always check TR_ID · Request/Response fields · domain in `한국투자증권_오픈API_전체_가이드_문서.xlsx`.
 
+### KIS 종목 마스터 파일 다운로드
+
+KIS는 전체 종목 목록을 REST API로 제공하지 않고 **정적 파일 다운로드** 방식으로 제공한다.
+샘플 코드 참조: `/Users/jinhyun/projects/open-trading-api-main/stocks_info/`
+
+| 시장 | 다운로드 URL | 파싱 참조 |
+|---|---|---|
+| KOSPI | `https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip` | `kis_kospi_code_mst.py` |
+| KOSDAQ | `https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip` | `kis_kosdaq_code_mst.py` |
+| NASDAQ | `https://new.real.download.dws.co.kr/common/master/nasmst.cod.zip` | `overseas_stock_code.py` |
+| NYSE | `https://new.real.download.dws.co.kr/common/master/nysmst.cod.zip` | `overseas_stock_code.py` |
+
+**파일 포맷 요약:**
+- KOSPI `.mst`: cp949, 고정폭(Part1: 단축코드9+표준코드12+한글명, Part2: 228바이트 65필드)
+  - 주요필드: `거래정지`(35번), `관리종목`(37번), `상장일자`(50번), `KOSPI200섹터업종`(9번)
+- KOSDAQ `.mst`: cp949, 고정폭(Part2: 222바이트 60필드)
+  - 주요필드: `거래정지여부`(30번), `관리종목여부`(32번), `상장일자`(45번), `KOSDAQ150지수여부`(26번, Y/N)
+- 해외 `.cod`: cp949, **탭구분(TSV)**, 24컬럼
+  - 주요필드: `Symbol`(5번), `Security type`(9번, 2=주식), `Korea name`(7번), `English name`(8번)
+- 인증 불필요 — 공개 URL, 매일 갱신됨
+
 ## DB Key Tables
 
 `TB_STK_MASTER`(stock master) · `TB_STK_DLY_PRICE`(daily) · `TB_STK_MON_PRICE`(monthly)

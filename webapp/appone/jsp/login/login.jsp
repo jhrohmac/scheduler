@@ -12,11 +12,6 @@
   <div class="login-shell" id="log_container">
     <section class="login-visual" aria-hidden="true">
       <div class="login-visual__content">
-        <span class="login-visual__eyebrow">IPSCORP Scheduler</span>
-        <h1 class="login-visual__title">시장 흐름과 업무 실행을 한 화면에서 관리합니다.</h1>
-        <p class="login-visual__copy">
-          로그인 후 일정, 분석, 운영 기능을 데스크톱과 모바일 환경에서 동일하게 이어서 사용할 수 있습니다.
-        </p>
       </div>
     </section>
 
@@ -197,8 +192,21 @@
 	  });
 </script>
 <style>
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 992px) {
+  html, body {
+    overflow: hidden;
+  }
+}
+
 .login-page {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   margin: 0;
   background:
     radial-gradient(circle at top left, rgba(15, 93, 184, 0.16), transparent 32%),
@@ -206,7 +214,7 @@
 }
 
 .login-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
 }
 
@@ -397,7 +405,15 @@
 }
 
 @media (max-width: 991.98px) {
+  .login-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
   .login-shell {
+    height: auto;
+    min-height: 100vh;
     flex-direction: column;
   }
 

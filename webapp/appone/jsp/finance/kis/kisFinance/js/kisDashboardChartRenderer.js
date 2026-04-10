@@ -12,6 +12,61 @@
     return parseFloat(text);
   }
 
+  function isMobileDevice() {
+    try {
+      return (/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i).test(navigator.userAgent || '');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function isMinutePeriod(periodDivCode) {
+    var p = String(periodDivCode || '').toUpperCase();
+    if (!p) return false;
+    if (p === 'T') return true;
+    return p.charAt(0) === 'T' && /^[0-9]+$/.test(p.substring(1));
+  }
+
+  function getLayoutMetrics(viewportWidth) {
+    if (isMobileDevice()) {
+      return {
+        marginL: 0,
+        marginR: viewportWidth <= 390 ? 60 : 64,
+        marginT: 10,
+        marginB: 18,
+        axisFont: '9px JetBrains Mono, monospace',
+        axisLabelOffset: 3,
+        axisLabelBaseline: 3,
+        hlFont: '700 10px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+        priceTagWidth: viewportWidth <= 390 ? 56 : 60,
+        priceTagHeight: 18,
+        priceTagRadius: 4,
+        priceFont: 'bold 10px JetBrains Mono, monospace',
+        priceTextBaseline: 3,
+        xLabelBottom: 4,
+        rangePaddingRatio: 0.03
+      };
+    }
+
+    return {
+      marginL: 16,
+      marginR: 90,
+      marginT: 40,
+      marginB: 34,
+      axisFont: '10px JetBrains Mono, monospace',
+      axisLabelOffset: 6,
+      axisLabelBaseline: 3,
+      hlFont: '700 11px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+      priceTagWidth: 74,
+      priceTagHeight: 20,
+      priceTagRadius: 4,
+      priceFont: 'bold 11px JetBrains Mono, monospace',
+      priceTextBaseline: 4,
+      xLabelBottom: 10,
+      rangePaddingRatio: 0.08
+    };
+  }
+
   var Renderer = {
     state: null,
 
@@ -144,6 +199,26 @@
       if (!s || !s.canvas) return;
       var canvas = s.canvas;
 
+      function zoomView(zoomIn, ratio) {
+        var total = s.rows.length;
+        if (!total) return false;
+
+        var prevCount = s.view.count;
+        var nextCount = Math.round(prevCount * (zoomIn ? 0.88 : 1.14));
+        nextCount = Math.max(s.view.minCount, Math.min(s.view.maxCount, Math.min(total, nextCount)));
+        if (nextCount === prevCount) return false;
+
+        ratio = Number.isFinite(ratio) ? ratio : 0.5;
+        ratio = Math.max(0, Math.min(1, ratio));
+
+        var anchor = s.view.start + prevCount * ratio;
+        s.view.count = nextCount;
+        s.view.start = anchor - nextCount * ratio;
+        var maxStart = Math.max(0, total - s.view.count);
+        s.view.start = Math.max(0, Math.min(maxStart, s.view.start));
+        return true;
+      }
+
       function on(el, type, fn, opts) {
         el.addEventListener(type, fn, opts || false);
         s.handlers.push({ el: el, type: type, fn: fn, opts: opts || false });
@@ -155,29 +230,33 @@
         if (!total) return;
 
         var rect = canvas.getBoundingClientRect();
+        var metrics = getLayoutMetrics(rect.width);
         var x = e.clientX - rect.left;
-        var dx = Math.max(1, rect.width - 90 - 16);
-        var ratio = Math.max(0, Math.min(1, (x - 16) / dx));
+        var dx = Math.max(1, rect.width - metrics.marginR - metrics.marginL);
+        var ratio = Math.max(0, Math.min(1, (x - metrics.marginL) / dx));
 
-        var prevCount = s.view.count;
-        var zoomIn = e.deltaY < 0;
-        var nextCount = Math.round(prevCount * (zoomIn ? 0.88 : 1.14));
-        nextCount = Math.max(s.view.minCount, Math.min(s.view.maxCount, Math.min(total, nextCount)));
-        if (nextCount === prevCount) return;
-
-        var anchor = s.view.start + prevCount * ratio;
-        s.view.count = nextCount;
-        s.view.start = anchor - nextCount * ratio;
-        var maxStart = Math.max(0, total - s.view.count);
-        s.view.start = Math.max(0, Math.min(maxStart, s.view.start));
-        self._draw();
+        if (zoomView(e.deltaY < 0, ratio)) self._draw();
       }, { passive: false });
 
       on(canvas, 'pointerdown', function (e) {
-        s.drag = {
-          startX: e.clientX,
-          startView: s.view.start
-        };
+        var rect = canvas.getBoundingClientRect();
+        var metrics = getLayoutMetrics(rect.width);
+        var x = e.clientX - rect.left;
+        var priceAxisLeft = rect.width - metrics.marginR;
+
+        if (isMobileDevice() && x >= priceAxisLeft) {
+          s.priceZoom = {
+            pointerId: e.pointerId,
+            lastY: e.clientY,
+            carryY: 0
+          };
+        } else {
+          s.drag = {
+            pointerId: e.pointerId,
+            startX: e.clientX,
+            startView: s.view.start
+          };
+        }
         try { canvas.setPointerCapture(e.pointerId); } catch (ignore) {}
       });
 
@@ -186,11 +265,31 @@
         if (!total) return;
 
         var rect = canvas.getBoundingClientRect();
+        var metrics = getLayoutMetrics(rect.width);
         var x = e.clientX - rect.left;
-        var left = 16;
-        var right = rect.width - 90;
+        var left = metrics.marginL;
+        var right = rect.width - metrics.marginR;
 
-        if (s.drag) {
+        if (s.priceZoom && s.priceZoom.pointerId === e.pointerId) {
+          var dy = e.clientY - s.priceZoom.lastY;
+          s.priceZoom.lastY = e.clientY;
+          s.priceZoom.carryY += dy;
+
+          var zoomStepPx = 14;
+          var changed = false;
+          while (Math.abs(s.priceZoom.carryY) >= zoomStepPx) {
+            var zoomIn = s.priceZoom.carryY < 0;
+            if (!zoomView(zoomIn, 1)) break;
+            s.priceZoom.carryY += zoomIn ? zoomStepPx : -zoomStepPx;
+            changed = true;
+          }
+
+          if (changed) self._draw();
+          e.preventDefault();
+          return;
+        }
+
+        if (s.drag && s.drag.pointerId === e.pointerId) {
           var dx = e.clientX - s.drag.startX;
           var pxPerCandle = Math.max(0.5, (right - left) / Math.max(1, s.view.count));
           s.view.start = s.drag.startView - (dx / pxPerCandle);
@@ -225,7 +324,10 @@
         }
       });
 
-      function stopDrag() { s.drag = null; }
+      function stopDrag(e) {
+        if (!e || !s.drag || s.drag.pointerId === e.pointerId) s.drag = null;
+        if (!e || !s.priceZoom || s.priceZoom.pointerId === e.pointerId) s.priceZoom = null;
+      }
       on(canvas, 'pointerup', stopDrag);
       on(canvas, 'pointercancel', stopDrag);
       on(canvas, 'pointerleave', function () {
@@ -298,7 +400,11 @@
         return;
       }
 
-      var marginL = 16, marginR = 90, marginT = 40, marginB = 34;
+      var layout = getLayoutMetrics(W);
+      var marginL = layout.marginL;
+      var marginR = layout.marginR;
+      var marginT = layout.marginT;
+      var marginB = layout.marginB;
       var chartW = W - marginL - marginR;
       var totalH = H - marginT - marginB;
       var showVol = !!s.options.volumeEnabled;
@@ -343,7 +449,7 @@
         minP = rows[0].c * 0.95;
         maxP = rows[0].c * 1.05;
       }
-      var pad = (maxP - minP) * 0.08;
+      var pad = (maxP - minP) * layout.rangePaddingRatio;
       minP -= pad;
       maxP += pad;
 
@@ -371,12 +477,17 @@
 
         var p = maxP - ((maxP - minP) / grid) * g;
         ctx.fillStyle = '#51607a';
-        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.font = layout.axisFont;
         ctx.textAlign = 'left';
-        ctx.fillText(Math.round(p).toLocaleString('ko-KR'), W - marginR + 6, gy + 3);
+        ctx.fillText(
+          Math.round(p).toLocaleString('ko-KR'),
+          W - marginR + layout.axisLabelOffset,
+          gy + layout.axisLabelBaseline
+        );
       }
 
       var boundaryIdx = [];
+      var dayBoundaryIdx = [];
       if (s.options.monthLinesEnabled !== false) {
         for (var i = 1; i < rows.length; i++) {
           var pm = new Date(rows[i - 1].t).getMonth();
@@ -384,6 +495,18 @@
           var py = new Date(rows[i - 1].t).getFullYear();
           var cy = new Date(rows[i].t).getFullYear();
           if (pm !== cm || py !== cy) boundaryIdx.push(i);
+        }
+      }
+
+      if (isMinutePeriod(s.periodDivCode)) {
+        for (var di = 1; di < rows.length; di++) {
+          var prevDt = new Date(rows[di - 1].t);
+          var currDt = new Date(rows[di].t);
+          var prevDayKey = prevDt.getFullYear() + '-' + prevDt.getMonth() + '-' + prevDt.getDate();
+          var currDayKey = currDt.getFullYear() + '-' + currDt.getMonth() + '-' + currDt.getDate();
+          if (prevDayKey !== currDayKey) {
+            dayBoundaryIdx.push(di);
+          }
         }
       }
 
@@ -453,6 +576,18 @@
         ctx.setLineDash([]);
       });
 
+      dayBoundaryIdx.forEach(function (bi) {
+        var xLine = xCandle(bi) - candleW * 0.65;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(49, 81, 168, 0.42)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(xLine, marginT);
+        ctx.lineTo(xLine, showVol ? (volY0 + volH) : (marginT + mainH));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
       maLines.forEach(function (line) {
         ctx.strokeStyle = line.meta.color || '#888';
         ctx.lineWidth = line.meta.lineWidth || 1.8;
@@ -485,7 +620,7 @@
         function drawHLLabel(ix, price, label, color, up) {
           var xh = xCandle(ix);
           var yh = yPrice(price);
-          var by = up ? (yh - 24) : (yh + 24);
+          var by = up ? (yh - 13) : (yh + 13);
           var p = Number(price);
           var priceText = (Math.abs(p - Math.round(p)) > 1e-9)
             ? p.toLocaleString('ko-KR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
@@ -497,7 +632,7 @@
           var dd = String(dt.getDate()).padStart(2, '0');
           var txt = priceText + '(' + pctText + ', ' + mm + '/' + dd + ')';
 
-          ctx.font = '700 11px Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+          ctx.font = layout.hlFont;
           ctx.textAlign = 'left';
           var tw = ctx.measureText(txt).width;
           var tx = Math.max(marginL + 14, Math.min(xh - (tw / 2), W - marginR - tw - 4));
@@ -576,18 +711,29 @@
       ctx.setLineDash([]);
 
       ctx.fillStyle = cpColor;
-      this._drawRoundRect(ctx, W - marginR + 1, cpY - 10, 74, 20, 4);
+      this._drawRoundRect(
+        ctx,
+        W - marginR + 1,
+        cpY - (layout.priceTagHeight / 2),
+        layout.priceTagWidth,
+        layout.priceTagHeight,
+        layout.priceTagRadius
+      );
       ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.font = layout.priceFont;
       ctx.textAlign = 'center';
       var lastPriceText = (Math.abs(cpValue - Math.round(cpValue)) > 1e-9)
         ? Number(cpValue).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : Math.round(cpValue).toLocaleString('ko-KR');
-      ctx.fillText(lastPriceText, W - marginR + 38, cpY + 4);
+      ctx.fillText(
+        lastPriceText,
+        W - marginR + 1 + (layout.priceTagWidth / 2),
+        cpY + layout.priceTextBaseline
+      );
 
       ctx.fillStyle = '#51607a';
-      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.font = layout.axisFont;
       ctx.textAlign = 'center';
       var step = Math.max(1, Math.floor(rows.length / 8));
       var prevLabelYear = null;
@@ -599,7 +745,7 @@
         if (prevLabelYear !== null && y !== prevLabelYear && m === 1) {
           t = y + '/' + m;
         }
-        ctx.fillText(t, xCandle(di), H - 10);
+        ctx.fillText(t, xCandle(di), H - layout.xLabelBottom);
         prevLabelYear = y;
       }
 

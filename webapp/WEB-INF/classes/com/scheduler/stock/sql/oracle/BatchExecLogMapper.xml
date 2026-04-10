@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.BatchExecLog">
+
+    <insert id="insertBatchExecLog" parameterType="hashmap">
+        INSERT INTO TB_BATCH_EXEC_LOG (
+            EXEC_ID, BATCH_ID, BASE_DT, START_AT, STATUS,
+            TOTAL_CNT, SUCCESS_CNT, FAIL_CNT, ERROR_MSG, CREATED_AT
+        ) VALUES (
+            #{execId,jdbcType=VARCHAR},
+            #{batchId,jdbcType=VARCHAR},
+            TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
+            SYSDATE,
+            'RUNNING',
+            0,
+            0,
+            0,
+            NULL,
+            SYSDATE
+        )
+    </insert>
+
+    <update id="updateBatchExecLog" parameterType="hashmap">
+        UPDATE TB_BATCH_EXEC_LOG
+           SET END_AT      = SYSDATE,
+               STATUS      = #{status,jdbcType=VARCHAR},
+               TOTAL_CNT   = #{totalCnt,jdbcType=NUMERIC},
+               SUCCESS_CNT = #{successCnt,jdbcType=NUMERIC},
+               FAIL_CNT    = #{failCnt,jdbcType=NUMERIC},
+               ERROR_MSG   = #{errorMsg,jdbcType=VARCHAR}
+         WHERE EXEC_ID = #{execId,jdbcType=VARCHAR}
+    </update>
+
+    <select id="selectLatestBatchExecLog" parameterType="hashmap" resultType="hashmap">
+        SELECT *
+          FROM (
+                SELECT EXEC_ID                                 AS execId,
+                       BATCH_ID                                AS batchId,
+                       TO_CHAR(BASE_DT, 'YYYY-MM-DD')          AS baseDt,
+                       TO_CHAR(START_AT, 'YYYY-MM-DD HH24:MI:SS') AS startAt,
+                       TO_CHAR(END_AT, 'YYYY-MM-DD HH24:MI:SS')   AS endAt,
+                       STATUS                                  AS status,
+                       TOTAL_CNT                               AS totalCnt,
+                       SUCCESS_CNT                             AS successCnt,
+                       FAIL_CNT                                AS failCnt,
+                       ERROR_MSG                               AS errorMsg
+                  FROM TB_BATCH_EXEC_LOG
+                 WHERE BATCH_ID = #{batchId,jdbcType=VARCHAR}
+                   <if test="baseDt != null and baseDt != ''">
+                       AND BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+                   </if>
+                 ORDER BY START_AT DESC
+               )
+         WHERE ROWNUM = 1
+    </select>
+
+</mapper>

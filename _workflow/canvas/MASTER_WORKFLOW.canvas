@@ -25,9 +25,6 @@
 		{"id":"WF-2-3A-2","type":"text","text":"WF-2-3A-2 🟡 조회조건/기준일 정규화\n- normalizeMarketFilter\n- legacy mktCd(KOSPI/KOSDAQ/NASDAQ/DOW) -> marketFilter 승격\n- selectLatestBaseDt\n- resolveReadBaseDate + recYn 기본값 적용","x":70,"y":2020,"width":460,"height":210},
 		{"id":"WF-2-3A-3","type":"text","text":"WF-2-3A-3 🟡 추천신호 조회 응답\n- RecSignalDao / RecSignalMapper\n- TB_REC_SIGNAL list/detail 조회\n- DataTableSettingVo 응답 반환","x":70,"y":2240,"width":460,"height":180},
 		{"id":"2-7","type":"text","text":"2-7 ✅ 추천 저장/추적/확률/매도 가이드 런타임\n- RecPickController\n- RecPickService / RecPickTrackService / RecProbabilityService / PositionExitSignalService\n- RecPickDailyBatch / PositionMonitorDailyBatch\n- 추천 비교 UI saveToWatchlist.do 등록은 recommend groupDiv 로 저장\n- MyBatis BATCH executor 음수 반환값을 실패로 오판하지 않도록 저장 검증 보정\n- TB_S_RECO_PICK_DAILY / EVAL nullable bind jdbcType 명시로 ORA-17004 방지\n- dailyTrack 빈 결과 + pickId 단건 선택 시 KIS 기반 on-demand backfill 후 재조회\n- recPick batch 단건 실행은 forcePickId 를 pickId alias 로 허용\n- UP_DOWN_FLAG 는 운영 DB 길이에 맞춰 U/D/F 1글자 코드로 저장\n- 추천종목 관심저장 / 매수연계 / 일별추적 / 성공확률 / 매도시점 계산","x":70,"y":2910,"width":460,"height":350},
-		{"id":"1-4","type":"text","text":"1-4 ✅ 차트 UI\n- mobile/chart.jsp / mobile/js/chart.js\n- kisFinance.jsp\n- 차트/옵션/시그널 표시\n- 더블차트는 툴바 버튼 단일 UI, DB 옵션 상태와 동기화\n- 국내주식/국내지수/해외지수 30분봉을 KIS 전용 API로 분기\n- 국내주식 분봉은 정규장(09:00~15:30)만 필터링\n- 해외주식 분봉은 시장일자 기준으로 단일일자 조회 보정\n- 국내/해외 지수 분봉은 KIS 현재 세션 범위만 지원, 범위 불일치 시 오류 표출\n- 모바일 분 버튼은 KIS T(30분) 요청 + system_code 오류 직접 표출\n- 데스크톱 인덱스 분봉은 자동 기간 확장 제외\n- 터치 디바이스 반응형 대시보드 레이아웃 적용\n- dash-shell 외곽/패널 간 여백 1px compact 정리","x":-980,"y":485,"width":520,"height":445},
-		{"id":"1-3","type":"text","text":"1-3 ✅ 보유종목 UI\n- PositionController 연동 화면\n- ADD / DELETE / AVERAGE_DOWN\n- 보유종목 조회/입력 흐름 존재","x":-980,"y":1655,"width":520,"height":190},
-		{"id":"WF-1-2A","type":"text","text":"WF-1-2A 🟡 추천신호 v1.10 UI\n- stock/recSignalList.jsp / recSignalDetail.jsp\n- listView.do / detailView.do + list.do / detail.do 연동\n- kisFinance.jsp 매매신호 패널 추천 비교 섹션에 listView형 필터 임베드\n- 국가 선택은 관심종목과 동일한 pill 토글, 시장/등급/정렬은 섹션 내부 배치\n- recSignalList 우측 상세를 KIS 차트 기본 화면으로 전환\n- kisFinance 추천 비교 상세 버튼은 동일 화면 오버레이 팝업으로 전환\n- kisFinance 추천 비교 행에 관심종목 등록 버튼 추가\n- 차트 탭 + 등급/추천대상/상세페이지 버튼 구분\n- MA 상태 비교 / 분석 메모는 detailView에서 확인\n- listView 상단 hero/요약 카드 compact 간격 정리\n- mobile/analysis.jsp TOP5도 동일 추천신호 API 사용\n- 샘플 fallback 제거, 운영 데이터 없음/조회 실패 상태 직접 표시\n- recYn=Y 0건이면 recYn=N fallback 표시\n- system_code 0000 / S 둘 다 성공으로 처리\n- 코드성 문구 한글화 + synthetic chart 제거\n- 모바일 정보 밀도 개선 + 랭킹 카드 현재가 표시\n- 비교 테이블 헤더 정렬 지원\n- 데스크톱 랭킹 패널 sticky + 내부 스크롤 적용\n- 터치 디바이스에서는 우측 패널을 모바일 오버레이로 전환\n- Highcharts CDN 403 대응: 로컬 플러그인 경로 고정 + 미로드 가드 추가\n- 운영 데이터 적재와 정식 메뉴 편입은 아직 미완료","x":-980,"y":960,"width":520,"height":600},
 		{"id":"WF-3-1A-1A","type":"text","text":"WF-3-1A-1A 🟡 TB_STK_MASTER\n- 추천신호 배치 대상 종목 universe 정본\n- StkMasterMapper 에서 USE_YN=Y + STK_STATUS=NORMAL 만 조회\n- RecSignal 배치에서 marketGroup / stkCd 필터 전 원본 목록으로 사용\n- RecSignal 조회 시 TB_REC_SIGNAL 조인으로 listingMarket / dowMemberYn 확장\n- MKT_CD = 상장시장(KOSPI/KOSDAQ/NASDAQ/NYSE)\n- DOW_MEMBER_YN = 다우 편입 여부","x":2800,"y":1700,"width":440,"height":250},
 		{"id":"3-9A","type":"text","text":"3-9A ✅ TB_S_RECO_PICK\n- 추천 저장 이력\n- saveToWatchlist / 매수연계 기준","x":2800,"y":3450,"width":440,"height":150},
 		{"id":"3-9C","type":"text","text":"3-9C ✅ TB_S_RECO_PICK_EVAL\n- 수익률 / MFE / MAE 평가 저장\n- pick별 성과 누적","x":2800,"y":3620,"width":440,"height":150},
@@ -40,7 +37,6 @@
 		{"id":"3-8A","type":"text","text":"3-8A ✅ TB_S_POSITION\n- 보유 포지션 헤더\n- 수량 / 평단 / 상태 / 추천 연계 필드\n- 추천 연계 migration 재실행 시 누락 컬럼 보강","x":2800,"y":890,"width":440,"height":180},
 		{"id":"3-8B","type":"text","text":"3-8B ✅ TB_S_POSITION_TXN\n- ADD / DELETE / AVERAGE_DOWN 거래 이력\n- before/after 수량·평단 추적","x":2800,"y":1080,"width":440,"height":150},
 		{"id":"3-8C","type":"text","text":"3-8C ✅ TB_S_POSITION_EVENT\n- 상태 전이 / 리스크 이벤트 로그\n- 이벤트 비어 있으면 txn fallback 참조","x":2800,"y":1290,"width":440,"height":150},
-		{"id":"3-9","type":"text","text":"3-9 ✅ 추천 추적 테이블 묶음\n- TB_S_RECO_PICK\n- TB_S_RECO_PICK_DAILY\n- TB_S_RECO_PICK_EVAL\n- VW_S_RECO_PICK_STATS\n- 하위 카드에서 테이블별 책임 분리","x":2000,"y":2940,"width":620,"height":240},
 		{"id":"WF-3-1A-3A","type":"text","text":"WF-3-1A-3A 🟡 TB_BATCH_EXEC_LOG\n- 배치 실행 헤더 로그\n- execId / batchId / status / count","x":2800,"y":2545,"width":440,"height":150},
 		{"id":"WF-3-1A-3C","type":"text","text":"WF-3-1A-3C 🟡 TB_STK_BATCH_TASK_DEF\n- 실행 가능한 Task catalog\n- task_key / bean_name / param schema","x":2800,"y":2715,"width":440,"height":150},
 		{"id":"WF-3-1A-3E","type":"text","text":"WF-3-1A-3E 🟡 TB_STK_BATCH_JOB_SCHEDULE\n- CRON / INTERVAL 스케줄 정의\n- next_run_at / misfire policy","x":2800,"y":2885,"width":440,"height":150},
@@ -52,7 +48,11 @@
 		{"id":"WF-2-3B-4","type":"text","text":"WF-2-3B-4 🟡 추천신호 메모리 계산\n- MaCalculateService + buildRecSignal\n- 월시가 / 이평 / 추세강도 계산\n- REC_YN / REC_GRADE / REC_REASON 결정","x":1000,"y":2850,"width":460,"height":190},
 		{"id":"WF-2-3B-5","type":"text","text":"WF-2-3B-5 🔴 결과/실행 로그 적재\n- TB_REC_SIGNAL MERGE 저장\n- full refresh 시 시장 전체 기존 스냅샷 삭제 후 재적재\n- TB_BATCH_EXEC_LOG 실행 로그\n- TB_BATCH_EXEC_ITEM_LOG 종목 로그\n- admin execId 와 배치 execId 동기화\n- stale runtime 시 RUNNING 로그 자동 FAIL 전환","x":1000,"y":3080,"width":460,"height":240},
 		{"id":"WF-2-3B-6","type":"text","text":"WF-2-3B-6 🔴 실패건 재시도\n- TB_BATCH_EXEC_ITEM_LOG FAIL 기준\n- sourceBatchId 기준 재대상 선정\n- retryOnly=Y 재실행","x":1000,"y":3355,"width":460,"height":170},
-		{"id":"2-4","type":"text","text":"2-4 ✅ 보유종목 관리\n- PositionController / PositionDaoImpl / PositionVo\n- oracle_Position.xml\n- 추천 매수 연계 필드(sourcePickId, buyDate, 목표가/손절가, 매도 가이드 상태) 포함\n- 부분 스키마에서도 목표가/손절가 누락 컬럼 재보강 가능\n- 포지션/거래/이벤트 처리","x":70,"y":1055,"width":460,"height":260}
+		{"id":"2-4","type":"text","text":"2-4 ✅ 보유종목 관리\n- PositionController / PositionDaoImpl / PositionVo\n- oracle_Position.xml\n- 추천 매수 연계 필드(sourcePickId, buyDate, 목표가/손절가, 매도 가이드 상태) 포함\n- 부분 스키마에서도 목표가/손절가 누락 컬럼 재보강 가능\n- 포지션/거래/이벤트 처리","x":70,"y":1055,"width":460,"height":260},
+		{"id":"WF-1-2A","type":"text","text":"WF-1-2A 🟡 추천신호 v1.10 UI\n- stock/recSignalList.jsp / recSignalDetail.jsp\n- listView.do / detailView.do + list.do / detail.do 연동\n- kisFinance.jsp 매매신호 패널 추천 비교 섹션에 listView형 필터 임베드\n- 국가 선택은 관심종목과 동일한 pill 토글, 시장/등급/정렬은 섹션 내부 배치\n- recSignalList 우측 상세를 KIS 차트 기본 화면으로 전환\n- kisFinance 추천 비교 상세 버튼은 동일 화면 오버레이 팝업으로 전환\n- kisFinance 추천 비교 행에 관심종목 등록 버튼 추가\n- 차트 탭 + 등급/추천대상/상세페이지 버튼 구분\n- MA 상태 비교 / 분석 메모는 detailView에서 확인\n- listView 상단 hero/요약 카드 compact 간격 정리\n- mobile/analysis.jsp TOP5도 동일 추천신호 API 사용\n- 샘플 fallback 제거, 운영 데이터 없음/조회 실패 상태 직접 표시\n- recYn=Y 0건이면 recYn=N fallback 표시\n- system_code 0000 / S 둘 다 성공으로 처리\n- 코드성 문구 한글화 + synthetic chart 제거\n- 모바일 정보 밀도 개선 + 랭킹 카드 현재가 표시\n- 비교 테이블 헤더 정렬 지원\n- 데스크톱 랭킹 패널 sticky + 내부 스크롤 적용\n- 터치 디바이스에서는 우측 패널을 모바일 오버레이로 전환\n- Highcharts CDN 403 대응: 로컬 플러그인 경로 고정 + 미로드 가드 추가\n- 운영 데이터 적재와 정식 메뉴 편입은 아직 미완료","x":-980,"y":1388,"width":520,"height":600},
+		{"id":"1-3","type":"text","text":"1-3 ✅ 보유종목 UI\n- PositionController 연동 화면\n- ADD / DELETE / AVERAGE_DOWN\n- 보유종목 조회/입력 흐름 존재","x":-980,"y":2083,"width":520,"height":190},
+		{"id":"1-4","type":"text","text":"1-4 ✅ 차트 UI\n- mobile/chart.jsp / mobile/js/chart.js\n- kisFinance.jsp\n- 차트/옵션/시그널 표시\n- 더블차트는 툴바 버튼 단일 UI, DB 옵션 상태와 동기화\n- 국내주식/국내지수/해외지수 30분봉을 KIS 전용 API로 분기\n- 국내주식 분봉은 정규장(09:00~15:30)만 필터링\n- 해외주식 분봉은 시장일자 기준으로 단일일자 조회 보정\n- 국내/해외 지수 분봉은 KIS 현재 세션 범위만 지원, 범위 불일치 시 오류 표출\n- 모바일 분 버튼은 KIS T(30분) 요청 + system_code 오류 직접 표출\n- 데스크톱 인덱스 분봉은 자동 기간 확장 제외\n- 터치 디바이스 반응형 대시보드 레이아웃 적용\n- dash-shell 외곽/패널 간 여백 1px compact 정리","x":-980,"y":660,"width":520,"height":445},
+		{"id":"3-9","type":"text","text":"3-9 ✅ 추천 추적 테이블 묶음\n- TB_S_RECO_PICK\n- TB_S_RECO_PICK_DAILY\n- TB_S_RECO_PICK_EVAL\n- VW_S_RECO_PICK_STATS\n- 하위 카드에서 테이블별 책임 분리","x":1000,"y":3575,"width":620,"height":240}
 	],
 	"edges":[
 		{"id":"e_title_ui","fromNode":"mw_title","fromSide":"bottom","toNode":"ui_hdr","toSide":"top","color":"#90a4ae"},
@@ -82,6 +82,7 @@
 		{"id":"e_wf_2_3a_1_to_2","fromNode":"WF-2-3A-1","fromSide":"bottom","toNode":"WF-2-3A-2","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_2_3a_2_to_3","fromNode":"WF-2-3A-2","fromSide":"bottom","toNode":"WF-2-3A-3","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_2_3a_3_to_store","fromNode":"WF-2-3A-3","fromSide":"right","toNode":"WF-3-1A-2","toSide":"left","color":"#66bb6a"},
+		{"id":"e_wf_2_3a_3_to_stk_master","fromNode":"WF-2-3A-3","fromSide":"right","toNode":"WF-3-1A-1A","toSide":"left","color":"#66bb6a"},
 		{"id":"e_wf_3_1a_to_1","fromNode":"WF-3-1A","fromSide":"bottom","toNode":"WF-3-1A-1","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_3_1a_1_to_2","fromNode":"WF-3-1A-1","fromSide":"bottom","toNode":"WF-3-1A-2","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_3_1a_2_to_3","fromNode":"WF-3-1A-2","fromSide":"bottom","toNode":"WF-3-1A-3","toSide":"top","color":"#66bb6a"},
@@ -92,6 +93,7 @@
 		{"id":"e_wf_2_3b_4_to_5","fromNode":"WF-2-3B-4","fromSide":"bottom","toNode":"WF-2-3B-5","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_2_3b_5_to_6","fromNode":"WF-2-3B-5","fromSide":"bottom","toNode":"WF-2-3B-6","toSide":"top","color":"#66bb6a"},
 		{"id":"e_wf_2_3b_2_to_input","fromNode":"WF-2-3B-2","fromSide":"right","toNode":"WF-3-1A-1","toSide":"left","color":"#66bb6a"},
+		{"id":"e_wf_2_3b_2_to_stk_master","fromNode":"WF-2-3B-2","fromSide":"right","toNode":"WF-3-1A-1A","toSide":"left","color":"#66bb6a"},
 		{"id":"e_wf_2_3b_5_to_result","fromNode":"WF-2-3B-5","fromSide":"right","toNode":"WF-3-1A-2","toSide":"left","color":"#66bb6a"},
 		{"id":"e_wf_2_3b_5_to_log","fromNode":"WF-2-3B-5","fromSide":"right","toNode":"WF-3-1A-3","toSide":"left","color":"#66bb6a"},
 		{"id":"e_wf_3_1a_3_to_retry","fromNode":"WF-3-1A-3","fromSide":"left","toNode":"WF-2-3B-6","toSide":"right","color":"#66bb6a"},
@@ -114,8 +116,6 @@
 		{"id":"e_3_9_to_a","fromNode":"3-9","fromSide":"right","toNode":"3-9A","toSide":"left","color":"#9e9e9e"},
 		{"id":"e_3_9_to_b","fromNode":"3-9","fromSide":"right","toNode":"3-9B","toSide":"left","color":"#9e9e9e"},
 		{"id":"e_3_9_to_c","fromNode":"3-9","fromSide":"right","toNode":"3-9C","toSide":"left","color":"#9e9e9e"},
-		{"id":"e_3_9_to_d","fromNode":"3-9","fromSide":"right","toNode":"3-9D","toSide":"left","color":"#9e9e9e"},
-		{"id":"e_wf_2_3a_3_to_stk_master","fromNode":"WF-2-3A-3","fromSide":"right","toNode":"WF-3-1A-1A","toSide":"left","color":"#66bb6a"},
-		{"id":"e_wf_2_3b_2_to_stk_master","fromNode":"WF-2-3B-2","fromSide":"right","toNode":"WF-3-1A-1A","toSide":"left","color":"#66bb6a"}
+		{"id":"e_3_9_to_d","fromNode":"3-9","fromSide":"right","toNode":"3-9D","toSide":"left","color":"#9e9e9e"}
 	]
 }

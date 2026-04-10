@@ -21,6 +21,7 @@ var ChartScript = (function () {
         positionState: null,
         regime: null
     };
+    var loadingTargetId = "kisChartContainer";
 
     var indexMetaMap = {
         "KOSPI": { name: "코스피", market: "KRX" },
@@ -417,8 +418,8 @@ var ChartScript = (function () {
         setTextIfDifferent($("#kisHdrMarket"), headerStatic.market || "-");
 
         if ($("#kisHdrNow").length) $("#kisHdrNow").text(formatNumber(c));
-        if ($("#kisHdrPct").length) $("#kisHdrPct").text(formatSignedPct(pct));
-        if ($("#kisHdrDiff").length) $("#kisHdrDiff").text(formatSignedNumber(diff));
+        if ($("#kisHdrPct").length) $("#kisHdrPct").text(isNaN(pct) ? "0%" : formatSignedPct(pct));
+        if ($("#kisHdrDiff").length) $("#kisHdrDiff").text(isNaN(diff) ? "0" : formatSignedNumber(diff));
 
         // 등락 색상
         setUpDownClass($("#kisHdrNow"), c, p);
@@ -633,6 +634,39 @@ var ChartScript = (function () {
         return false;
     }
 
+    function buildMinuteDayPlotLines(times, periodDivCode) {
+        var lines = [];
+        var prevDayKey = "";
+
+        if (!isMinuteDivCode(periodDivCode) || !times || !times.length) {
+            return lines;
+        }
+
+        for (var i = 0; i < times.length; i++) {
+            var ts = Number(times[i]);
+            if (!isFinite(ts)) continue;
+            var d = new Date(ts);
+            var dayKey = d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+            if (!prevDayKey) {
+                prevDayKey = dayKey;
+                continue;
+            }
+            if (dayKey === prevDayKey) {
+                continue;
+            }
+            prevDayKey = dayKey;
+            lines.push({
+                value: ts,
+                color: "rgba(49,81,168,0.35)",
+                dashStyle: "Dash",
+                width: 1,
+                zIndex: 1
+            });
+        }
+
+        return lines;
+    }
+
     function formatDateLabel(ts, periodDivCode) {
         if (isNaN(ts)) return "-";
         var d = new Date(ts);
@@ -706,6 +740,136 @@ var ChartScript = (function () {
         return "" + y + m + dd;
     }
 
+    function normalizePlainYmd(plain) {
+        return String(plain || "").replace(/[^0-9]/g, "");
+    }
+
+    function getRequestedDayCount(fromPlain, toPlain) {
+        var from = plainToDate(normalizePlainYmd(fromPlain));
+        var to = plainToDate(normalizePlainYmd(toPlain));
+        if (!from || !to) return null;
+        return Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
+    }
+
+    function isOverseasMinuteQuery(query) {
+        if (!query) return false;
+
+        var cc = String(query.stockCountryCode || "").toUpperCase();
+        if (cc && cc !== "KR" && cc !== "KOR") {
+            return true;
+        }
+
+        var mk = String(query.stockMarket || "").toUpperCase();
+        return mk === "NAS" || mk === "NYS" || mk === "AMS"
+            || mk === "HKS" || mk === "SHS" || mk === "SZS"
+            || mk === "TSE" || mk === "TYO" || mk === "HSX"
+            || mk === "HNX";
+    }
+
+    function isOverseasIndexMinuteQuery(query) {
+        if (!query || !isMinuteDivCode(query.periodDivCode)) return false;
+        return isIndexCode(query.stockCode) && isOverseasMinuteQuery(query);
+    }
+
+    function getMinuteMaxDays(query) {
+        if (!query || !isMinuteDivCode(query.periodDivCode)) return null;
+        if (isOverseasIndexMinuteQuery(query)) return 30;
+        if (isIndexCode(query.stockCode)) return null;
+        return isOverseasMinuteQuery(query) ? 30 : 365;
+    }
+
+    function getMinuteRangeError(query, fromPlain, toPlain) {
+        var maxDays = getMinuteMaxDays(query);
+        var requestedDays;
+        var marketLabel;
+        var fromText;
+        var toText;
+
+        if (!maxDays) return "";
+
+        requestedDays = getRequestedDayCount(fromPlain, toPlain);
+        if (requestedDays == null || requestedDays <= maxDays) {
+            return "";
+        }
+
+        marketLabel = isOverseasMinuteQuery(query) ? "해외" : "국내";
+        fromText = normalizePlainYmd(fromPlain);
+        toText = normalizePlainYmd(toPlain);
+
+        return marketLabel + " 분봉 조회는 최대 " + maxDays + "일까지 지원합니다. 요청 범위: "
+            + fromText + " ~ " + toText + " (" + requestedDays + "일)";
+    }
+
+    function buildChartErrorMessage(message) {
+        var text = $.trim(message || "");
+        if (!text) {
+            return "KIS 기간별 시세 조회 중 오류가 발생했습니다.";
+        }
+        if (text.indexOf("분봉 조회는 최대") >= 0 || text.indexOf("현재 세션 데이터만 지원") >= 0) {
+            return text;
+        }
+        return "KIS API 오류: " + text;
+    }
+
+    function buildAutoAdjustedMinuteRange(query, fromPlain, toPlain) {
+        var maxDays;
+        var requestedDays;
+        var normalizedTo;
+        var toDate;
+        var adjustedFrom;
+        var adjustedFromPlain;
+        var adjustedToPlain;
+
+        if (!isOverseasIndexMinuteQuery(query)) {
+            return null;
+        }
+
+        maxDays = getMinuteMaxDays(query);
+        requestedDays = getRequestedDayCount(fromPlain, toPlain);
+        if (!maxDays || requestedDays == null || requestedDays <= maxDays) {
+            return null;
+        }
+
+        normalizedTo = normalizePlainYmd(toPlain);
+        toDate = plainToDate(normalizedTo);
+        if (!toDate) {
+            return null;
+        }
+
+        adjustedFrom = new Date(toDate.getTime());
+        adjustedFrom.setDate(adjustedFrom.getDate() - (maxDays - 1));
+        adjustedFromPlain = dateToPlain(adjustedFrom);
+        adjustedToPlain = dateToPlain(toDate);
+
+        return {
+            fromDate: adjustedFromPlain,
+            toDate: adjustedToPlain,
+            message: "해외 분봉 조회는 최대 " + maxDays + "일까지 지원합니다. 요청 범위: "
+                + normalizePlainYmd(fromPlain) + " ~ " + normalizedTo + " (" + requestedDays + "일)"
+                + "\n가능한 기간으로 자동 조정합니다: " + adjustedFromPlain + " ~ " + adjustedToPlain
+        };
+    }
+
+    function showChartLoading() {
+        try {
+            if (typeof window.dtShowLoading === "function") {
+                window.dtShowLoading(loadingTargetId);
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function hideChartLoading() {
+        try {
+            if (typeof window.dtHideLoading === "function") {
+                window.dtHideLoading(loadingTargetId);
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
     function addDaysPlain(plain, deltaDays) {
         var d = plainToDate(plain);
         if (!d) return "";
@@ -765,6 +929,7 @@ var ChartScript = (function () {
         if (needNext) newTo = addDaysPlain(newTo, 1);
         if (!newFrom || !newTo) return;
         if (newFrom === lastQuery.fromDate && newTo === lastQuery.toDate) return;
+        if (getMinuteRangeError(lastQuery, newFrom, newTo)) return;
 
         minuteRangeExtendInFlight = true;
         syncDateInputs(newFrom, newTo);
@@ -910,8 +1075,8 @@ var ChartScript = (function () {
         var pctText = isNaN(pct) ? "" : formatSignedPct(pct);
 
         var html = ""
-            + "<div style='display:inline-block;min-width:25px;text-align:right;"
-            + "padding:2px 4px;border-radius:3px;line-height:1.12;font-size:7px;"
+            + "<div style='display:inline-block;min-width:0;padding:0 2px;text-align:right;"
+            + "border-radius:3px;line-height:1;font-size:5px;"
             + "color:#fff;background:" + bg + ";font-weight:700;'>"
             + priceText
             + (pctText ? ("<br/><span style='font-weight:600;opacity:0.95;font-size:8px;'>" + pctText + "</span>") : "")
@@ -966,7 +1131,7 @@ function removeLastPricePlotLine(chartObj) {
         var y = yAxis0.toPixels(p, false);
 
         // x: 우측 가격축 라벨 영역 안쪽에 배치(잘림 방지)
-        var x = chartObj.plotLeft + chartObj.plotWidth + 4;
+        var x = chartObj.plotLeft + chartObj.plotWidth + 1;
 
         var html = buildLastPriceLabelHtml(p, prevClose);
 
@@ -1334,13 +1499,13 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         var targetWidth, targetLineWidth;
 
         if (spacingPx <= 2) {
-            targetWidth = 1;
+            targetWidth = 0.5;
             targetLineWidth = 1;
         } else if (spacingPx <= 4) {
-            targetWidth = 1;
+            targetWidth = 0.5;
             targetLineWidth = 1;
         } else if (spacingPx <= 6) {
-            targetWidth = Math.max(1, Math.floor(spacingPx * 0.40));
+            targetWidth = Math.max(0.5, Math.floor(spacingPx * 0.40));
             targetLineWidth = 1;
         } else if (spacingPx <= 10) {
             targetWidth = Math.max(2, Math.floor(spacingPx * 0.55));
@@ -1351,7 +1516,7 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
             targetLineWidth = 1;
         }
 
-        if (!isFinite(targetWidth) || targetWidth <= 0) targetWidth = 1;
+        if (!isFinite(targetWidth) || targetWidth <= 0) targetWidth = 0.5;
         if (targetWidth > 18) targetWidth = 18;
         if (series.options
             && series.options.pointWidth === targetWidth
@@ -1590,7 +1755,7 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
             labels: {
                 align: "left",
                 x: 0,
-                style: { fontSize: "9px" },
+                style: { fontSize: "4px" },
                 formatter: function () {
                         return formatVolumeMan(this.value);
                 }
@@ -1719,10 +1884,10 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
         var stockOptions = {
             chart: {
                 animation: false,
-                spacingTop: 2,
-                spacingRight: mobileChart ? 56 : 30,
-                spacingBottom: 2,
-                spacingLeft: mobileChart ? 4 : 2
+                spacingTop: 0,
+                spacingRight: 0,
+                spacingBottom: 0,
+                spacingLeft: 0
             },
             rangeSelector: { enabled: false },
             navigator: { enabled: false },
@@ -1782,12 +1947,15 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
                 },
                 plotLines: (function () {
                     var periodDivCodeVal = ($("#periodDivCode").val() || "D").toUpperCase();
-                    if (!options.monthLinesEnabled) return [];
-                    return DoubleMonthChartScript.buildMonthPlotLines(
-                        times,
-                        periodDivCodeVal,
-                        monthBoundaryTimes
-                    );
+                    var lines = [];
+                    if (options.monthLinesEnabled) {
+                        lines = lines.concat(DoubleMonthChartScript.buildMonthPlotLines(
+                            times,
+                            periodDivCodeVal,
+                            monthBoundaryTimes
+                        ));
+                    }
+                    return lines.concat(buildMinuteDayPlotLines(times, periodDivCodeVal));
                 })()
             }],
             yAxis: yAxis,
@@ -2462,6 +2630,21 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
       skipCurrentPrice = params.skipCurrentPrice === true || params.skipCurrentPrice === "true" || params.skipCurrentPrice === "Y";
       requestId = ++requestSeq;
 
+      var minuteRangeError = getMinuteRangeError(lastQuery, lastQuery.fromDate, lastQuery.toDate);
+      if (minuteRangeError) {
+          var adjustedRange = buildAutoAdjustedMinuteRange(lastQuery, lastQuery.fromDate, lastQuery.toDate);
+          if (!adjustedRange) {
+              alert(minuteRangeError);
+              return;
+          }
+          lastQuery.fromDate = adjustedRange.fromDate;
+          lastQuery.toDate = adjustedRange.toDate;
+          syncDateInputs(adjustedRange.fromDate, adjustedRange.toDate);
+          alert(adjustedRange.message);
+      }
+
+        showChartLoading();
+
         try {
             if (isIndexCode(lastQuery.stockCode)) {
                 applyIndexHeaderStatic(lastQuery.stockCode);
@@ -2496,17 +2679,20 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
                 }
                 if (!res) {
                     minuteRangeExtendInFlight = false;
+                    hideChartLoading();
                     alert("응답이 없습니다.");
                     return;
                 }
                 if (res.system_code && res.system_code !== "0000") {
                     minuteRangeExtendInFlight = false;
-                    alert("KIS API 오류: " + (res.system_msg || ""));
+                    hideChartLoading();
+                    alert(buildChartErrorMessage(res.system_msg));
                     return;
                 }
                 var list = $.isArray(res.data) ? res.data : [];
                 if (!list.length) {
                     minuteRangeExtendInFlight = false;
+                    hideChartLoading();
                     alert("조회된 Chart 데이터가 없습니다.");
                     return;
                 }
@@ -2514,12 +2700,14 @@ function updateOhlcHeader(ts, o, h, l, c, periodDivCode, refClose) {
                 convertHeader(list);
                 renderKisChart(list, lastQuery.periodDivCode);
                 minuteRangeExtendInFlight = false;
+                hideChartLoading();
             },
             error: function (xhr, status, err) {
                 if (requestId !== requestSeq) {
                     return;
                 }
                 minuteRangeExtendInFlight = false;
+                hideChartLoading();
                 console.error("kisItemchartpriceData Ajax error:", status, err);
                 alert("KIS 기간별 시세 조회 중 오류가 발생했습니다.");
             }

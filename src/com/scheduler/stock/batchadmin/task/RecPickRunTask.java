@@ -61,6 +61,15 @@ public class RecPickRunTask implements StockBatchTask {
         int targetCnt = toInt(result.get("targetPickCnt"));
 
         result.put("status", failedCnt == 0 ? "SUCCESS" : (failedCnt < targetCnt ? "PARTIAL" : "FAIL"));
+
+        // 실패 시 lastError 를 message 에 포함 → buildResultMessage() 에서 UI 에 표시됨
+        if (failedCnt > 0) {
+            String lastErr = result.containsKey("lastError") ? String.valueOf(result.get("lastError")) : "";
+            if (!isBlank(lastErr)) {
+                result.put("message", "fail=" + failedCnt + "/" + targetCnt + " | " + lastErr);
+            }
+        }
+
         return result;
     }
 

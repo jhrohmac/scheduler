@@ -94,6 +94,13 @@ start() {
     kill_existing
     setup_context
 
+    # Oracle Autonomous DB (OCI) TLS 인증서 신뢰 설정
+    # - ewallet.pem에서 추출한 Oracle ADB CA를 Java SSL truststore에 등록
+    ORACLE_TRUST_STORE="$PROJECT_DIR/oracle-trust.jks"
+    if [ -f "$ORACLE_TRUST_STORE" ]; then
+        export CATALINA_OPTS="${CATALINA_OPTS} -Djavax.net.ssl.trustStore=$ORACLE_TRUST_STORE -Djavax.net.ssl.trustStorePassword=changeit"
+    fi
+
     echo ""
     echo "=== Tomcat 시작(foreground) ==="
     echo "JAVA_HOME: $JAVA_HOME"

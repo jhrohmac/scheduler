@@ -28,6 +28,9 @@ public class RecSignalService {
     private static final String FILTER_NASDAQ = "NASDAQ";
     private static final String FILTER_NYSE = "NYSE";
     private static final String FILTER_DOW = "DOW";
+    private static final String PARTITION_KR = "P_KR";
+    private static final String PARTITION_US = "P_US";
+    private static final String PARTITION_ETC = "P_ETC";
     private static final int DEFAULT_FETCH_DAYS = 400;
     private static final long DEFAULT_PRIMARY_INTERVAL_MS = 1000L;
     private static final long DEFAULT_RETRY_INTERVAL_MS = 2000L;
@@ -38,6 +41,15 @@ public class RecSignalService {
         private final Map<String, List<DlyPriceDto>> prefetchedPriceMap = new HashMap<String, List<DlyPriceDto>>();
         private int probeAttemptCount;
         private String probeErrorMessage;
+    }
+
+    /** buildRecSignal 결과: dto=null 이면 excludeReason 에 제외 사유 포함 */
+    private static final class BuildResult {
+        private final RecSignalDto dto;
+        private final String excludeReason;
+        BuildResult(RecSignalDto dto) { this.dto = dto; this.excludeReason = null; }
+        BuildResult(String reason)    { this.dto = null; this.excludeReason = reason; }
+        boolean isExcluded()          { return dto == null; }
     }
 
     private StkMasterDao stkMasterDao;
@@ -166,9 +178,7 @@ public class RecSignalService {
         boolean fullRefresh = isFullRefreshRequest(requestMap);
 
         if (!retryOnly && fullRefresh) {
-            HashMap<String, String> deleteMap = new HashMap<String, String>();
-            deleteMap.put("mktCd", marketGroup);
-            recSignalDao.deleteRecSignalByMarket(deleteMap);
+            clearRecSignalSnapshot(marketGroup);
         }
 
         int totalCnt = stockList.size();
@@ -195,11 +205,14 @@ public class RecSignalService {
                 try {
                     List<DlyPriceDto> priceList = baseDateResult.prefetchedPriceMap.remove(stock.getStkCd());
                     if (priceList == null) {
+                        // KIS 해외 일봉 API의 BYMD는 exclusive이므로, US는 effectiveBaseDt로 요청 시
+                        // 해당 날짜 데이터가 누락됨. inputBaseDt(≥effectiveBaseDt)로 요청하여 포함시킴.
+                        // filterPriceListUpToBaseDate 에서 effectiveBaseDt 이후 데이터는 제거됨.
                         priceList = kisDlyPriceSyncService.fetchAdjustedDailyPrices(
                             stock.getStkCd(),
                             stock.getMktCd(),
                             marketGroup,
-                            effectiveBaseDt,
+                            inputBaseDt,
                             fetchDays,
                             requestIntervalMs
                         );
@@ -207,12 +220,14 @@ public class RecSignalService {
 
                     mergeTradeCalendar(priceList, marketGroup, mergedTradeDateSet);
 
-                    RecSignalDto recSignal = buildRecSignal(stock, marketGroup, effectiveBaseDt, priceList);
-                    if (recSignal == null) {
+                    BuildResult buildResult = buildRecSignal(stock, marketGroup, effectiveBaseDt, priceList);
+                    if (buildResult.isExcluded()) {
                         excludedCnt++;
-                        insertItemLog(execId, batchId, effectiveBaseDt, marketGroup, stock, "EXCLUDED", null);
+                        insertItemLog(execId, batchId, effectiveBaseDt, marketGroup, stock, "EXCLUDED",
+                                truncateByUtf8Bytes(buildResult.excludeReason, ITEM_LOG_ERROR_MAX_BYTES));
                         continue;
                     }
+                    RecSignalDto recSignal = buildResult.dto;
 
                     recSignalDao.mergeRecSignal(recSignal);
                     insertItemLog(execId, batchId, effectiveBaseDt, marketGroup, stock, "SUCCESS", null);
@@ -414,32 +429,47 @@ public class RecSignalService {
         return latestTradeDt;
     }
 
-    private RecSignalDto buildRecSignal(RecSignalDto stock, String marketGroup, String effectiveBaseDt,
+    private BuildResult buildRecSignal(RecSignalDto stock, String marketGroup, String effectiveBaseDt,
             List<DlyPriceDto> priceList) throws Exception {
         List<DlyPriceDto> validPriceList = filterPriceListUpToBaseDate(priceList, effectiveBaseDt);
         DlyPriceDto currentPriceRow = findCurrentPriceRow(validPriceList, effectiveBaseDt);
-        if (currentPriceRow == null || currentPriceRow.getAdjClosePrice() == null
-                || currentPriceRow.getAdjClosePrice().doubleValue() <= 0d) {
-            return null;
+
+        // US 시장은 한국 낮 시간대에 당일 데이터가 미제공될 수 있음.
+        // exact match 실패 시 validPriceList 내 최신 거래일로 폴백하고 해당 tradeDt를 baseDt로 사용.
+        String actualBaseDt = effectiveBaseDt;
+        if (currentPriceRow == null) {
+            currentPriceRow = findLatestPriceRow(validPriceList);
+            if (currentPriceRow != null && !isBlank(currentPriceRow.getTradeDt())) {
+                actualBaseDt = currentPriceRow.getTradeDt();
+            }
         }
 
-        String effectiveYYYYMM = tradeDateService.toYearMonth(effectiveBaseDt);
+        if (currentPriceRow == null || currentPriceRow.getAdjClosePrice() == null
+                || currentPriceRow.getAdjClosePrice().doubleValue() <= 0d) {
+            int priceCnt = validPriceList == null ? 0 : validPriceList.size();
+            String latestDt = priceCnt > 0 ? validPriceList.get(priceCnt - 1).getTradeDt() : "N/A";
+            return new BuildResult("NO_PRICE_FOR_BASE_DT: effectiveDt=" + effectiveBaseDt
+                    + " priceCnt=" + priceCnt + " latestPriceDt=" + latestDt);
+        }
+
+        String effectiveYYYYMM = tradeDateService.toYearMonth(actualBaseDt);
         Double monOpenPrice = findMonthOpenPrice(validPriceList, effectiveYYYYMM);
         if (monOpenPrice == null || monOpenPrice.doubleValue() <= 0d) {
-            return null;
+            return new BuildResult("NO_MON_OPEN_PRICE: yyyymm=" + effectiveYYYYMM);
         }
 
         List<DlyPriceDto> maSourceList = selectLastValidCloseRows(validPriceList, 240);
         MaResultDto maResult = maCalculateService.calculateMaResult(maSourceList);
         if (!maCalculateService.isValidMaResult(maResult)) {
-            return null;
+            int cntValid = maResult != null && maResult.getCntValid() != null ? maResult.getCntValid().intValue() : 0;
+            return new BuildResult("MA_INVALID: cntValid=" + cntValid + " (need 240) validPriceCnt=" + validPriceList.size());
         }
 
         Double currentPrice = currentPriceRow.getAdjClosePrice();
         Double avgTradeValue20 = calculateAvgTradeValue20(validPriceList);
 
         RecSignalDto dto = new RecSignalDto();
-        dto.setBaseDt(effectiveBaseDt);
+        dto.setBaseDt(actualBaseDt);
         dto.setStkCd(stock.getStkCd());
         dto.setStkNm(stock.getStkNm());
         dto.setMktCd(marketGroup);
@@ -458,7 +488,7 @@ public class RecSignalService {
         dto.setRecYn(resolveRecYn(dto));
         dto.setRecGrade(resolveRecGrade(dto));
         dto.setRecReason(buildReason(dto));
-        return dto;
+        return new BuildResult(dto);
     }
 
     private void mergeTradeCalendar(List<DlyPriceDto> priceList, String marketGroup, Set<String> mergedTradeDateSet)
@@ -516,6 +546,18 @@ public class RecSignalService {
         for (int i = 0; priceList != null && i < priceList.size(); i++) {
             DlyPriceDto dto = priceList.get(i);
             if (dto != null && effectiveBaseDt.equals(dto.getTradeDt())) {
+                return dto;
+            }
+        }
+        return null;
+    }
+
+    /** priceList(오름차순 정렬)에서 유효 종가가 있는 최신 거래일 행 반환 */
+    private DlyPriceDto findLatestPriceRow(List<DlyPriceDto> priceList) {
+        if (priceList == null) return null;
+        for (int i = priceList.size() - 1; i >= 0; i--) {
+            DlyPriceDto dto = priceList.get(i);
+            if (dto != null && dto.getAdjClosePrice() != null && dto.getAdjClosePrice().doubleValue() > 0d) {
                 return dto;
             }
         }
@@ -870,6 +912,34 @@ public class RecSignalService {
             return MARKET_KR;
         }
         return MARKET_US;
+    }
+
+    private void clearRecSignalSnapshot(String marketGroup) throws Exception {
+        if (isRecSignalPartitioned()) {
+            HashMap<String, String> truncateMap = new HashMap<String, String>();
+            truncateMap.put("partitionName", resolveRecSignalPartitionName(marketGroup));
+            recSignalDao.truncateRecSignalPartition(truncateMap);
+            return;
+        }
+
+        HashMap<String, String> deleteMap = new HashMap<String, String>();
+        deleteMap.put("mktCd", normalizeMarketGroup(marketGroup));
+        recSignalDao.deleteRecSignalByMarket(deleteMap);
+    }
+
+    private boolean isRecSignalPartitioned() throws Exception {
+        return "YES".equalsIgnoreCase(trim(recSignalDao.selectRecSignalPartitionedYn()));
+    }
+
+    private String resolveRecSignalPartitionName(String marketGroup) {
+        String normalized = normalizeMarketGroup(marketGroup);
+        if (MARKET_US.equals(normalized)) {
+            return PARTITION_US;
+        }
+        if (MARKET_KR.equals(normalized)) {
+            return PARTITION_KR;
+        }
+        return PARTITION_ETC;
     }
 
     private String normalizeMarketGroup(String marketGroup) {

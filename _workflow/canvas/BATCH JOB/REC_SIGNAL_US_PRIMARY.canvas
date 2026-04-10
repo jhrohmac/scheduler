@@ -1,0 +1,31 @@
+{
+	"nodes":[
+		{"id":"title","type":"text","text":"JOB_ID: REC_SIGNAL_US_PRIMARY\n\n요약: 미국 종목을 대상으로 추천 시그널 스냅샷을 계산하는 primary 배치다.\nTASK_KEY: REC_SIGNAL_RUN\n주요 파라미터: marketGroup=US, retryOnly=N, days=400, requestIntervalMs=1000\n설계 스케줄: 16:00 TUE-SAT\n결과 저장: TB_REC_SIGNAL, TB_BATCH_EXEC_LOG, TB_BATCH_EXEC_ITEM_LOG\n비고: JOB_ID 명은 설계 문서 기준으로 정리했다.","x":-320,"y":-418,"width":1320,"height":298,"color":"3"},
+		{"id":"n1","type":"text","text":"1. Trigger And Lock\n요약: BatchAdmin 수동 실행이나 scheduler tick 이 job 을 시작하고 중복 실행을 막기 위한 runtime lock 을 획득한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- StockBatchAdminService.triggerJob()\n- markJobStart() 실행\n- heartbeat 시작","x":0,"y":0,"width":700,"height":272},
+		{"id":"n2","type":"text","text":"2. Job Definition Load\n요약: 실행할 job 정의, task bean, 파라미터를 읽어 task 실행용 map 을 구성한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_DEF\n- TB_STK_BATCH_TASK_DEF\n- TB_STK_BATCH_JOB_PARAM\n핵심 처리:\n- job_id = REC_SIGNAL_US_PRIMARY\n- marketGroup=US, retryOnly=N 파라미터 로드\n- execId 와 triggerType 주입","x":0,"y":332,"width":700,"height":320},
+		{"id":"n3","type":"text","text":"3. Task Bean Chain\n요약: BatchAdmin 이 Spring task bean 을 찾아 RecSignal 배치 서비스로 위임한다.\n관련 구성:\n- recSignalRunTask\n- RecSignalDailyBatch.run()\n- RecSignalBatch.run()\n- RecSignalService.runBatch()","x":0,"y":712,"width":700,"height":248},
+		{"id":"n4","type":"text","text":"4. Batch Init\n요약: 배치 식별자와 실행 로그를 만들고 실행 모드를 정규화한다.\n관련 테이블:\n- TB_BATCH_EXEC_LOG\n핵심 처리:\n- batchId = BATCH_REC_SIGNAL_US_PRIMARY\n- TB_BATCH_EXEC_LOG 에 RUNNING 상태 insert\n- 시장, 기준일, 재시도 모드 정규화","x":0,"y":1020,"width":700,"height":272},
+		{"id":"n5","type":"text","text":"5. Universe And Base Date\n요약: 미국 종목 universe 와 유효 기준 거래일을 확정한다.\n관련 테이블:\n- TB_STK_MASTER\n- TB_TRADE_CALENDAR\n핵심 처리:\n- TB_STK_MASTER 에서 사용 가능 종목 조회 후 MKT_CD=US 로 필터\n- 기준일이 휴장일이면 직전 거래일로 보정\n- stkCd 파라미터가 있으면 단건 실행으로 축소","x":0,"y":1352,"width":700,"height":296},
+		{"id":"n6","type":"text","text":"6. Target Stock Selection\n요약: primary 실행 대상 종목 목록을 만들고 전체 refresh 여부를 확정한다.\n관련 테이블:\n- TB_STK_MASTER\n핵심 처리:\n- limit 파라미터가 있으면 대상 수 축소\n- retry 제약 없이 전체 대상 구성\n- full refresh 가능 여부 판단","x":0,"y":1708,"width":700,"height":272},
+		{"id":"n7","type":"text","text":"7. Snapshot Reset And Price Fetch\n요약: full refresh 조건이면 기존 미국 스냅샷을 비우고 종목별 해외 일봉 을 받아 온다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_TRADE_CALENDAR\n핵심 처리:\n- TB_REC_SIGNAL 에서 시장 US 대상 snapshot 정리\n- KisDlyPriceSyncService 로 해외 일봉 조회\n- 수신한 거래일을 TB_TRADE_CALENDAR 에 MERGE","x":0,"y":2040,"width":700,"height":296},
+		{"id":"n8","type":"text","text":"8. Signal Calculation\n요약: 월 시가, 이동평균선, 거래대금, 월간 수익률을 계산해 최종 추천 여부와 등급을 만든다.\n핵심 처리:\n- buildRecSignal()\n- MA5, MA20, MA60, MA120, MA240 계산\n- goldenYn, monUpYn, recYn, recGrade 산출","x":0,"y":2396,"width":700,"height":224},
+		{"id":"n9","type":"text","text":"9. Result Persist\n요약: 계산 결과와 종목별 처리 로그를 저장한다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_ITEM_LOG\n핵심 처리:\n- TB_REC_SIGNAL MERGE\n- TB_BATCH_EXEC_ITEM_LOG 에 SUCCESS, EXCLUDED, FAIL 기록","x":0,"y":2680,"width":700,"height":272},
+		{"id":"n10","type":"text","text":"10. Finish\n요약: 배치 실행 로그를 마감하고 runtime lock 을 해제한다.\n관련 테이블:\n- TB_BATCH_EXEC_LOG\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- 최종 상태 SUCCESS 또는 FAIL 정리\n- markJobFinish() 와 runtime 해제","x":0,"y":3012,"width":700,"height":272},
+		{"id":"db1","type":"text","text":"Input Tables\n요약: 시그널 계산 전에 읽는 기준 데이터와 거래일 보정용 테이블이다.\n관련 테이블:\n- TB_STK_MASTER\n- TB_TRADE_CALENDAR","x":860,"y":1352,"width":620,"height":200,"color":"4"},
+		{"id":"db2","type":"text","text":"Output Tables\n요약: 시그널 결과와 실행 로그가 저장되는 테이블이다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_LOG\n- TB_BATCH_EXEC_ITEM_LOG","x":860,"y":2680,"width":620,"height":224,"color":"4"}
+	],
+	"edges":[
+		{"id":"e1","fromNode":"title","fromSide":"bottom","toNode":"n1","toSide":"top","color":"#90a4ae"},
+		{"id":"e2","fromNode":"n1","fromSide":"bottom","toNode":"n2","toSide":"top","color":"#66bb6a"},
+		{"id":"e3","fromNode":"n2","fromSide":"bottom","toNode":"n3","toSide":"top","color":"#66bb6a"},
+		{"id":"e4","fromNode":"n3","fromSide":"bottom","toNode":"n4","toSide":"top","color":"#66bb6a"},
+		{"id":"e5","fromNode":"n4","fromSide":"bottom","toNode":"n5","toSide":"top","color":"#66bb6a"},
+		{"id":"e6","fromNode":"n5","fromSide":"bottom","toNode":"n6","toSide":"top","color":"#66bb6a"},
+		{"id":"e7","fromNode":"n6","fromSide":"bottom","toNode":"n7","toSide":"top","color":"#66bb6a"},
+		{"id":"e8","fromNode":"n7","fromSide":"bottom","toNode":"n8","toSide":"top","color":"#66bb6a"},
+		{"id":"e9","fromNode":"n8","fromSide":"bottom","toNode":"n9","toSide":"top","color":"#66bb6a"},
+		{"id":"e10","fromNode":"n9","fromSide":"bottom","toNode":"n10","toSide":"top","color":"#66bb6a"},
+		{"id":"e11","fromNode":"n5","fromSide":"right","toNode":"db1","toSide":"left","color":"#9e9e9e"},
+		{"id":"e12","fromNode":"n9","fromSide":"right","toNode":"db2","toSide":"left","color":"#9e9e9e"}
+	]
+}

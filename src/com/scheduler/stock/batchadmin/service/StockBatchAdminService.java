@@ -1,5 +1,6 @@
 package com.scheduler.stock.batchadmin.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -12,6 +13,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -26,7 +29,9 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final long HEARTBEAT_INTERVAL_MS = 30000L;
+    private static final Pattern RELATIVE_DATE_EXPR = Pattern.compile("^(SYSDATE|TODAY)\\s*([+-])\\s*(\\d+)$", Pattern.CASE_INSENSITIVE);
 
     private static final Map<String, Thread> RUNNING_THREADS = new ConcurrentHashMap<String, Thread>();
     private static final Map<String, AtomicBoolean> STOP_FLAGS = new ConcurrentHashMap<String, AtomicBoolean>();
@@ -239,6 +244,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         int recoveredLogCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleBatchExecLogs(empty));
         int releasedRuntimeCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleRuntimeLocks(empty));
+        int fixedOrphanCnt = normalizeUpdateCount(stockBatchAdminDao.fixOrphanRunningStatus(empty));
         int purgedLogCnt = normalizeUpdateCount(stockBatchAdminDao.purgeOldBatchExecLogs(empty));
 
         List<HashMap<String, Object>> dueJobs = stockBatchAdminDao.selectDueJobs(empty);
@@ -260,6 +266,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         meta.put("due", dueJobs == null ? 0 : dueJobs.size());
         meta.put("recoveredLogCnt", recoveredLogCnt);
         meta.put("releasedRuntimeCnt", releasedRuntimeCnt);
+        meta.put("fixedOrphanCnt", fixedOrphanCnt);
         meta.put("purgedLogCnt", purgedLogCnt);
         return out("SUCCESS", "TICK", meta);
     }
@@ -424,16 +431,11 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         List<HashMap<String, Object>> paramRows = stockBatchAdminDao.selectJobParams(q);
         HashMap<String, String> params = new HashMap<String, String>();
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
-        String todayStr = sdf.format(new java.util.Date());
+        ZoneId jobZone = safeZone(mapVal(jobDef, "timezone"));
         for (HashMap<String, Object> row : paramRows) {
             String k = nvl(mapVal(row, "param_key"), "");
-            String v = mapVal(row, "param_value");
             String t = nvl(mapVal(row, "param_type"), "STRING").toUpperCase();
-            // DATE 타입이고 값이 SYSDATE이면 실행 시점의 오늘 날짜로 치환
-            if ("DATE".equals(t) && "SYSDATE".equalsIgnoreCase(v)) {
-                v = todayStr;
-            }
+            String v = resolveRuntimeParamValue(mapVal(row, "param_value"), t, jobZone);
             if (!k.isEmpty()) params.put(k, v);
         }
 
@@ -544,6 +546,37 @@ public class StockBatchAdminService implements ApplicationContextAware {
             list.add(m);
         }
         return list;
+    }
+
+    private String resolveRuntimeParamValue(String paramValue, String paramType, ZoneId zone) {
+        if (!"DATE".equalsIgnoreCase(nvl(paramType, "STRING"))) {
+            return paramValue;
+        }
+
+        return resolveRuntimeDateValue(paramValue, zone);
+    }
+
+    private String resolveRuntimeDateValue(String paramValue, ZoneId zone) {
+        String value = nvl(paramValue, "").trim();
+        if (value.isEmpty()) {
+            return value;
+        }
+
+        if ("SYSDATE".equalsIgnoreCase(value) || "TODAY".equalsIgnoreCase(value)) {
+            return LocalDate.now(zone).format(DATE_FMT);
+        }
+
+        Matcher matcher = RELATIVE_DATE_EXPR.matcher(value);
+        if (!matcher.matches()) {
+            return value;
+        }
+
+        int offsetDays = parsePositiveInt(matcher.group(3), 0);
+        if ("-".equals(matcher.group(2))) {
+            offsetDays *= -1;
+        }
+
+        return LocalDate.now(zone).plusDays(offsetDays).format(DATE_FMT);
     }
 
     private void updateNextRun(HashMap<String, Object> job) throws Exception {

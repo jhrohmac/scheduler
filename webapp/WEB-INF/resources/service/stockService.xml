@@ -39,12 +39,6 @@
 		<property name="positionExitSignalService" ref="positionExitSignalService"></property>
 	</bean>
 
-	<bean id="recSignalMarketScheduler" class="com.scheduler.stock.batch.RecSignalMarketScheduler">
-		<property name="recSignalDailyBatch" ref="recSignalDailyBatch"></property>
-	    <property name="recPickDailyBatch" ref="recPickDailyBatch"></property>
-		<property name="positionMonitorDailyBatch" ref="positionMonitorDailyBatch"></property>
-	</bean>
-
 	<bean id="kisDlyPriceSyncService" class="com.scheduler.stock.service.KisDlyPriceSyncService">
 		<property name="stkMasterDao" ref="stkMasterDaoImpl"></property>
 	</bean>
@@ -102,6 +96,14 @@
 
 	<bean id="recSignalRunTask" class="com.scheduler.stock.batchadmin.task.RecSignalRunTask">
 		<property name="recSignalDailyBatch" ref="recSignalDailyBatch"></property>
+	</bean>
+
+	<bean id="stkMasterRefreshService" class="com.scheduler.stock.service.StkMasterRefreshService">
+		<property name="stkMasterDao" ref="stkMasterDaoImpl"/>
+	</bean>
+
+	<bean id="stkMasterRefreshTask" class="com.scheduler.stock.batchadmin.task.StkMasterRefreshTask">
+		<property name="stkMasterRefreshService" ref="stkMasterRefreshService"/>
 	</bean>
 
 	<bean id="tradeDateService" class="com.scheduler.stock.service.TradeDateService">

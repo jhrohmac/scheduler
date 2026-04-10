@@ -52,6 +52,150 @@ function fmtYmdToPlain(ymd) {
     $("#toDate").val(toISO(to));
   }
 
+  function normalizePlainYmd(value) {
+    return String(value || "").replace(/[^0-9]/g, "");
+  }
+
+  function isValidPlainYmd(plain) {
+    var s = normalizePlainYmd(plain);
+    if (s.length !== 8) return false;
+    var y = parseInt(s.substr(0, 4), 10);
+    var m = parseInt(s.substr(4, 2), 10) - 1;
+    var d = parseInt(s.substr(6, 2), 10);
+    var dt = new Date(y, m, d);
+    return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
+  }
+
+  function toDateFromPlain(plain) {
+    if (!isValidPlainYmd(plain)) return null;
+    var s = normalizePlainYmd(plain);
+    return new Date(parseInt(s.substr(0, 4), 10), parseInt(s.substr(4, 2), 10) - 1, parseInt(s.substr(6, 2), 10));
+  }
+
+  function setDateInputsFromPlain(fromPlain, toPlain) {
+    $("#fromDate").val(plainYmdToIso(normalizePlainYmd(fromPlain)));
+    $("#toDate").val(plainYmdToIso(normalizePlainYmd(toPlain)));
+  }
+
+  function inferLocaleByCode(code) {
+    var c = (code || "").trim().toUpperCase();
+    if (!c) return { country: "", market: "" };
+    if (/^[A-Z][A-Z0-9\.\-]{0,9}$/.test(c) && !/^\d+$/.test(c)) {
+      return { country: "US", market: "NAS" };
+    }
+    return { country: "KR", market: "KRX" };
+  }
+
+  function isIndexLikeCode(code) {
+    var c = (code || "").trim().toUpperCase();
+    if (!c) return false;
+    if (c.charAt(0) === ".") return true;
+    return c === "0001" || c === "1001" || c === "2001"
+      || c === "KOSPI" || c === "KOSDAQ" || c === "KOSPI200";
+  }
+
+  function isOverseasLike(stockCode, stockCountry, stockMarket) {
+    var country = String(stockCountry || "").trim().toUpperCase();
+    if (country && country !== "KR" && country !== "KOR") return true;
+
+    var market = String(stockMarket || "").trim().toUpperCase();
+    if (!market) {
+      var inf = inferLocaleByCode(stockCode);
+      market = String(inf.market || "").trim().toUpperCase();
+    }
+
+    return market === "NAS" || market === "NYS" || market === "AMS"
+      || market === "HKS" || market === "SHS" || market === "SZS"
+      || market === "TSE" || market === "TYO" || market === "HSX"
+      || market === "HNX";
+  }
+
+  function getMinuteDefaultDays(stockCode, stockCountry, stockMarket) {
+    if (isIndexLikeCode(stockCode)) return 1;
+    return 5;
+  }
+
+  function getMinuteMaxDays(stockCode, stockCountry, stockMarket) {
+    if (isIndexLikeCode(stockCode)) return null;
+    return isOverseasLike(stockCode, stockCountry, stockMarket) ? 30 : 365;
+  }
+
+  function getRequestedDays(fromPlain, toPlain) {
+    var from = toDateFromPlain(fromPlain);
+    var to = toDateFromPlain(toPlain);
+    if (!from || !to) return null;
+    var millis = to.getTime() - from.getTime();
+    return Math.floor(millis / 86400000) + 1;
+  }
+
+  function applyDefaultDatesForPeriod(periodDivCode, stockCode, stockCountry, stockMarket) {
+    if (isMinuteDivCode(periodDivCode)) {
+      applyMinuteDefaultRange(getMinuteDefaultDays(stockCode, stockCountry, stockMarket));
+      return;
+    }
+    setDefaultDates();
+  }
+
+  function restoreDateRangeForPeriod(lastView, periodDivCode, stockCode, stockCountry, stockMarket) {
+    var fromPlain = normalizePlainYmd(lastView && lastView.fromDate);
+    var toPlain = normalizePlainYmd(lastView && lastView.toDate);
+
+    if (!isValidPlainYmd(fromPlain) || !isValidPlainYmd(toPlain) || toPlain < fromPlain) {
+      applyDefaultDatesForPeriod(periodDivCode, stockCode, stockCountry, stockMarket);
+      return false;
+    }
+
+    if (isMinuteDivCode(periodDivCode)) {
+      var maxDays = getMinuteMaxDays(stockCode, stockCountry, stockMarket);
+      var requestedDays = getRequestedDays(fromPlain, toPlain);
+      if (maxDays && requestedDays && requestedDays > maxDays) {
+        applyDefaultDatesForPeriod(periodDivCode, stockCode, stockCountry, stockMarket);
+        return false;
+      }
+    }
+
+    setDateInputsFromPlain(fromPlain, toPlain);
+    return true;
+  }
+
+  function resolveSelectedLocale(stockCode) {
+    var selectedCountry = (window.__SELECTED_STOCK_COUNTRY || "").trim();
+    var selectedMarket = (window.__SELECTED_STOCK_MARKET || "").trim();
+    var inf = inferLocaleByCode(stockCode);
+
+    if (!selectedCountry || !selectedMarket || (inf.country && selectedCountry && inf.country !== selectedCountry)) {
+      if (inf.country) selectedCountry = inf.country;
+      if (inf.market) selectedMarket = inf.market;
+      window.__SELECTED_STOCK_COUNTRY = selectedCountry;
+      window.__SELECTED_STOCK_MARKET = selectedMarket;
+    }
+
+    return { country: selectedCountry, market: selectedMarket };
+  }
+
+  function updateIntradayHint(periodDivCode, stockCode, stockCountry, stockMarket) {
+    var $hint = $("#kisIntradayHint");
+    if (!$hint.length) return;
+
+    if (!isMinuteDivCode(periodDivCode)) {
+      $hint.hide().text("");
+      return;
+    }
+
+    var message = "";
+    if (isIndexLikeCode(stockCode) && isOverseasLike(stockCode, stockCountry, stockMarket)) {
+      message = "해외 지수 분봉은 최대 30일까지 조회할 수 있습니다.";
+    } else if (isIndexLikeCode(stockCode)) {
+      message = "지수 분봉은 KIS 현재 세션 데이터 기준으로 조회됩니다.";
+    } else if (isOverseasLike(stockCode, stockCountry, stockMarket)) {
+      message = "해외 분봉은 최대 30일까지 조회할 수 있습니다.";
+    } else {
+      message = "국내 분봉은 최대 365일까지 조회할 수 있습니다.";
+    }
+
+    $hint.text(message).show();
+  }
+
   function unwrapList(res) {
     if (!res) return { ok: false, list: [], msg: "" };
 
@@ -1665,18 +1809,12 @@ function fmtYmdToPlain(ymd) {
 
     var stockCode = ($("#stockCode").val() || "").trim();
     var periodDivCode = $("#periodDivCode").val();
+    var locale = resolveSelectedLocale(stockCode);
+    var selectedCountry = locale.country;
+    var selectedMarket = locale.market;
 
     if (stockCode && __LAST_SEARCHED_STOCK_CODE && __LAST_SEARCHED_STOCK_CODE !== stockCode) {
-      setDefaultDates(); // 종목 변경 시 기본 1년6개월
-    }
-
-    function inferLocaleByCode(code) {
-      var c = (code || "").trim().toUpperCase();
-      if (!c) return { country: "", market: "" };
-      if (/^[A-Z][A-Z0-9\.\-]{0,9}$/.test(c) && !/^\d+$/.test(c)) {
-        return { country: "US", market: "NAS" };
-      }
-      return { country: "KR", market: "KRX" };
+      applyDefaultDatesForPeriod(periodDivCode, stockCode, selectedCountry, selectedMarket);
     }
 
     var fromDate = fmtYmdToPlain($("#fromDate").val());
@@ -1684,7 +1822,7 @@ function fmtYmdToPlain(ymd) {
 
     if (isMinuteDivCode(periodDivCode)) {
       if (!fromDate || !toDate) {
-        applyMinuteDefaultRange(5);
+        applyDefaultDatesForPeriod(periodDivCode, stockCode, selectedCountry, selectedMarket);
         fromDate = fmtYmdToPlain($("#fromDate").val());
         toDate = fmtYmdToPlain($("#toDate").val());
       }
@@ -1701,18 +1839,7 @@ function fmtYmdToPlain(ymd) {
 
     __LAST_SEARCHED_STOCK_CODE = stockCode;
 
-    var selectedCountry = (window.__SELECTED_STOCK_COUNTRY || "").trim();
-    var selectedMarket = (window.__SELECTED_STOCK_MARKET || "").trim();
-    var inf = inferLocaleByCode(stockCode);
-
-    // 코드 기준 시장/국가와 현재 선택값이 충돌하면 코드 기준으로 보정
-    // (예: 005930을 US/NAS로 들고가서 '조회된 차트 데이터가 없습니다' 발생)
-    if (!selectedCountry || !selectedMarket || (inf.country && selectedCountry && inf.country !== selectedCountry)) {
-      if (inf.country) selectedCountry = inf.country;
-      if (inf.market) selectedMarket = inf.market;
-      window.__SELECTED_STOCK_COUNTRY = selectedCountry;
-      window.__SELECTED_STOCK_MARKET = selectedMarket;
-    }
+    updateIntradayHint(periodDivCode, stockCode, selectedCountry, selectedMarket);
 
     try {
       saveLastViewState({
@@ -2221,7 +2348,10 @@ function scheduleMaAutoSave() {
     }
 
     function isMobileLayout() {
-      return window.matchMedia && window.matchMedia("(max-width: 860px)").matches;
+      return window.matchMedia && (
+        window.matchMedia("(max-width: 860px)").matches ||
+        window.matchMedia("(max-width: 1180px) and (hover: none) and (pointer: coarse)").matches
+      );
     }
 
     function closePanels() {
@@ -2496,7 +2626,8 @@ $(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
     $("#periodDivCode").on("change", function () {
       var p = $("#periodDivCode").val();
       if (isMinuteDivCode(p)) {
-        applyMinuteDefaultRange(5);
+        var locale = resolveSelectedLocale(($("#stockCode").val() || "").trim());
+        applyDefaultDatesForPeriod(p, ($("#stockCode").val() || "").trim(), locale.country, locale.market);
       }
       doSearch();
     });    
@@ -2640,6 +2771,10 @@ $(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
       }
     } catch (e) {}
 
-    setDefaultDates(); // 페이지 새로고침/초기 진입 시 기본 1년6개월
+    var initialCode = ($("#stockCode").val() || "").trim();
+    var initialPeriod = $("#periodDivCode").val();
+    var initialLocale = resolveSelectedLocale(initialCode);
+    restoreDateRangeForPeriod(lastView, initialPeriod, initialCode, initialLocale.country, initialLocale.market);
+    updateIntradayHint(initialPeriod, initialCode, initialLocale.country, initialLocale.market);
     doSearch();
   });

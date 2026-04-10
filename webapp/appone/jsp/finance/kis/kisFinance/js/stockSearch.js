@@ -4,6 +4,9 @@ var StockSearch = (function () {
   var $input;
   var $clear;
   var $box;
+  var $wrap;
+  var $trigger;
+  var $close;
 
   var timer = null;
   var items = [];
@@ -139,15 +142,101 @@ var StockSearch = (function () {
     showBox();
   }
 
+  function getKeyword() {
+    return String(($input && $input.length ? $input.val() : "") || "").trim();
+  }
+
+  function isExpanded() {
+    return !!($wrap && $wrap.length && $wrap.hasClass("is-expanded"));
+  }
+
+  function isBoxOpen() {
+    return !!($box && $box.length && $box.hasClass("is-open"));
+  }
+
+  function syncWrapState() {
+    var keyword = getKeyword();
+    var isFocused = !!($input && $input.length && document.activeElement === $input[0]);
+
+    if ($wrap && $wrap.length) {
+      $wrap.toggleClass("has-value", !!keyword);
+      $wrap.toggleClass("is-focused", isFocused);
+      $wrap.toggleClass("is-open", isBoxOpen());
+    }
+
+    if ($trigger && $trigger.length) {
+      $trigger.attr("aria-expanded", isExpanded() ? "true" : "false");
+    }
+  }
+
+  function focusInput(selectAll) {
+    var run = function () {
+      if (!$input || !$input.length) return;
+      $input.trigger("focus");
+      if (selectAll) {
+        $input.select();
+      }
+      syncWrapState();
+    };
+
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(run);
+    } else {
+      window.setTimeout(run, 16);
+    }
+  }
+
+  function openSearch(options) {
+    var opts = options || {};
+    if ($wrap && $wrap.length) {
+      $wrap.addClass("is-expanded");
+    }
+    if (opts.focus !== false) {
+      focusInput(!!opts.select);
+    } else {
+      syncWrapState();
+    }
+  }
+
+  function collapseSearch(options) {
+    var opts = options || {};
+
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+
+    hideBox();
+
+    if (opts.clear && $input && $input.length) {
+      $input.val("");
+    }
+
+    if ($wrap && $wrap.length) {
+      $wrap.removeClass("is-expanded");
+    }
+
+    if ($input && $input.length && document.activeElement === $input[0]) {
+      $input.trigger("blur");
+    }
+
+    syncWrapState();
+  }
+
   function showBox() {
     if (!$box || !$box.length) return;
-    $box.show();
+    if (!isExpanded()) {
+      openSearch({ focus: false });
+    }
+    $box.addClass("is-open").attr("aria-hidden", "false");
+    syncWrapState();
   }
 
   function hideBox() {
     if (!$box || !$box.length) return;
-    $box.hide();
+    $box.removeClass("is-open").attr("aria-hidden", "true");
     activeIndex = -1;
+    syncWrapState();
   }
 
   function setActive(idx) {
@@ -161,15 +250,20 @@ var StockSearch = (function () {
     $row.addClass("is-active");
 
     // 스크롤 가시영역 보정
+    var $scroller = $box.find(".s-scroll");
+    if (!$scroller.length) {
+      $scroller = $box;
+    }
+
     var rowTop = $row.position().top;
     var rowBottom = rowTop + $row.outerHeight();
-    var boxScrollTop = $box.scrollTop();
-    var boxH = $box.innerHeight();
+    var boxScrollTop = $scroller.scrollTop();
+    var boxH = $scroller.innerHeight();
 
     if (rowTop < 0) {
-      $box.scrollTop(boxScrollTop + rowTop);
+      $scroller.scrollTop(boxScrollTop + rowTop);
     } else if (rowBottom > boxH) {
-      $box.scrollTop(boxScrollTop + (rowBottom - boxH));
+      $scroller.scrollTop(boxScrollTop + (rowBottom - boxH));
     }
   }
 
@@ -202,6 +296,26 @@ var StockSearch = (function () {
           stockCountryCode: (it.stock_country_code || it.country_code || it.country || "")
         };
         ChartScript.loadKisItemchartprice(params);
+
+        // 실시간 헤더(현재가/등락률) 갱신: 새 종목으로 ChartPriceRealtime 재연결
+        try {
+          if (window.ChartPriceRealtime && typeof window.ChartPriceRealtime.connect === "function") {
+            var q = (window.ChartScript && window.ChartScript.lastQuery) ? window.ChartScript.lastQuery : {};
+            var rtCode = (q.stockCode || code || "").trim();
+            var rtUpper = rtCode.toUpperCase();
+            var isIndexOrFx = (rtUpper.charAt(0) === "." || rtUpper === "0001" || rtUpper === "1001" || rtUpper === "2001"
+              || rtUpper === "KOSPI" || rtUpper === "KOSDAQ" || rtUpper === "KOSPI200" || rtUpper === "USDKRW");
+            if (!isIndexOrFx && rtCode) {
+              var rtCountry = (q.stockCountryCode || "").trim();
+              var rtMarket = (q.stockMarket || "").trim();
+              if (!rtMarket && rtCountry) {
+                rtMarket = (rtCountry === "KR") ? "KRX" : "NAS";
+              }
+              var rtToken = rtCountry ? (rtCountry + "|" + rtMarket + "|" + rtCode) : rtCode;
+              window.ChartPriceRealtime.connect(rtToken);
+            }
+          }
+        } catch (e) {}
       }
     }
 
@@ -211,6 +325,7 @@ var StockSearch = (function () {
     }
 
     hideBox();
+    syncWrapState();
   }
 
   function fetch(keyword) {
@@ -246,13 +361,8 @@ var StockSearch = (function () {
   }
 
   function onInput() {
-    var keyword = String($input.val() || "").trim();
-
-    if (keyword.length > 0) {
-      $clear.css("display", "inline-flex");
-    } else {
-      $clear.hide();
-    }
+    var keyword = getKeyword();
+    syncWrapState();
 
     if (!keyword) {
       hideBox();
@@ -274,15 +384,24 @@ var StockSearch = (function () {
     $(document).on("keydown", function (e) {
       if (e.altKey && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
-        $input.focus();
-        $input.select();
+        openSearch({ focus: true, select: true });
       }
     });
 
     $input.on("input", onInput);
 
     $input.on("keydown", function (e) {
-      if (!$box.is(":visible")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (isBoxOpen()) {
+          hideBox();
+        } else {
+          collapseSearch({ clear: true });
+        }
+        return;
+      }
+
+      if (!isBoxOpen()) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -297,16 +416,31 @@ var StockSearch = (function () {
         } else {
           applySelection(activeIndex);
         }
-      } else if (e.key === "Escape") {
-        hideBox();
       }
     });
 
-    $clear.on("click", function () {
+    $trigger.on("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openSearch({ focus: true, select: !getKeyword() });
+      if (getKeyword()) {
+        onInput();
+      }
+    });
+
+    $clear.on("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       $input.val("");
-      $input.focus();
-      $clear.hide();
       hideBox();
+      openSearch({ focus: true });
+      syncWrapState();
+    });
+
+    $close.on("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      collapseSearch({ clear: true });
     });
 
     // 클릭 선택
@@ -318,28 +452,49 @@ var StockSearch = (function () {
 
     // 바깥 클릭 => 닫기
     $(document).on("mousedown", function (e) {
-      if (!$box.is(":visible")) return;
+      var keyword;
+
+      if (!isExpanded() && !isBoxOpen()) return;
       if ($(e.target).closest(".top-search-wrap").length) return;
+
+      keyword = getKeyword();
       hideBox();
+
+      if (!keyword) {
+        collapseSearch({ clear: false });
+      }
     });
 
     // 포커스 시, 값이 있으면 재조회
     $input.on("focus", function () {
-      var keyword = String($input.val() || "").trim();
+      var keyword = getKeyword();
+      openSearch({ focus: false });
       if (keyword) {
         onInput();
       }
+    }).on("blur", function () {
+      window.setTimeout(function () {
+        if (!isBoxOpen() && !getKeyword()) {
+          collapseSearch({ clear: false });
+        } else {
+          syncWrapState();
+        }
+      }, 120);
     });
   }
 
   function init() {
+    $wrap = $("#topSearchWrap");
     $input = $("#topSearchInput");
     $clear = $("#topSearchClear");
     $box = $("#topSuggest");
+    $trigger = $("#topSearchTrigger");
+    $close = $("#topSearchClose");
 
     if (!$input.length || !$box.length) return;
 
     bindEvents();
+    syncWrapState();
   }
 
   return {
