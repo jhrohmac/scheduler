@@ -53,6 +53,7 @@
 		<typeAlias alias="recPickEvalDto"		type="com.scheduler.stock.dto.RecPickEvalDto"/>
 		<typeAlias alias="recProbabilityDto"	type="com.scheduler.stock.dto.RecProbabilityDto"/>
 		<typeAlias alias="positionSellGuideDto"	type="com.scheduler.stock.dto.PositionSellGuideDto"/>
+		<typeAlias alias="stkMasterDto"			type="com.scheduler.stock.dto.StkMasterDto"/>
 		
 		<!-- batch 											  
 	 	<typeAlias alias="macroDailyVo"				type="com.scheduler.finance.vo.MacroDailyVo"/>
