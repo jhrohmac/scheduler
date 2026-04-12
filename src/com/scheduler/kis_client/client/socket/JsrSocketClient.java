@@ -2,6 +2,7 @@ package com.scheduler.kis_client.client.socket;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -617,9 +618,34 @@ public class JsrSocketClient extends SocketClient {
         return s == null || s.trim().isEmpty() || "null".equalsIgnoreCase(s.trim());
     }
 
+    private void shutdownContainerQuietly() {
+        invokeContainerMethod("shutdown");
+        invokeContainerMethod("close");
+    }
+
+    private void invokeContainerMethod(String methodName) {
+        if (container == null || isBlank(methodName)) {
+            return;
+        }
+
+        try {
+            Method method = container.getClass().getMethod(methodName);
+            method.setAccessible(true);
+            method.invoke(container);
+        } catch (NoSuchMethodException ignore) {
+        } catch (Exception e) {
+            logger.debug("[KIS-WS] container {} failed", methodName, e);
+        }
+    }
+
     @Override
     public void close() throws IOException {
+        failAllPending(new KisClientException("WebSocket client closing"));
+        subscribers.clear();
+        aesKey = null;
+        ivKey = null;
         safeClose();
+        shutdownContainerQuietly();
     }
 
     @Override

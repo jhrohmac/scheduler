@@ -18,6 +18,8 @@
 	<import resource="classpath:/service/mngtService.xml"/>
 	<!-- Finance -->
     <import resource="classpath:/service/financeService.xml"/>
+	<!-- Stock -->
+    <import resource="classpath:/service/stockService.xml"/>
 	
 	<!-- File Download -->
 	<bean id="download" class="com.scheduler.comm.util.DownloadView"/>
@@ -37,5 +39,6 @@
 		 <property name="contentType" value="text/html;charset=UTF-8" />
 	</bean>
 	
-	<task:annotation-driven/>	<!-- @Async를 활성화하는 역할로, @EnableAsync와 동일한 기능을 수행  -->
+	<task:scheduler id="appTaskScheduler" pool-size="8"/>
+	<task:annotation-driven scheduler="appTaskScheduler"/>	<!-- @Scheduled 작업을 멀티 스레드로 실행 -->
 </beans>

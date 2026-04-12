@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -1691,14 +1692,15 @@ public class StockCodeInfoController {
     }
     
     private static final DateTimeFormatter DATE_YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DATE_YYYY_MM_DD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     /**
      * Ajax: 국내주식기간별시세(일/주/월/년) – getInquireDailyItemchartprice 호출
      *
      * 파라미터
      *  - stockCode     : 종목코드 (예: 005930)
-     *  - fromDate      : 시작일자 (YYYYMMDD)
-     *  - toDate        : 종료일자 (YYYYMMDD)
+     *  - fromDate      : 시작일자 (YYYYMMDD 또는 YYYY-MM-DD)
+     *  - toDate        : 종료일자 (YYYYMMDD 또는 YYYY-MM-DD)
      *  - periodDivCode : 기간분류코드 (D/W/M/Y, 기본 D)
      *  - orgAdjPrc     : 수정주가/원주가 (0/1, 기본 0 - 수정주가)
      */
@@ -1719,14 +1721,9 @@ public class StockCodeInfoController {
             stockCode = "005930";     // 기본: 삼성전자
         }
 
-        // 날짜가 비어 있으면 오늘 기준 최근 60일로 세팅
         LocalDate today = LocalDate.now();
-        if (toDate.length() == 0) {
-            toDate = today.format(DATE_YYYYMMDD);
-        }
-        if (fromDate.length() == 0) {
-            fromDate = today.minusDays(60).format(DATE_YYYYMMDD);
-        }
+        toDate = normalizeChartDateInput(toDate, today, "toDate");
+        fromDate = normalizeChartDateInput(fromDate, today.minusDays(60), "fromDate");
 
         if (periodDivCode.length() == 0) {
             periodDivCode = "D";      // 기본: 일봉
@@ -1734,6 +1731,13 @@ public class StockCodeInfoController {
         if (orgAdjPrc.length() == 0) {
             orgAdjPrc = "0";          // 기본: 수정주가
         }
+
+        map.put("in_stockCode", stockCode);
+        map.put("in_fromDate", fromDate);
+        map.put("in_toDate", toDate);
+        map.put("in_periodDivCode", periodDivCode);
+        map.put("in_orgAdjPrc", orgAdjPrc);
+
         try {
             List<StockDataVo> list = (List<StockDataVo>) stockCodeInfoDao.getInquireDailyItemchartprice(map);
 
@@ -1747,6 +1751,22 @@ public class StockCodeInfoController {
             ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
         } catch (Exception e) {
             ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    private String normalizeChartDateInput(String value, LocalDate fallback, String fieldName) {
+        String trimmed = StringUtil.nvl(value).trim();
+        if (trimmed.length() == 0) {
+            return fallback.format(DATE_YYYYMMDD);
+        }
+
+        try {
+            if (trimmed.indexOf('-') >= 0) {
+                return LocalDate.parse(trimmed, DATE_YYYY_MM_DD).format(DATE_YYYYMMDD);
+            }
+            return LocalDate.parse(trimmed, DATE_YYYYMMDD).format(DATE_YYYYMMDD);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(fieldName + " 형식이 올바르지 않습니다. yyyyMMdd 또는 yyyy-MM-dd 를 사용하세요.");
         }
     }
 }

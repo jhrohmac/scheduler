@@ -167,7 +167,7 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
 
             out.put("IXIC", fetchOverseasLike(client,
                     new String[] { "N" },
-                    new String[] { ".IXIC", "IXIC", "NASDAQ" }));
+                    new String[] { "COMP", ".COMP", ".IXIC", "IXIC", "NASDAQ" }));
 
             out.put("SPX", fetchOverseasLike(client,
                     new String[] { "N" },
@@ -331,6 +331,7 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
                             String prpr = safeGet(output1, "ovrsNmixPrpr", "getOvrsNmixPrpr");
                             String diff = safeGet(output1, "ovrsNmixPrdyVrss", "getOvrsNmixPrdyVrss");
                             String rate = safeGet(output1, "prdyCtrt", "getPrdyCtrt");
+                            String sign = safeGet(output1, "prdyVrssSign", "getPrdyVrssSign");
 
                             if (prpr != null && prpr.trim().length() > 0) {
                                 if (isMissingOverseasValue(prpr, diff, rate)) {
@@ -338,7 +339,7 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
                                 }
                                 String p = nvl(prpr, "-");
                                 String d = nvl(diff, "");
-                                String r = nvl(rate, "");
+                                String r = applyRateSign(rate, sign, diff);
 
                                 if (d.length() > 0 || r.length() > 0) {
                                     return p + " (" + d + " / " + r + "%)";
@@ -363,7 +364,7 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
                                     }
                                     String p = nvl(clos, "-");
                                     String d = nvl(diff, "");
-                                    String r = nvl(rate, "");
+                                    String r = applyRateSign(rate, "", diff);
                                     if (d.length() > 0 || r.length() > 0) {
                                         return p + " (" + d + " / " + r + "%)";
                                     }
@@ -422,9 +423,10 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
             String prpr = safeGet(output, "bstpNmixPrpr", "getBstpNmixPrpr");
             String diff = safeGet(output, "bstpNmixPrdyVrss", "getBstpNmixPrdyVrss");
             String rate = safeGet(output, "bstpNmixPrdyCtrt", "getBstpNmixPrdyCtrt");
+            String sign = safeGet(output, "prdyVrssSign", "getPrdyVrssSign");
 
             if ((diff != null && diff.length() > 0) || (rate != null && rate.length() > 0)) {
-                return nvl(prpr, "-") + " (" + nvl(diff, "") + " / " + nvl(rate, "") + "%)";
+                return nvl(prpr, "-") + " (" + nvl(diff, "") + " / " + applyRateSign(rate, sign, diff) + "%)";
             }
             return nvl(prpr, "-");
         } catch (Exception e) {
@@ -500,13 +502,47 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
         return v == null ? "" : String.valueOf(v);
     }
 
-    private String toDir(String diff, String sign) {
+    private String normalizeKisSign(String sign) {
         String s = nvl(sign, "").trim();
-        if (s.length() > 0) {
-            if ("1".equals(s) || "2".equals(s)) return "UP";
-            if ("4".equals(s) || "5".equals(s)) return "DOWN";
-            return "FLAT";
+        // KIS 부호코드: 1=상한, 2=상승, 3=보합, 4=하한, 5=하락
+        if ("+".equals(s) || "1".equals(s) || "2".equals(s)) return "+";
+        if ("-".equals(s) || "4".equals(s) || "5".equals(s)) return "-";
+        if ("0".equals(s) || "3".equals(s)) return "0";
+        return "";
+    }
+
+    /**
+     * KIS API 등락률(절댓값)에 부호를 적용한다.
+     * sign(prdyVrssSign) 우선, 없으면 diff의 음수 여부로 판단.
+     */
+    private String applyRateSign(String rate, String sign, String diff) {
+        String r = nvl(rate, "");
+        if (r.length() == 0 || r.startsWith("-") || r.startsWith("+")) {
+            return r;
         }
+        String normalized = normalizeKisSign(sign);
+        if ("-".equals(normalized)) {
+            return "-" + r;
+        }
+        if ("+".equals(normalized)) {
+            return r;
+        }
+        // sign이 없으면 diff 부호로 판단
+        try {
+            String d = nvl(diff, "").replace(",", "").trim();
+            if (d.length() > 0 && Double.parseDouble(d) < 0) {
+                return "-" + r;
+            }
+        } catch (Exception ignore) {
+        }
+        return r;
+    }
+
+    private String toDir(String diff, String sign) {
+        String normalized = normalizeKisSign(sign);
+        if ("+".equals(normalized)) return "UP";
+        if ("-".equals(normalized)) return "DOWN";
+        if ("0".equals(normalized)) return "FLAT";
 
         try {
             String d = nvl(diff, "").replace(",", "").trim();

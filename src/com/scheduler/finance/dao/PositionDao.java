@@ -33,6 +33,8 @@ public interface PositionDao {
      * 보유종목 업데이트(평단/수량 갱신)
      */
     int updatePosition(PositionVo vo) throws Exception;
+
+    int updatePositionRecoLink(PositionVo vo) throws Exception;
     
     /**
      * 보유종목 삭제(DELETE) - 실제로는 CLOSE_FLAG='Y' 처리

@@ -21,15 +21,31 @@ if [ -z "$CATALINA_HOME" ]; then
     # Apple Silicon Mac (Homebrew)
     if [ -d "/opt/homebrew/opt/tomcat@9/libexec" ]; then
         export CATALINA_HOME="/opt/homebrew/opt/tomcat@9/libexec"
+        CATALINA_CMD="/opt/homebrew/opt/tomcat@9/bin/catalina"
     # Intel Mac (Homebrew)
     elif [ -d "/usr/local/opt/tomcat@9/libexec" ]; then
         export CATALINA_HOME="/usr/local/opt/tomcat@9/libexec"
+        CATALINA_CMD="/usr/local/opt/tomcat@9/bin/catalina"
+    fi
+fi
+
+if [ -z "$CATALINA_CMD" ]; then
+    if [ -x "/opt/homebrew/opt/tomcat@9/bin/catalina" ]; then
+        CATALINA_CMD="/opt/homebrew/opt/tomcat@9/bin/catalina"
+    elif [ -x "/usr/local/opt/tomcat@9/bin/catalina" ]; then
+        CATALINA_CMD="/usr/local/opt/tomcat@9/bin/catalina"
     fi
 fi
 
 if [ ! -d "$CATALINA_HOME" ]; then
     echo "ERROR: Tomcat을 찾을 수 없습니다. CATALINA_HOME을 확인하세요."
     echo "  brew install tomcat@9 으로 설치할 수 있습니다."
+    exit 1
+fi
+
+if [ ! -x "$CATALINA_CMD" ]; then
+    echo "ERROR: Tomcat 실행 파일을 찾을 수 없습니다."
+    echo "  확인 경로: /opt/homebrew/opt/tomcat@9/bin/catalina"
     exit 1
 fi
 
@@ -41,7 +57,8 @@ setup_context() {
     mkdir -p "$CONTEXT_DIR"
     cat > "$CONTEXT_FILE" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<Context docBase="$WEBAPP_DIR" reloadable="true">
+<Context docBase="$WEBAPP_DIR" reloadable="false">
+    <!-- Tyrus/KIS websocket client는 hot reload 중 classloader leak를 만들 수 있어 수동 재시작 기준으로 운영 -->
     <!-- Oracle DB가 없는 경우 에러가 발생할 수 있지만 Tomcat은 기동됩니다 -->
 </Context>
 EOF
@@ -72,34 +89,24 @@ status() {
     fi
 }
 
-# 시작 (daemon)
+# 시작 (foreground)
 start() {
     kill_existing
     setup_context
 
     echo ""
-    echo "=== Tomcat 시작(daemon) ==="
+    echo "=== Tomcat 시작(foreground) ==="
     echo "JAVA_HOME: $JAVA_HOME"
     echo "CATALINA_HOME: $CATALINA_HOME"
-    echo "CATALINA_PID: $CATALINA_PID_FILE"
+    echo "CATALINA_CMD: $CATALINA_CMD"
     echo ""
 
-    export CATALINA_PID="$CATALINA_PID_FILE"
-
-    "$CATALINA_HOME/bin/catalina.sh" start
-
-    # PID 파일이 갱신될 시간을 조금 준다
-    sleep 2
-
-    local pid=$(cat "$CATALINA_PID_FILE" 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo "Tomcat이 시작되었습니다 (PID: $pid)"
-    else
-        echo "Tomcat이 시작되었습니다 (PID 확인 실패)"
-    fi
     echo "접속 URL: http://localhost:8080/scheduler/"
+    echo "종료하려면 현재 터미널에서 Ctrl+C 를 누르거나 ./run.sh stop 을 실행하세요."
     echo ""
     echo "참고: Oracle DB가 없으면 DB 연결 에러가 발생할 수 있지만 Tomcat 자체는 동작합니다."
+
+    exec "$CATALINA_CMD" run
 }
 
 # 8080, 8005 포트 사용 중인 프로세스 종료

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.StkMaster">
+
+    <!-- RecSignal 배치용 종목 목록 (활성 + 정상 종목만) -->
+    <select id="selectStkMasterList" parameterType="hashmap" resultType="recSignalDto">
+        SELECT STK_CD AS stkCd,
+               STK_NM AS stkNm,
+               MKT_CD AS mktCd
+          FROM TB_STK_MASTER
+         WHERE USE_YN      = 'Y'
+           AND STK_STATUS  = 'NORMAL'
+         ORDER BY STK_CD ASC
+    </select>
+
+    <!-- 특정 시장의 활성 종목코드 목록 (상장폐지 감지용) -->
+    <!-- mktCd: 단일값 또는 'KOSPI,KOSDAQ' 처럼 콤마 구분 → 호출 측에서 IN 절 생성 후 사용 -->
+    <select id="selectActiveStkCdListByMktCd" parameterType="hashmap" resultType="string">
+        SELECT STK_CD
+          FROM TB_STK_MASTER
+         WHERE MKT_CD     = #{mktCd,jdbcType=VARCHAR}
+           AND STK_STATUS != 'DELIST'
+    </select>
+
+    <!--
+        종목 MERGE
+        - INSERT: USE_YN 기본값 'Y' (DELIST 이면 'N')
+        - UPDATE: STK_NM/MKT_CD/STK_STATUS/LIST_DT/INDEX_CD 갱신
+                  USE_YN 은 DELIST 일 때만 'N' 으로 변경 (수동 제외 종목 보호)
+                  DELIST_DT 는 DELIST 상태 전환 시에만 기록
+    -->
+    <update id="mergeStkMaster" parameterType="stkMasterDto">
+        MERGE INTO TB_STK_MASTER T
+        USING (
+            SELECT
+                #{stkCd,jdbcType=VARCHAR}      AS STK_CD,
+                #{stkNm,jdbcType=VARCHAR}      AS STK_NM,
+                #{mktCd,jdbcType=VARCHAR}      AS MKT_CD,
+                #{stkStatus,jdbcType=VARCHAR}  AS STK_STATUS,
+                NVL(#{stkType,jdbcType=VARCHAR}, 'STOCK') AS STK_TYPE,
+                <choose>
+                    <when test="listDt != null and listDt != ''">
+                        TO_DATE(#{listDt,jdbcType=VARCHAR}, 'YYYYMMDD')
+                    </when>
+                    <otherwise>
+                        NULL
+                    </otherwise>
+                </choose>                       AS LIST_DT,
+                #{indexCd,jdbcType=VARCHAR}    AS INDEX_CD
+            FROM DUAL
+        ) S
+        ON (T.STK_CD = S.STK_CD)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.STK_NM     = S.STK_NM,
+                T.MKT_CD     = S.MKT_CD,
+                T.STK_STATUS = S.STK_STATUS,
+                T.STK_TYPE   = S.STK_TYPE,
+                T.LIST_DT    = NVL(S.LIST_DT, T.LIST_DT),
+                T.INDEX_CD   = S.INDEX_CD,
+                T.USE_YN     = CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE T.USE_YN END,
+                T.DELIST_DT  = CASE WHEN S.STK_STATUS = 'DELIST' AND T.STK_STATUS != 'DELIST'
+                                    THEN SYSDATE ELSE T.DELIST_DT END,
+                T.UPDATED_AT = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (
+                STK_CD, STK_NM, MKT_CD, STK_STATUS, STK_TYPE,
+                LIST_DT, INDEX_CD, USE_YN,
+                CREATED_AT, UPDATED_AT
+            )
+            VALUES (
+                S.STK_CD, S.STK_NM, S.MKT_CD, S.STK_STATUS, S.STK_TYPE,
+                S.LIST_DT, S.INDEX_CD,
+                CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE 'Y' END,
+                SYSDATE, SYSDATE
+            )
+    </update>
+
+    <!-- 파일에 없는 기존 종목 → 상장폐지 처리 -->
+    <update id="updateStkMasterDelist" parameterType="hashmap">
+        UPDATE TB_STK_MASTER
+           SET STK_STATUS  = 'DELIST',
+               DELIST_DT   = SYSDATE,
+               USE_YN      = 'N',
+               UPDATED_AT  = SYSDATE
+         WHERE STK_CD      = #{stkCd,jdbcType=VARCHAR}
+           AND STK_STATUS != 'DELIST'
+    </update>
+
+</mapper>

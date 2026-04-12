@@ -193,9 +193,9 @@ window.__MOBILE = {
   }
 })();
 </script>
-<script src="https://code.highcharts.com/stock/highstock.js"></script>
+<script src="<c:url value='/appone/plugins/Highcharts-Stock-11.1.0/code/highstock.js' />"></script>
 <script src="<c:url value='/appone/jsp/finance/kis/mobile/js/toolbar.js?v=20260220-2' />"></script>
-<script src="<c:url value='/appone/jsp/finance/kis/mobile/js/chart.js?v=20260224-3' />"></script>
+<script src="<c:url value='/appone/jsp/finance/kis/mobile/js/chart.js?v=20260323-1' />"></script>
 <script src="<c:url value='/appone/jsp/finance/kis/mobile/js/navigation.js?v=20260218-6' />"></script>
 </body>
 </html>

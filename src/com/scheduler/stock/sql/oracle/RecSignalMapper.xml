@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.RecSignal">
+
+    <update id="mergeRecSignal" parameterType="recSignalDto">
+        MERGE INTO TB_REC_SIGNAL T
+        USING (
+            SELECT
+                TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD') AS BASE_DT,
+                #{stkCd,jdbcType=VARCHAR}          AS STK_CD,
+                #{stkNm,jdbcType=VARCHAR}          AS STK_NM,
+                #{mktCd,jdbcType=VARCHAR}          AS MKT_CD,
+                #{curPrice,jdbcType=NUMERIC}       AS CUR_PRICE,
+                #{monOpenPrice,jdbcType=NUMERIC}   AS MON_OPEN_PRICE,
+                #{ma5,jdbcType=NUMERIC}            AS MA5,
+                #{ma20,jdbcType=NUMERIC}           AS MA20,
+                #{ma60,jdbcType=NUMERIC}           AS MA60,
+                #{ma120,jdbcType=NUMERIC}          AS MA120,
+                #{ma240,jdbcType=NUMERIC}          AS MA240,
+                #{goldenYn,jdbcType=VARCHAR}       AS GOLDEN_YN,
+                #{monUpYn,jdbcType=VARCHAR}        AS MON_UP_YN,
+                #{monChgRate,jdbcType=NUMERIC}     AS MON_CHG_RATE,
+                #{trendStrength,jdbcType=NUMERIC}  AS TREND_STRENGTH,
+                #{avgTrdVal20,jdbcType=NUMERIC}    AS AVG_TRD_VAL_20,
+                #{recYn,jdbcType=VARCHAR}          AS REC_YN,
+                #{recGrade,jdbcType=VARCHAR}       AS REC_GRADE,
+                #{recReason,jdbcType=VARCHAR}      AS REC_REASON
+            FROM DUAL
+        ) S
+        ON (T.BASE_DT = S.BASE_DT AND T.MKT_CD = S.MKT_CD AND T.STK_CD = S.STK_CD)
+        WHEN MATCHED THEN
+            UPDATE SET
+                T.STK_NM         = S.STK_NM,
+                T.CUR_PRICE      = S.CUR_PRICE,
+                T.MON_OPEN_PRICE = S.MON_OPEN_PRICE,
+                T.MA5            = S.MA5,
+                T.MA20           = S.MA20,
+                T.MA60           = S.MA60,
+                T.MA120          = S.MA120,
+                T.MA240          = S.MA240,
+                T.GOLDEN_YN      = S.GOLDEN_YN,
+                T.MON_UP_YN      = S.MON_UP_YN,
+                T.MON_CHG_RATE   = S.MON_CHG_RATE,
+                T.TREND_STRENGTH = S.TREND_STRENGTH,
+                T.AVG_TRD_VAL_20 = S.AVG_TRD_VAL_20,
+                T.REC_YN         = S.REC_YN,
+                T.REC_GRADE      = S.REC_GRADE,
+                T.REC_REASON     = S.REC_REASON,
+                T.UPDATED_AT     = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (
+                BASE_DT, STK_CD, STK_NM, MKT_CD, CUR_PRICE, MON_OPEN_PRICE,
+                MA5, MA20, MA60, MA120, MA240,
+                GOLDEN_YN, MON_UP_YN, MON_CHG_RATE, TREND_STRENGTH, AVG_TRD_VAL_20,
+                REC_YN, REC_GRADE, REC_REASON,
+                CREATED_AT, UPDATED_AT
+            )
+            VALUES (
+                S.BASE_DT, S.STK_CD, S.STK_NM, S.MKT_CD, S.CUR_PRICE, S.MON_OPEN_PRICE,
+                S.MA5, S.MA20, S.MA60, S.MA120, S.MA240,
+                S.GOLDEN_YN, S.MON_UP_YN, S.MON_CHG_RATE, S.TREND_STRENGTH, S.AVG_TRD_VAL_20,
+                S.REC_YN, S.REC_GRADE, S.REC_REASON,
+                SYSDATE, SYSDATE
+            )
+    </update>
+
+    <delete id="deleteRecSignalByBaseDtAndMarket" parameterType="hashmap">
+        DELETE FROM TB_REC_SIGNAL
+         WHERE BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           <if test="mktCd != null and mktCd != ''">
+               AND MKT_CD = #{mktCd,jdbcType=VARCHAR}
+           </if>
+    </delete>
+
+    <delete id="deleteRecSignalByMarket" parameterType="hashmap">
+        DELETE FROM TB_REC_SIGNAL
+         WHERE 1 = 1
+           <if test="mktCd != null and mktCd != ''">
+               AND MKT_CD = #{mktCd,jdbcType=VARCHAR}
+           </if>
+    </delete>
+
+    <select id="selectRecSignalList" parameterType="hashmap" resultType="recSignalDto">
+        SELECT TO_CHAR(R.BASE_DT, 'YYYY-MM-DD') AS baseDt,
+               R.STK_CD                        AS stkCd,
+               R.STK_NM                        AS stkNm,
+               R.MKT_CD                        AS mktCd,
+               M.MKT_CD                        AS listingMarket,
+               NVL(M.DOW_MEMBER_YN, 'N')       AS dowMemberYn,
+               R.CUR_PRICE                     AS curPrice,
+               R.MON_OPEN_PRICE                AS monOpenPrice,
+               R.MA5                           AS ma5,
+               R.MA20                          AS ma20,
+               R.MA60                          AS ma60,
+               R.MA120                         AS ma120,
+               R.MA240                         AS ma240,
+               R.GOLDEN_YN                     AS goldenYn,
+               R.MON_UP_YN                     AS monUpYn,
+               R.MON_CHG_RATE                  AS monChgRate,
+               R.TREND_STRENGTH                AS trendStrength,
+               R.AVG_TRD_VAL_20                AS avgTrdVal20,
+               R.REC_YN                        AS recYn,
+               R.REC_GRADE                     AS recGrade,
+               R.REC_REASON                    AS recReason
+          FROM TB_REC_SIGNAL R
+          JOIN TB_STK_MASTER M
+            ON M.STK_CD = R.STK_CD
+         WHERE R.BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           <if test="mktCd != null and mktCd != ''">
+               AND R.MKT_CD = #{mktCd,jdbcType=VARCHAR}
+           </if>
+           <if test="marketFilter != null and marketFilter != '' and marketFilter != 'ALL'">
+               <choose>
+                   <when test="marketFilter == 'KOSPI'">
+                       AND M.MKT_CD = 'KOSPI'
+                   </when>
+                   <when test="marketFilter == 'KOSDAQ'">
+                       AND M.MKT_CD = 'KOSDAQ'
+                   </when>
+                   <when test="marketFilter == 'NASDAQ'">
+                       AND M.MKT_CD = 'NASDAQ'
+                   </when>
+                   <when test="marketFilter == 'NYSE'">
+                       AND M.MKT_CD = 'NYSE'
+                   </when>
+                   <when test="marketFilter == 'DOW'">
+                       AND R.MKT_CD = 'US'
+                       AND NVL(M.DOW_MEMBER_YN, 'N') = 'Y'
+                   </when>
+               </choose>
+           </if>
+           <if test="recYn != null and recYn != ''">
+               AND R.REC_YN = #{recYn,jdbcType=VARCHAR}
+           </if>
+           <if test="recGrade != null and recGrade != ''">
+               AND R.REC_GRADE = #{recGrade,jdbcType=VARCHAR}
+           </if>
+           <if test="searchKeyword != null and searchKeyword != ''">
+               AND (
+                   UPPER(R.STK_CD) LIKE '%' || UPPER(#{searchKeyword,jdbcType=VARCHAR}) || '%'
+                   OR UPPER(R.STK_NM) LIKE '%' || UPPER(#{searchKeyword,jdbcType=VARCHAR}) || '%'
+               )
+           </if>
+         ORDER BY R.MON_CHG_RATE DESC, R.TREND_STRENGTH DESC, R.AVG_TRD_VAL_20 DESC, R.STK_CD ASC
+    </select>
+
+    <select id="selectRecSignalDetail" parameterType="hashmap" resultType="recSignalDto">
+        SELECT TO_CHAR(R.BASE_DT, 'YYYY-MM-DD') AS baseDt,
+               R.STK_CD                        AS stkCd,
+               R.STK_NM                        AS stkNm,
+               R.MKT_CD                        AS mktCd,
+               M.MKT_CD                        AS listingMarket,
+               NVL(M.DOW_MEMBER_YN, 'N')       AS dowMemberYn,
+               R.CUR_PRICE                     AS curPrice,
+               R.MON_OPEN_PRICE                AS monOpenPrice,
+               R.MA5                           AS ma5,
+               R.MA20                          AS ma20,
+               R.MA60                          AS ma60,
+               R.MA120                         AS ma120,
+               R.MA240                         AS ma240,
+               R.GOLDEN_YN                     AS goldenYn,
+               R.MON_UP_YN                     AS monUpYn,
+               R.MON_CHG_RATE                  AS monChgRate,
+               R.TREND_STRENGTH                AS trendStrength,
+               R.AVG_TRD_VAL_20                AS avgTrdVal20,
+               R.REC_YN                        AS recYn,
+               R.REC_GRADE                     AS recGrade,
+               R.REC_REASON                    AS recReason
+         FROM TB_REC_SIGNAL R
+         JOIN TB_STK_MASTER M
+           ON M.STK_CD = R.STK_CD
+         WHERE R.BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           AND R.STK_CD = #{stkCd,jdbcType=VARCHAR}
+           <if test="mktCd != null and mktCd != ''">
+               AND R.MKT_CD = #{mktCd,jdbcType=VARCHAR}
+           </if>
+    </select>
+
+    <select id="selectLatestBaseDt" resultType="string">
+        SELECT TO_CHAR(MAX(BASE_DT), 'YYYY-MM-DD')
+          FROM TB_REC_SIGNAL
+    </select>
+
+    <select id="selectLatestBaseDtByMarket" parameterType="hashmap" resultType="string">
+        SELECT TO_CHAR(MAX(BASE_DT), 'YYYY-MM-DD')
+          FROM TB_REC_SIGNAL
+         WHERE MKT_CD = #{mktCd,jdbcType=VARCHAR}
+    </select>
+
+</mapper>

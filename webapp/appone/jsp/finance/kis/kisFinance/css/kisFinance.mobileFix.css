@@ -21,26 +21,66 @@
 
   /* ===== Page scroll lock (mobile) ===== */
   html, body {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
+    height: auto;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   /* topbar 높이는 기존과 동일하게 사용(54px). 전체 레이아웃을 뷰포트에 고정 */
   .dash-shell {
     flex-direction: column;
-    height: calc(100vh - 54px);
-    overflow: hidden;
+    height: auto;
+    min-height: calc(100svh - 54px - var(--mobilebar-h));
+    overflow: visible;
   }
 
-  /* center-panel 내부만 스크롤 허용 */
+  .dash-topbar {
+    padding: 0 10px;
+  }
+
+  .dash-topbar .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dash-topbar .search input,
+  .dash-topbar .search .top-search-wrap input {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* center-panel을 문서 흐름대로 두고 내용이 자연스럽게 늘어나게 한다 */
   .center-panel {
     width: 100%;
     min-width: auto;
-    height: 100%;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
+    height: auto;
+    overflow: visible;
     position: relative;
-    padding-top: 0px; /* 상단 고정 버튼 영역 확보 */
+    padding-top: 0;
+  }
+
+  .center-body {
+    padding: 8px;
+    min-height: 0;
+  }
+
+  .chart-wrap {
+    flex: none;
+    min-height: 0;
+  }
+
+  #kisChartContainer {
+    height: clamp(260px, 42svh, 360px) !important;
+    min-height: 260px !important;
+  }
+
+  .chart-wrap #kisChartContainer,
+  .chart-wrap #kisChartContainer .highcharts-container {
+    height: clamp(260px, 42svh, 360px) !important;
   }
 
   /* left-panel은 wg-drawer(관심그룹 관리)가 absolute 기준으로 사용하므로 relative 유지 */
@@ -175,6 +215,96 @@
   body.modal-open .top-suggest {
     display: none !important;
   }
+
+  .kis-toolbar {
+    gap: 8px;
+  }
+
+  .kis-toolbar-left {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .kis-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .kis-toolbar-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .kis-toolbar-right {
+    width: auto;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .kis-toolbar-row-dates #fromDate,
+  .kis-toolbar-row-dates #toDate {
+    flex: 1 1 calc(50% - 4px);
+    max-width: calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .kis-toolbar-row-controls #periodDivCode {
+    flex: 0 0 76px;
+  }
+
+  .kis-toolbar-row-controls .double-chart-btn {
+    flex: 0 0 auto;
+    min-width: 132px;
+  }
+
+  .kis-info-line,
+  .kis-info-left,
+  .kis-info-right {
+    min-width: 0;
+  }
+
+  .kis-info-right {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .kis-name,
+  .kis-code,
+  .kis-sub,
+  .kis-now,
+  .kis-pct,
+  .kis-diff,
+  .kis-dt,
+  .kis-ohlc,
+  .kis-ma-label {
+    white-space: normal;
+  }
+
+  .kis-name {
+    font-size: 13px;
+  }
+
+  .kis-now {
+    font-size: 16px;
+  }
+
+  .kis-ohlc {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  #kisMaLegend {
+    row-gap: 4px;
+  }
+
+  #kisMaLegend .kis-ma {
+    display: inline-flex;
+    margin-top: 2px;
+  }
 }
 
 /* =========================================================
@@ -279,5 +409,294 @@
   .wl-sub .wl-rate,
   .wl-sub .wl-diff {
     font-size: 11px;
+  }
+}
+
+/* =========================================================
+   Touch viewport fallback
+   - 일부 모바일 브라우저는 viewport를 데스크톱 폭으로 잡아
+     기존 860px 모바일 분기가 빠질 수 있으므로 터치 환경은
+     태블릿 폭까지 동일한 모바일 레이아웃을 강제한다.
+   ========================================================= */
+@media (max-width: 1180px) and (hover: none) and (pointer: coarse) {
+  .dash-topbar {
+    gap: 8px;
+    padding: 0 10px;
+  }
+
+  .dash-topbar .brand,
+  .top-market {
+    display: none !important;
+  }
+
+  .dash-topbar .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .top-search-wrap,
+  .dash-topbar .search .top-search-wrap,
+  .dash-topbar .search input,
+  .dash-topbar .search .top-search-wrap input {
+    width: 100%;
+    max-width: none;
+  }
+
+  html, body {
+    min-height: 100%;
+    height: auto;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .dash-shell {
+    display: flex !important;
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100svh - 54px - var(--mobilebar-h));
+    overflow: visible;
+  }
+
+  .center-panel {
+    width: 100%;
+    min-width: auto;
+    height: auto;
+    overflow: visible;
+    position: relative;
+    padding-top: 0;
+  }
+
+  .center-body {
+    padding: 8px;
+    min-height: 0;
+  }
+
+  .chart-wrap {
+    flex: none;
+    min-height: 0;
+  }
+
+  #kisChartContainer {
+    height: clamp(260px, 42svh, 360px) !important;
+    min-height: 260px !important;
+  }
+
+  .chart-wrap #kisChartContainer,
+  .chart-wrap #kisChartContainer .highcharts-container {
+    height: clamp(260px, 42svh, 360px) !important;
+  }
+
+  .left-panel {
+    width: auto;
+    min-width: auto;
+    max-width: none;
+    position: relative;
+  }
+
+  .right-panel {
+    width: auto;
+    min-width: auto;
+    max-width: none;
+    position: static;
+    transform: none !important;
+    box-shadow: none;
+    height: auto;
+    min-height: unset;
+  }
+
+  .right-toggle-btn {
+    display: none;
+  }
+
+  .mobile-panel-buttons {
+    display: flex;
+    gap: 8px;
+    position: sticky;
+    top: 54px;
+    left: 8px;
+    right: 8px;
+    z-index: 10030;
+    margin: 0;
+    padding: 4px 15px;
+    border-radius: 14px;
+    background: rgba(246, 247, 251, 0);
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+  }
+
+  .mobile-panel-buttons .mpb-btn {
+    flex: 1 1 0;
+    height: 32px;
+    border-radius: 12px;
+    border: 1px solid #e6e9f2;
+    background: #ffffff;
+    font-weight: 800;
+    font-size: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-panel-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 10010;
+  }
+
+  .left-panel,
+  .right-panel {
+    position: fixed !important;
+    left: 10px;
+    right: 10px;
+    top: 104px;
+    bottom: 12px;
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    z-index: 10020;
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  #leftPanel .left-body,
+  #rightPanel .right-body {
+    height: calc(100% - 44px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #leftPanel .watchlist {
+    max-height: none;
+    overflow: auto;
+  }
+
+  body.mobile-open-left #mobilePanelBackdrop,
+  body.mobile-open-right #mobilePanelBackdrop {
+    display: block;
+  }
+
+  body.mobile-open-left #leftPanel,
+  body.mobile-open-right #rightPanel {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  body.modal-open .mobile-panel-buttons,
+  body.modal-open #mobilePanelButtons,
+  body.modal-open #mobilePanelBackdrop {
+    display: none !important;
+  }
+
+  body.modal-open #leftPanel,
+  body.modal-open #rightPanel {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(16px) !important;
+  }
+
+  .top-suggest {
+    z-index: 10060;
+    margin-top: 44px;
+  }
+
+  body.modal-open .top-suggest {
+    display: none !important;
+  }
+
+  .kis-toolbar {
+    gap: 8px;
+  }
+
+  .kis-toolbar-left {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .kis-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .kis-toolbar-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .kis-toolbar-right {
+    width: auto;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .kis-toolbar-row-dates #fromDate,
+  .kis-toolbar-row-dates #toDate {
+    flex: 1 1 calc(50% - 4px);
+    max-width: calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .kis-toolbar-row-controls #periodDivCode {
+    flex: 0 0 76px;
+  }
+
+  .kis-toolbar-row-controls .double-chart-btn {
+    flex: 0 0 auto;
+    min-width: 132px;
+  }
+
+  .kis-info-line,
+  .kis-info-left,
+  .kis-info-right {
+    min-width: 0;
+  }
+
+  .kis-info-right {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .kis-name,
+  .kis-code,
+  .kis-sub,
+  .kis-now,
+  .kis-pct,
+  .kis-diff,
+  .kis-dt,
+  .kis-ohlc,
+  .kis-ma-label {
+    white-space: normal;
+  }
+
+  .kis-name {
+    font-size: 13px;
+  }
+
+  .kis-now {
+    font-size: 16px;
+  }
+
+  .kis-ohlc {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  #kisMaLegend {
+    row-gap: 4px;
+  }
+
+  #kisMaLegend .kis-ma {
+    display: inline-flex;
+    margin-top: 2px;
   }
 }

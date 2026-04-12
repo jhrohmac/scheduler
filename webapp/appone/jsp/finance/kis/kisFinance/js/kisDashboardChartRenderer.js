@@ -1,6 +1,17 @@
 (function (global) {
   'use strict';
 
+  function toNumber(value) {
+    var text;
+    if (value === null || value === undefined) return NaN;
+    text = String(value).replace(/,/g, '').trim();
+    if (!text) return NaN;
+    if (text.charAt(0) === '+') {
+      text = text.substring(1);
+    }
+    return parseFloat(text);
+  }
+
   var Renderer = {
     state: null,
 
@@ -55,6 +66,8 @@
         onLeave: typeof cfg.onLeave === 'function' ? cfg.onLeave : null,
         view: view,
         hoverIndex: -1,
+        realtimePrice: null,
+        realtimePrevClose: null,
         drag: null,
         resizeObserver: null,
         handlers: []
@@ -81,6 +94,33 @@
         s.container.classList.remove('kis-dashboard-chart-host');
       }
       this.state = null;
+    },
+
+    updateRealtimePrice: function (price, prevClose) {
+      var s = this.state;
+      var numericPrice;
+      var numericPrevClose;
+      var lastRow;
+      var lastClose;
+
+      if (!s || !s.rows || !s.rows.length) return;
+
+      numericPrice = toNumber(price);
+      if (!Number.isFinite(numericPrice)) return;
+
+      if (numericPrice === 0) {
+        lastRow = s.rows[s.rows.length - 1];
+        lastClose = lastRow ? Number(lastRow.c) : NaN;
+        if ((Number.isFinite(s.realtimePrice) && s.realtimePrice > 0) ||
+            (Number.isFinite(lastClose) && lastClose > 0)) {
+          return;
+        }
+      }
+
+      numericPrevClose = toNumber(prevClose);
+      s.realtimePrice = numericPrice;
+      s.realtimePrevClose = Number.isFinite(numericPrevClose) ? numericPrevClose : null;
+      this._draw();
     },
 
     _bindResize: function () {
@@ -276,6 +316,10 @@
       var maLines = [];
       var firstTs = rows[0].t;
       var lastTs = rows[rows.length - 1].t;
+      var last = rows[rows.length - 1];
+      var prev = rows.length > 1 ? rows[rows.length - 2] : last;
+      var cpValue = Number.isFinite(s.realtimePrice) ? Number(s.realtimePrice) : Number(last.c);
+      var cpPrev = Number.isFinite(s.realtimePrevClose) ? Number(s.realtimePrevClose) : Number(prev.c);
       s.maSeries.forEach(function (line) {
         if (!line || !line.map) return;
         var vals = [];
@@ -289,6 +333,11 @@
         });
         maLines.push({ meta: line, vals: vals });
       });
+
+      if (Number.isFinite(cpValue)) {
+        minP = Math.min(minP, cpValue);
+        maxP = Math.max(maxP, cpValue);
+      }
 
       if (!Number.isFinite(minP) || !Number.isFinite(maxP) || minP === maxP) {
         minP = rows[0].c * 0.95;
@@ -426,7 +475,7 @@
 
       if (s.options.highLowEnabled && rows.length > 1) {
         var lookback = rows.slice(0, rows.length - 1);
-        var currentClose = Number(rows[rows.length - 1].c);
+        var currentClose = cpValue;
         var hiIdx = 0, loIdx = 0;
         for (var hk = 1; hk < lookback.length; hk++) {
           if (lookback[hk].h > lookback[hiIdx].h) hiIdx = hk;
@@ -514,10 +563,8 @@
         });
       }
 
-      var last = rows[rows.length - 1];
-      var prev = rows.length > 1 ? rows[rows.length - 2] : last;
-      var cpColor = last.c >= prev.c ? '#ef4444' : '#2563eb';
-      var cpY = yPrice(last.c);
+      var cpColor = cpValue >= cpPrev ? '#ef4444' : '#2563eb';
+      var cpY = yPrice(cpValue);
 
       ctx.setLineDash([6, 4]);
       ctx.strokeStyle = cpColor;
@@ -534,9 +581,9 @@
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px JetBrains Mono, monospace';
       ctx.textAlign = 'center';
-      var lastPriceText = (Math.abs(last.c - Math.round(last.c)) > 1e-9)
-        ? Number(last.c).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : Math.round(last.c).toLocaleString('ko-KR');
+      var lastPriceText = (Math.abs(cpValue - Math.round(cpValue)) > 1e-9)
+        ? Number(cpValue).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : Math.round(cpValue).toLocaleString('ko-KR');
       ctx.fillText(lastPriceText, W - marginR + 38, cpY + 4);
 
       ctx.fillStyle = '#51607a';

@@ -28,6 +28,8 @@ public interface MenuManagementDao
 	    public int saveMenuAccessUsers(HashMap<String, String> p0) throws Exception;
 	    
 	    public int save(HashMap<String, String> p0) throws Exception;
+
+	    public MenuVo selectMenuBySeq(HashMap<String, String> p0) throws Exception;
     
 	    public  int delete(HashMap<String, String> p0) throws Exception;
 

@@ -36,6 +36,11 @@ public class PositionDaoImpl extends SqlSessionDaoSupport implements PositionDao
     public int updatePosition(PositionVo vo) throws Exception {
         return getSqlSession().update(NS + "updatePosition", vo);
     }
+
+    @Override
+    public int updatePositionRecoLink(PositionVo vo) throws Exception {
+        return getSqlSession().update(NS + "updatePositionRecoLink", vo);
+    }
     
     @Override
     public int deletePosition(HashMap<String, String> map) throws Exception {

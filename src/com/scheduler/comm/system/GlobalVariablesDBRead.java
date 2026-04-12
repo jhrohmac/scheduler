@@ -213,24 +213,8 @@ public class GlobalVariablesDBRead implements ServletContextListener {
 	public void contextInitialized(ServletContextEvent event) {
 		
 		System.err.println("==========property Start filePropertySet================");
-		String os_path ="webapps";
-		String filepath ="file.os.order.root";
-        // 운영체제 구분 (windows 가 아니면 무조건 linux 로 판단)
-		 if (System.getProperty("os.name").indexOf("Windows") > -1) {
-			 os_path = "wtpwebapps";
-			 filepath ="file.os.win.root";
-		 }
-		 
-    	File catalinaBase = new File( System.getProperty( "catalina.base" ) ).getAbsoluteFile();
-    	File propertyFile = new File( catalinaBase, os_path+"/scheduler/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-config.xml" );
-    	System.out.println("=============>>>>"+propertyFile.getPath());
-    	
-		 ServletContext ctx = event.getServletContext();  
-	        
-	     String resource = propertyFile.getPath();
-	     try{
-	      //load mybatis configuration 
-	      Reader reader = Resources.getResourceAsReader(resource);      
+		 ServletContext ctx = event.getServletContext();
+	     try (Reader reader = openMybatisConfigReader(ctx)) {
 	      SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
 	      ctx.setAttribute("sqlSessionFactory", sqlSessionFactory);
 	     }
@@ -239,5 +223,49 @@ public class GlobalVariablesDBRead implements ServletContextListener {
 	      System.out.println("FATAL ERROR: myBatis could not be initialized");
 	      System.exit(1);
 	     }
+	}
+
+	private Reader openMybatisConfigReader(ServletContext servletContext) throws Exception {
+		File configFile = resolveConfigFile(servletContext,
+				"/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-config.xml",
+				"config/mybatis/oracle/oracle_mybatis-config.xml");
+		if (configFile != null && configFile.isFile()) {
+			System.out.println("=============>>>>" + configFile.getPath());
+			return new java.io.FileReader(configFile);
+		}
+
+		return Resources.getResourceAsReader("config/mybatis/oracle/oracle_mybatis-config.xml");
+	}
+
+	private File resolveConfigFile(ServletContext servletContext, String webInfPath, String classpathResource) {
+		if (servletContext != null) {
+			String realPath = servletContext.getRealPath(webInfPath);
+			if (realPath != null) {
+				File realFile = new File(realPath);
+				if (realFile.isFile()) {
+					return realFile;
+				}
+			}
+		}
+
+		File classpathFile = resolveClasspathFile(classpathResource);
+		if (classpathFile != null && classpathFile.isFile()) {
+			return classpathFile;
+		}
+
+		String osPath = System.getProperty("os.name").indexOf("Windows") > -1 ? "wtpwebapps" : "webapps";
+		File catalinaBase = new File(System.getProperty("catalina.base")).getAbsoluteFile();
+		return new File(catalinaBase, osPath + "/scheduler/WEB-INF/resources/config/mybatis/oracle/oracle_mybatis-config.xml");
+	}
+
+	private File resolveClasspathFile(String classpathResource) {
+		try {
+			java.net.URL url = GlobalVariablesDBRead.class.getClassLoader().getResource(classpathResource);
+			if (url != null && "file".equals(url.getProtocol())) {
+				return new File(url.toURI());
+			}
+		} catch (Exception ignore) {
+		}
+		return null;
 	}
 }

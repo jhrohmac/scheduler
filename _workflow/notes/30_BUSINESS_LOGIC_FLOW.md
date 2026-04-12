@@ -43,6 +43,96 @@
 - 시장 레짐(지수) 가감점
 - 설명가능성: 이벤트 요약(reco_event_summary)
 
+## WF-2-3A 추천신호 조회/응답 런타임
+- 설계서 v1.10 기준 추천신호 시스템 전용 조회/응답 런타임
+- 현재 소스:
+  - `src/com/scheduler/stock/web/RecSignalController.java`
+  - `src/com/scheduler/stock/service/RecSignalService.java`
+  - `src/com/scheduler/stock/sql/oracle/RecSignalMapper.xml`
+- 진입점:
+  - `RecSignalController.list.do`
+  - `RecSignalController.detail.do`
+- 출력 기준:
+  - `TB_REC_SIGNAL` 에 저장된 EOD 결과
+  - `MKT_CD` 기준 KR / US 결과 분리
+  - `BASE_DT`, `REC_GRADE`, `MON_CHG_RATE`, `TREND_STRENGTH`, `AVG_TRD_VAL_20`, `REC_REASON`
+- 기존 `/finance/selectRecommendStocks.do` 와 분리 운영
+- UI 연결 대상:
+  - `stock/recSignalList`
+  - `stock/recSignalDetail`
+
+### WF-2-3A-1 조회 진입/UI 요청
+- 화면 진입 후 `list.do`, `detail.do` 를 호출하는 시작 단계
+- 전달 파라미터: `baseDt`, `stkCd`, `mktCd`
+
+### WF-2-3A-2 조회조건/기준일 정규화
+- 시장 필터 정규화
+- 최신 기준일 조회 후 실제 읽을 기준일 보정
+- 목록 조회 기본 조건 `recYn=Y` 적용
+
+### WF-2-3A-3 추천신호 조회 응답
+- `TB_REC_SIGNAL` list/detail 조회
+- `DataTableSettingVo` 로 응답 변환
+- 조회 런타임 마지막 단계
+
+## WF-2-3B 추천신호 수집/계산/적재 배치
+- 설계서 v1.10 기준 추천신호 배치 런타임
+- 현재 소스:
+  - `src/com/scheduler/stock/web/RecSignalController.java`
+  - `src/com/scheduler/stock/batch/RecSignalBatch.java`
+  - `src/com/scheduler/stock/batch/RecSignalDailyBatch.java`
+  - `src/com/scheduler/stock/batch/RecSignalMarketScheduler.java`
+  - `src/com/scheduler/stock/service/KisDlyPriceSyncService.java`
+  - `src/com/scheduler/stock/service/RecSignalService.java`
+  - `src/com/scheduler/stock/service/TradeDateService.java`
+  - `src/com/scheduler/stock/service/MaCalculateService.java`
+  - `src/com/scheduler/stock/sql/oracle/BatchExecLogMapper.xml`
+  - `src/com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml`
+- 입력 정본:
+  - `TB_STK_MASTER`
+  - `TB_TRADE_CALENDAR`
+- 진입점:
+  - 정기 실행: `RecSignalMarketScheduler`
+  - 수동 실행: `RecSignalController.runBatch.do`
+- 출력:
+  - `TB_REC_SIGNAL`
+  - `TB_BATCH_EXEC_LOG`
+  - `TB_BATCH_EXEC_ITEM_LOG`
+- 원칙:
+  - KIS API 응답을 메모리에서 계산하고 결과만 DB에 저장
+  - `MONTH_OPEN_PRICE` 는 KIS 일봉 응답 중 해당월 첫 거래일 시가로 계산
+  - 기존 `BatchJobCtrlController`, `TB_S_BATCH_JOB_CTRL` 는 재사용하지 않음
+  - `RecSignalDailyBatch` 독립 스케줄로 운영
+  - KR 02:00 / 05:00, US 16:00 / 20:00
+  - 재시도는 실패 종목만 다시 실행
+  - `RecSignalController.syncDlyPrice.do` 는 KIS fetch 검증용 보조 진입점으로 둔다
+
+### WF-2-3B-1 배치 진입/스케줄
+- `RecSignalMarketScheduler` 정기 실행
+- `RecSignalDailyBatch` 기본 파라미터 주입
+- `runBatch.do` 수동 실행 진입 포함
+
+### WF-2-3B-2 배치 기준일/대상종목 결정
+- `marketGroup`, `retryOnly`, `baseDt` 해석
+- 거래일 보정 후 실제 기준일 확정
+- 대상 종목 또는 실패건 재대상 구성
+
+### WF-2-3B-3 KIS 일봉 수집
+- KIS API 기준 KR/US 일봉 원천 조회
+- `days`, `requestIntervalMs` 조건 반영
+
+### WF-2-3B-4 추천신호 메모리 계산
+- 월시가, 이평, 추세강도 계산
+- `REC_YN`, `REC_GRADE`, `REC_REASON` 결정
+
+### WF-2-3B-5 결과/실행 로그 적재
+- `TB_REC_SIGNAL` 결과 저장
+- `TB_BATCH_EXEC_LOG`, `TB_BATCH_EXEC_ITEM_LOG` 적재
+
+### WF-2-3B-6 실패건 재시도
+- `TB_BATCH_EXEC_ITEM_LOG` 의 FAIL 기준 재대상 선정
+- `retryOnly=Y` 로 후속 재실행
+
 ## 2-4 보유 종목 관리
 - (현재) 보유종목 조회 UI 존재
 - (추가 필수) 보유종목 CRUD + 물타기(추가매수) 처리
@@ -80,21 +170,12 @@
 - 입력: 웹소켓 tick/호가/체결 + 최근 분석 스냅샷
 - 처리:
   - WS 기반 비동기 푸시를 기본 경로로 사용(동기 REST 대체)
+  - 재연결 정책은 고정 주기 무한 재시도 대신 종료 코드 기반 + 지수 백오프 + 지터를 적용
+  - 연결 성공은 `onopen` 이 아니라 실제 첫 데이터 수신 기준으로 확인
+  - 동일 종목 집합은 정렬된 stable key 기준으로만 구독 변경 여부를 판단
+  - invalid token / malformed codes 는 Endpoint 에서 에러 후 종료 정책 검토
   - 이벤트 최신성 보장: event_time/seq 기반으로 out-of-order 폐기
   - UI 반영은 스로틀(100~300ms)로 렌더 부하 제어
 - 출력: 차트 신호 오버레이(매수/매도), 알림 이벤트, 상태 업데이트
 - REST 역할: 초기 스냅샷/복구(fallback) 전용
-
-## (신규) 2-10 시장정보/시장이슈 데일리 브리핑
-- 목적: 사용자가 우측 `시장요약` 탭에서 국내/미국 시장 핵심 이슈를 매일 한눈에 확인
-- 데이터 소스:
-  - 앱 UI: `/finance/selectMarketIssues.do`
-  - 저장소: `data/market-issues.json` (파일 기반)
-  - 브리핑 생성: OpenClaw 평일 07:30 cron(자동 요약 작성/갱신)
-- 처리:
-  - 시장요약 탭 진입/새로고침 시 시장이슈 JSON 로드
-  - 미국/국내 섹션 분리 렌더(지수, 핵심 이슈 리스트, 전망)
-  - 파일 갱신만으로 UI 즉시 반영(서버 재기동 불필요)
-- 출력(UI):
-  - `📋 시장이슈` 카드
-  - 날짜/업데이트시각, US/KR 이슈·전망
+- 상세 수정안: `32_WEBSOCKET_RECONNECT_HARDENING.md`

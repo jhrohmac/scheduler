@@ -31,7 +31,12 @@
       W.STOCK_SEQ,
       W.STOCK_CODE,
       W.STOCK_GROUP,
-      W.STOCK_GROUP_DIV,
+      CASE
+        WHEN W.STOCK_GROUP_DIV IS NULL OR TRIM(W.STOCK_GROUP_DIV) = '' THEN 'normal'
+        WHEN LOWER(TRIM(W.STOCK_GROUP_DIV)) IN ('close', 'undefined') THEN 'normal'
+        WHEN LOWER(TRIM(W.STOCK_GROUP_DIV)) = 'monthend' THEN 'month'
+        ELSE LOWER(TRIM(W.STOCK_GROUP_DIV))
+      END AS STOCK_GROUP_DIV,
       W.STOCK_CLOSE,
       S.STOCK_KO_NAME,
       S.STOCK_EN_NAME,
@@ -71,6 +76,16 @@
           OR W.STOCK_GROUP_DIV = #{market}
         )
       </if>
+      <if test="groupDiv != null and groupDiv != ''">
+        AND (
+          CASE
+            WHEN W.STOCK_GROUP_DIV IS NULL OR TRIM(W.STOCK_GROUP_DIV) = '' THEN 'normal'
+            WHEN LOWER(TRIM(W.STOCK_GROUP_DIV)) IN ('close', 'undefined') THEN 'normal'
+            WHEN LOWER(TRIM(W.STOCK_GROUP_DIV)) = 'monthend' THEN 'month'
+            ELSE LOWER(TRIM(W.STOCK_GROUP_DIV))
+          END
+        ) = #{groupDiv}
+      </if>
     ORDER BY W.STOCK_SEQ ASC
   </select>
 
@@ -82,6 +97,7 @@
       SELECT
         #{groupId} AS STOCK_GROUP,
         #{stockCode} AS STOCK_CODE,
+        NVL(NULLIF(#{groupDiv,jdbcType=VARCHAR}, ''), 'normal') AS STOCK_GROUP_DIV,
         #{stockClose} AS STOCK_CLOSE
       FROM DUAL
     ) S
@@ -90,7 +106,7 @@
       UPDATE SET
         T.MODIFY_DATE = SYSDATE,
         T.STOCK_CLOSE = NVL(S.STOCK_CLOSE, T.STOCK_CLOSE),
-        T.STOCK_GROUP_DIV = NVL(T.STOCK_GROUP_DIV, 'normal')
+        T.STOCK_GROUP_DIV = S.STOCK_GROUP_DIV
     WHEN NOT MATCHED THEN
       INSERT (
         STOCK_SEQ,
@@ -107,7 +123,7 @@
         (SELECT NVL(MAX(STOCK_SEQ), 0) + 1 FROM TB_S_INTEREST_WATCHLIST),
         S.STOCK_CODE,
         S.STOCK_GROUP,
-        'normal',
+        S.STOCK_GROUP_DIV,
         S.STOCK_CLOSE,
         NULL,
         NULL,
@@ -122,6 +138,14 @@
     FROM TB_S_INTEREST_WATCHLIST
     WHERE STOCK_GROUP = #{groupId}
       AND STOCK_CODE = #{stockCode}
+      AND (
+        CASE
+          WHEN STOCK_GROUP_DIV IS NULL OR TRIM(STOCK_GROUP_DIV) = '' THEN 'normal'
+          WHEN LOWER(TRIM(STOCK_GROUP_DIV)) IN ('close', 'undefined') THEN 'normal'
+          WHEN LOWER(TRIM(STOCK_GROUP_DIV)) = 'monthend' THEN 'month'
+          ELSE LOWER(TRIM(STOCK_GROUP_DIV))
+        END
+      ) = NVL(NULLIF(#{groupDiv,jdbcType=VARCHAR}, ''), 'normal')
   </select>
 
   <!-- 관심 토글: 관심 해제(삭제) -->
@@ -129,6 +153,14 @@
     DELETE FROM TB_S_INTEREST_WATCHLIST
     WHERE STOCK_GROUP = #{groupId}
       AND STOCK_CODE = #{stockCode}
+      AND (
+        CASE
+          WHEN STOCK_GROUP_DIV IS NULL OR TRIM(STOCK_GROUP_DIV) = '' THEN 'normal'
+          WHEN LOWER(TRIM(STOCK_GROUP_DIV)) IN ('close', 'undefined') THEN 'normal'
+          WHEN LOWER(TRIM(STOCK_GROUP_DIV)) = 'monthend' THEN 'month'
+          ELSE LOWER(TRIM(STOCK_GROUP_DIV))
+        END
+      ) = NVL(NULLIF(#{groupDiv,jdbcType=VARCHAR}, ''), 'normal')
   </delete>
 
 </mapper>

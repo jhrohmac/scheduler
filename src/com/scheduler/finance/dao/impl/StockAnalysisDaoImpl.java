@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import com.scheduler.comm.exp.UserTransactionException;
 import com.scheduler.finance.dao.StockAnalysisDao;
 import com.scheduler.finance.vo.StockInfoVo;
-import com.scheduler.finance.vo.StockRecommendVo;
 
 public class StockAnalysisDaoImpl extends SqlSessionDaoSupport implements StockAnalysisDao
 {
@@ -36,19 +35,6 @@ public class StockAnalysisDaoImpl extends SqlSessionDaoSupport implements StockA
     	return list;
     }
     
-    
-    public List<StockRecommendVo> selectRecommendStocks(HashMap<String, String> map) throws Exception {
-        List<StockRecommendVo> list;
-        try {
-            list = getSqlSession().selectList("com.scheduler.finance.sql.StockAnalysis.selectRecommendStocks", map);
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-            throw new UserTransactionException(String.valueOf(this.getClass().getName()) + ".selectRecommendStocks() : ", e.getLocalizedMessage());
-        }
-        return list;
-    }
-
 public void update_stockCode(HashMap<String, String> map) throws Exception {
     	try {
     			getSqlSession().update("com.scheduler.finance.sql.StockAnalysis.update_stockCode", map);

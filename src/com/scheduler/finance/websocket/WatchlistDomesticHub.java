@@ -106,6 +106,7 @@ public class WatchlistDomesticHub {
         }
 
         if (sub.lastPayload != null) {
+            // 캐시된 최근 tick 전송 → 브라우저 "연결됨" 전환
             try {
                 if (session.isOpen()) {
                     session.getAsyncRemote().sendText(JsonUtil.toJson(sub.lastPayload));
@@ -118,6 +119,10 @@ public class WatchlistDomesticHub {
 
         // 첫 구독자일 때만 KIS 구독
         if (after != 1) {
+            // KIS 이미 구독 중. lastPayload 없으면 ack 전송
+            if (sub.lastPayload == null) {
+                sendSubAck(session, code);
+            }
             return true;
         }
 
@@ -141,6 +146,11 @@ public class WatchlistDomesticHub {
             sub.response = resp;
             sub.handler = handler;
 
+            // KIS 구독 성공 → 첫 tick 도착 전에 브라우저 "연결됨" 상태로 전환
+            if (sub.lastPayload == null) {
+                sendSubAck(session, code);
+            }
+
             logger.info("[WL-HUB] subscribed code={} (ref=1)", code);
             return true;
         } catch (Exception e) {
@@ -153,6 +163,22 @@ public class WatchlistDomesticHub {
                 subs.remove(code);
             }
             return false;
+        }
+    }
+
+    /**
+     * KIS 구독 등록 완료 ack 전송 (첫 tick 도착 전 브라우저 상태 업데이트용)
+     */
+    private void sendSubAck(Session session, String code) {
+        if (session == null || !session.isOpen()) {
+            return;
+        }
+        SubAckPayload ack = new SubAckPayload();
+        ack.type = "WL_SUB";
+        ack.code = code;
+        try {
+            session.getAsyncRemote().sendText(JsonUtil.toJson(ack));
+        } catch (Exception ignore) {
         }
     }
 
@@ -234,5 +260,10 @@ public class WatchlistDomesticHub {
         public String diff;
         public String rate;
         public String sign;
+    }
+
+    public static class SubAckPayload {
+        public String type;
+        public String code;
     }
 }

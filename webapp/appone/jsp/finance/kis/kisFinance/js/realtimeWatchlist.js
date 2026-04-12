@@ -60,11 +60,27 @@
     return url;
   }
 
+  function normalizeSign(sign) {
+    var s = (sign === null || sign === undefined) ? "" : String(sign).trim();
+    // KIS 부호코드: 1=상한, 2=상승, 3=보합, 4=하한, 5=하락
+    if (s === "+" || s === "1" || s === "2") {
+      return "+";
+    }
+    if (s === "-" || s === "4" || s === "5") {
+      return "-";
+    }
+    if (s === "0" || s === "3") {
+      return "0";
+    }
+    return "";
+  }
+
   function signClass(sign) {
-    if (sign === "+" || sign === "1" || sign === "4") {
+    var normalized = normalizeSign(sign);
+    if (normalized === "+") {
       return "up";
     }
-    if (sign === "-" || sign === "2" || sign === "5") {
+    if (normalized === "-") {
       return "down";
     }
     return "flat";
@@ -151,6 +167,75 @@
     return "0";
   }
 
+  function updateChartHeaderRealtime(msg) {
+    if (!msg) return;
+
+    var priceSign = signFromDiff(msg);
+    var diffSigned = normalizeSignedValue(msg.diff, priceSign, 0);
+    var rateSigned = normalizeSignedValue(msg.rate, priceSign, 2);
+
+    var priceText = formatAuto(msg.price, 0);
+    var diffText = diffSigned.raw;
+    var rateText = rateSigned.raw;
+
+    if (rateText && rateText.indexOf("%") < 0) {
+      rateText = rateText + "%";
+    }
+
+    var priceCls = signClass(priceSign);
+    var diffCls = signClass(diffSigned.sign);
+    var rateCls = signClass(rateSigned.sign);
+
+    var $now = $("#kisHdrNow");
+    if ($now.length && priceText) {
+      $now.text(priceText).removeClass("kis-up kis-down kis-flat up down flat");
+      if (priceCls === "up") $now.addClass("kis-up");
+      else if (priceCls === "down") $now.addClass("kis-down");
+      else $now.addClass("kis-flat");
+    }
+
+    var $pct = $("#kisHdrPct");
+    if ($pct.length && rateText) {
+      $pct.text(rateText).removeClass("kis-up kis-down kis-flat up down flat");
+      if (rateCls === "up") $pct.addClass("kis-up");
+      else if (rateCls === "down") $pct.addClass("kis-down");
+      else $pct.addClass("kis-flat");
+    }
+
+    var $diff = $("#kisHdrDiff");
+    if ($diff.length && diffText) {
+      $diff.text(diffText).removeClass("kis-up kis-down kis-flat up down flat");
+      if (diffCls === "up") $diff.addClass("kis-up");
+      else if (diffCls === "down") $diff.addClass("kis-down");
+      else $diff.addClass("kis-flat");
+    }
+
+    var $compatPrice = $("#kisStockPrice");
+    if ($compatPrice.length && priceText) {
+      $compatPrice.text(priceText);
+    }
+  }
+
+  function updateCanvasChartRealtime(msg) {
+    var price;
+    var diff;
+    var prevClose;
+
+    if (!msg || !global.KisDashboardChartRenderer ||
+        typeof global.KisDashboardChartRenderer.updateRealtimePrice !== "function") {
+      return;
+    }
+
+    price = toNumber(msg.price);
+    if (!Number.isFinite(price)) {
+      return;
+    }
+
+    diff = toNumber(msg.diff);
+    prevClose = Number.isFinite(diff) ? (price - diff) : NaN;
+    global.KisDashboardChartRenderer.updateRealtimePrice(price, prevClose);
+  }
+
   function summaryTextFromFields(it) {
     if (!it) return "-";
 
@@ -158,21 +243,85 @@
     if (!price) price = (it.price === null || it.price === undefined) ? "" : String(it.price);
     if (!price) price = "-";
 
-    var diff = formatSigned(it.diff, 0);
-    var rate = formatSigned(it.rate, 2);
+    var sign = signFromDiff(it);
+    var diff = normalizeSignedValue(it.diff, sign, 0).raw;
+    var rate = normalizeSignedValue(it.rate, sign, 2).raw;
+    if (rate && rate.indexOf("%") < 0) {
+      rate = rate + "%";
+    }
 
     if (price === "-" || price === "") return "-";
     if (!diff && !rate) return price;
-
-    return price + " (" + diff + " / " + rate + "%)";
+    if (diff && rate) return price + " (" + diff + " / " + rate + ")";
+    return price + " (" + (diff || rate) + ")";
   }
 
   function signFromDiff(it) {
+    var explicit = normalizeSign(it && it.sign);
+    if (explicit) return explicit;
+
     var n = toNumber(it && it.diff);
-    if (!Number.isFinite(n)) return (it && it.sign) ? String(it.sign) : "0";
-    if (n > 0) return "+";
-    if (n < 0) return "-";
+    if (Number.isFinite(n)) {
+      if (n > 0) return "+";
+      if (n < 0) return "-";
+      return "0";
+    }
+
+    n = toNumber(it && it.rate);
+    if (Number.isFinite(n)) {
+      if (n > 0) return "+";
+      if (n < 0) return "-";
+      return "0";
+    }
+
     return "0";
+  }
+
+  function signFromValue(value, fallbackSign) {
+    var n = toNumber(value);
+    if (Number.isFinite(n)) {
+      if (n > 0) return "+";
+      if (n < 0) return "-";
+      return "0";
+    }
+    return fallbackSign ? String(fallbackSign) : "0";
+  }
+
+  function hasExplicitSignedText(value) {
+    if (value === null || value === undefined) return false;
+    return /^[\s]*[+-]/.test(String(value));
+  }
+
+  function normalizeSignedValue(value, fallbackSign, defaultDecimals) {
+    var raw = (value === null || value === undefined) ? "" : String(value).trim();
+    var numeric = toNumber(raw);
+    var decimals = decimalsHint(raw, defaultDecimals);
+
+    if (!Number.isFinite(numeric)) {
+      return {
+        raw: raw,
+        sign: fallbackSign ? String(fallbackSign) : "0"
+      };
+    }
+
+    if (hasExplicitSignedText(raw)) {
+      return {
+        raw: numeric > 0 ? "+" + formatNumber(Math.abs(numeric), decimals) : (numeric < 0 ? "-" + formatNumber(Math.abs(numeric), decimals) : "0"),
+        sign: signFromValue(numeric, fallbackSign)
+      };
+    }
+
+    if (fallbackSign === "+" || fallbackSign === "-") {
+      return {
+        raw: fallbackSign + formatNumber(Math.abs(numeric), decimals),
+        sign: fallbackSign
+      };
+    }
+
+    return {
+      raw: numeric > 0 ? "+" + formatNumber(Math.abs(numeric), decimals) : (numeric < 0 ? "-" + formatNumber(Math.abs(numeric), decimals) : "0"),
+      sign: signFromValue(numeric, fallbackSign)
+    };
   }
 
   function safeTokenFromRow($row) {
@@ -192,18 +341,6 @@
 
     return country + "|" + market + "|" + code;
   }
-
-  /* =========================
-     Realtime UI Throttle
-     - tick마다 DOM을 직접 변경하지 않고, 짧게 배치 반영하여 렌더링 부담 완화
-     ========================= */
-  var __wlPending = {};
-  var __wlFlushTimer = null;
-  var __wlFlushMs = 250;
-
-  var __summaryPending = null;
-  var __summaryFlushTimer = null;
-  var __summaryFlushMs = 500;
 
   function findWatchlistRow(token, code) {
     var $rows = $("#watchlist .wl-item");
@@ -248,7 +385,12 @@
       return;
     }
 
-    var cls = signClass(signFromDiff({ diff: diff, sign: sign }));
+    var priceSign = signFromDiff({ diff: diff, rate: rate, sign: sign });
+    var diffSigned = normalizeSignedValue(diff, priceSign, 0);
+    var rateSigned = normalizeSignedValue(rate, priceSign, 2);
+    var priceCls = signClass(priceSign);
+    var diffCls = signClass(diffSigned.sign);
+    var rateCls = signClass(rateSigned.sign);
 
     var prevPrice = toNumber($row.data("lastPrice"));
     if (!Number.isFinite(prevPrice)) {
@@ -259,15 +401,15 @@
     if (Number.isFinite(nextPrice) && Number.isFinite(prevPrice) && nextPrice !== prevPrice) {
       borderDir = (nextPrice > prevPrice) ? "up" : "down";
     } else if (!Number.isFinite(prevPrice) && Number.isFinite(nextPrice)) {
-      var fallbackDir = signClass(signFromDiff({ diff: diff, sign: sign }));
+      var fallbackDir = priceCls;
       if (fallbackDir === "up" || fallbackDir === "down") {
         borderDir = fallbackDir;
       }
     }
 
     var priceText = formatAuto(price, 0);
-    var diffText = formatSigned(diff, 0);
-    var rateText = formatSigned(rate, 2);
+    var diffText = diffSigned.raw;
+    var rateText = rateSigned.raw;
     if (rateText && rateText.indexOf("%") < 0) {
       rateText = rateText + "%";
     }
@@ -276,21 +418,21 @@
       .text(priceText)
       .attr("title", diffText + " / " + rateText)
       .removeClass("up down flat")
-      .addClass(cls);
+      .addClass(priceCls);
 
     var $diffEl = $row.find(".wl-diff");
     if ($diffEl.length) {
-      $diffEl.text(diffText).removeClass("up down flat").addClass(cls);
+      $diffEl.text(diffText).removeClass("up down flat").addClass(diffCls);
     }
 
     var $rateEl = $row.find(".wl-rate");
     if ($rateEl.length) {
-      $rateEl.text(rateText).removeClass("up down flat").addClass(cls);
+      $rateEl.text(rateText).removeClass("up down flat").addClass(rateCls);
     }
 
     var $eventEl = $row.find(".wl-event");
     if ($eventEl.length) {
-      $eventEl.removeClass("up down flat").addClass(cls);
+      $eventEl.removeClass("up down flat").addClass(priceCls);
     }
 
     var $rowEl = $row[0];
@@ -320,34 +462,8 @@
     }
   }
 
-  function flushWatchlistPending() {
-    __wlFlushTimer = null;
-
-    var pending = __wlPending;
-    __wlPending = {};
-
-    var keys = Object.keys(pending);
-    if (!keys.length) return;
-
-    for (var i = 0; i < keys.length; i++) {
-      applyWatchlistUpdate(pending[keys[i]]);
-    }
-  }
-
   function queueWatchlistUpdate(msg) {
-    if (!msg) return;
-
-    var key = (msg.token || "").trim();
-    if (!key) {
-      key = (msg.code || "").trim();
-    }
-    if (!key) return;
-
-    __wlPending[key] = msg;
-
-    if (!__wlFlushTimer) {
-      __wlFlushTimer = setTimeout(flushWatchlistPending, __wlFlushMs);
-    }
+    applyWatchlistUpdate(msg);
   }
 
   function applyMarketSummaryUpdate(msg) {
@@ -442,30 +558,113 @@
       }
     }
 
+    function applyTopTicker(key, valueSelector) {
+      var it = msg.items[key];
+      if (!it) {
+        return;
+      }
+
+      var sign = signFromDiff(it);
+      var cls = signClass(sign);
+      var text = "";
+      if (it.text !== null && it.text !== undefined && String(it.text).trim() !== "") {
+        text = String(it.text);
+      } else {
+        text = summaryTextFromFields(it);
+      }
+
+      var $el = $(valueSelector);
+      if ($el.length === 0) {
+        return;
+      }
+
+      $el.text(text).removeClass("up down flat").addClass(cls);
+    }
+
     apply("KOSPI", "#kospVal");
     apply("KOSDAQ", "#kosdVal");
     apply("USDKRW", "#fxVal");
     apply("DJI", "#djiVal");
-
     apply("IXIC", "#ixicVal");
     apply("SPX", "#spxVal");
-  }
-
-  function flushSummaryPending() {
-    __summaryFlushTimer = null;
-    var msg = __summaryPending;
-    __summaryPending = null;
-    applyMarketSummaryUpdate(msg);
+    applyTopTicker("KOSPI", "#topKospiVal");
+    applyTopTicker("KOSDAQ", "#topKosdVal");
+    applyTopTicker("DJI", "#topDjiVal");
+    applyTopTicker("SPX", "#topSpxVal");
+    applyTopTicker("IXIC", "#topIxicVal");
   }
 
   function queueMarketSummaryUpdate(msg) {
-    if (!msg) return;
+    applyMarketSummaryUpdate(msg);
+  }
 
-    __summaryPending = msg;
-
-    if (!__summaryFlushTimer) {
-      __summaryFlushTimer = setTimeout(flushSummaryPending, __summaryFlushMs);
+  function clearReconnectTimer(target) {
+    if (!target || !target.reconnectTimer) {
+      return;
     }
+    clearTimeout(target.reconnectTimer);
+    target.reconnectTimer = null;
+  }
+
+  function markMessageReceived(target) {
+    if (!target) {
+      return;
+    }
+    target.lastMessageAt = Date.now();
+    target.reconnectAttempts = 0;
+    clearReconnectTimer(target);
+  }
+
+  function shouldReconnect(evt) {
+    var code = evt && evt.code;
+    if (!code || code === 1006) {
+      return true;
+    }
+    if (code === 1000 || code === 1001 || code === 1008) {
+      return false;
+    }
+    return true;
+  }
+
+  function nextReconnectDelay(target, baseDelay, maxDelay) {
+    var attempt = target && typeof target.reconnectAttempts === "number"
+      ? target.reconnectAttempts
+      : 0;
+    var base = Math.max(500, baseDelay || 1000);
+    var max = Math.max(base, maxDelay || 30000);
+    var delay = Math.min(base * Math.pow(2, attempt), max);
+    var jitter = Math.floor(Math.random() * 700);
+
+    if (target) {
+      target.reconnectAttempts = attempt + 1;
+    }
+
+    return delay + jitter;
+  }
+
+  function scheduleReconnect(target, reconnectFn, evt, options) {
+    if (!target || typeof reconnectFn !== "function" || !shouldReconnect(evt)) {
+      return 0;
+    }
+
+    clearReconnectTimer(target);
+
+    var delay = nextReconnectDelay(
+      target,
+      options && options.baseDelay,
+      options && options.maxDelay
+    );
+
+    if (typeof document !== "undefined" && document.hidden) {
+      delay = Math.max(delay, (options && options.hiddenDelay) || 5000);
+    }
+
+    target.reconnectTimer = setTimeout(function () {
+      target.reconnectTimer = null;
+      reconnectFn();
+    }, delay);
+
+    return delay;
   }
 
   function markManualClose(ws) {
@@ -478,14 +677,17 @@
   var WatchlistRealtime = {
     ws: null,
     lastCodesKey: "",
+    reconnectAttempts: 0,
+    reconnectTimer: null,
+    lastMessageAt: 0,
+    currentConnectSeq: 0,
 
     close: function (silent) {
-      try {
-        if (this.ws) {
-          markManualClose(this.ws);
-          this.ws.close();
-        }
-      } catch (e) {}
+      clearReconnectTimer(this);
+      this.currentConnectSeq += 1;
+      this.reconnectAttempts = 0;
+      this.lastMessageAt = 0;
+      safeCloseWs(this.ws);
       this.ws = null;
       this.lastCodesKey = "";
       if (!silent) {
@@ -503,7 +705,7 @@
         }
       });
 
-      tokens = Array.from(new Set(tokens));
+      tokens = Array.from(new Set(tokens)).sort();
       var key = tokens.join(",");
 
       if (!key) {
@@ -516,6 +718,7 @@
 
       this.close(true);
       this.lastCodesKey = key;
+      clearReconnectTimer(this);
 
       setWlStatus("연결중", "is-warn");
 
@@ -524,6 +727,7 @@
         ? wsPathCandidate
         : "/finance/watchlistRealtime.ws";
       var url = buildWsUrl(path, "codes=" + encodeURIComponent(key));
+      var connectSeq = ++this.currentConnectSeq;
 
       if (global.__DEBUG_WL_WS && global.console) {
         console.log("[WL-WS] connect", { url: url, tokens: tokens.length });
@@ -533,10 +737,17 @@
       this.ws = ws;
 
       ws.onopen = function () {
-        setWlStatus("연결됨", "is-on", "open");
+        if (WatchlistRealtime.ws !== ws || WatchlistRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
+        clearReconnectTimer(WatchlistRealtime);
+        setWlStatus("연결 확인중", "is-warn", "open");
       };
 
       ws.onmessage = function (evt) {
+        if (WatchlistRealtime.ws !== ws || WatchlistRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
         try {
           var msg = JSON.parse(evt.data);
           if (!msg || !msg.type) {
@@ -552,19 +763,31 @@
           }
 
           if (msg.type === "WL") {
+            markMessageReceived(WatchlistRealtime);
+            setWlStatus("연결됨", "is-on", "message");
             queueWatchlistUpdate(msg);
+            return;
+          }
+
+          // 국내 실시간 구독 등록 완료 ack (첫 tick 도착 전 "연결됨" 표시)
+          if (msg.type === "WL_SUB") {
+            markMessageReceived(WatchlistRealtime);
+            setWlStatus("연결됨", "is-on", "subscribed");
             return;
           }
         } catch (e) {}
       };
 
       ws.onerror = function () {
+        if (WatchlistRealtime.ws !== ws || WatchlistRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
         setWlStatus("오류", "is-off", "onerror");
       };
 
       ws.onclose = function (evt) {
         if (ws.__manualClose) return;
-        if (WatchlistRealtime.ws !== ws) return;
+        if (WatchlistRealtime.ws !== ws || WatchlistRealtime.currentConnectSeq !== connectSeq) return;
         var detail = "close";
         if (evt && evt.code) {
           detail += " code=" + evt.code;
@@ -572,13 +795,18 @@
         if (evt && evt.reason) {
           detail += " reason=" + evt.reason;
         }
-        setWlStatus("재연결중", "is-warn", detail);
         if (global.__DEBUG_WL_WS && global.console) {
           console.warn("[WL-WS] closed", evt && evt.code, evt && evt.reason);
         }
-        setTimeout(function () {
+        var delay = scheduleReconnect(WatchlistRealtime, function () {
           WatchlistRealtime.connectFromDom();
-        }, 1500);
+        }, evt, { baseDelay: 1000, maxDelay: 30000, hiddenDelay: 5000 });
+
+        if (delay > 0) {
+          setWlStatus("재연결중", "is-warn", detail + " / " + delay + "ms");
+        } else {
+          setWlStatus("종료", "is-off", detail);
+        }
       };
     }
   };
@@ -588,6 +816,9 @@
     if (!ws) return;
     try {
       ws.__manualClose = true;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
       ws.onclose = null;
       ws.close();
     } catch (e) {}
@@ -596,8 +827,16 @@
   var ChartPriceRealtime = {
     ws: null,
     lastToken: "",
+    reconnectAttempts: 0,
+    reconnectTimer: null,
+    lastMessageAt: 0,
+    currentConnectSeq: 0,
 
     close: function () {
+      clearReconnectTimer(this);
+      this.currentConnectSeq += 1;
+      this.reconnectAttempts = 0;
+      this.lastMessageAt = 0;
       safeCloseWs(this.ws);
       this.ws = null;
       this.lastToken = "";
@@ -610,10 +849,11 @@
         return;
       }
 
-      if (this.ws && this.ws.readyState === 1 && this.lastToken === token) {
+      if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1) && this.lastToken === token) {
         return;
       }
 
+      clearReconnectTimer(this);
       safeCloseWs(this.ws);
       this.ws = null;
       this.lastToken = token;
@@ -623,49 +863,68 @@
         ? wsPathCandidate
         : "/finance/watchlistRealtime.ws";
       var url = buildWsUrl(path, "codes=" + encodeURIComponent(token));
+      var connectSeq = ++this.currentConnectSeq;
 
       var ws = new WebSocket(url);
       this.ws = ws;
 
+      ws.onopen = function () {
+        if (ChartPriceRealtime.ws !== ws || ChartPriceRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
+        clearReconnectTimer(ChartPriceRealtime);
+      };
+
       ws.onmessage = function (evt) {
+        if (ChartPriceRealtime.ws !== ws || ChartPriceRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
         try {
           var msg = JSON.parse(evt.data);
           if (!msg || msg.type !== "WL") {
             return;
           }
+          markMessageReceived(ChartPriceRealtime);
+          updateChartHeaderRealtime(msg);
+          updateCanvasChartRealtime(msg);
           if (global.ChartScript && typeof global.ChartScript.applyRealtimeQuote === "function") {
             global.ChartScript.applyRealtimeQuote(msg);
           }
         } catch (e) {}
       };
 
-      ws.onclose = function () {
+      ws.onclose = function (evt) {
         if (ws.__manualClose) return;
-        if (ChartPriceRealtime.ws !== ws) return;
-        setTimeout(function () {
+        if (ChartPriceRealtime.ws !== ws || ChartPriceRealtime.currentConnectSeq !== connectSeq) return;
+        scheduleReconnect(ChartPriceRealtime, function () {
           ChartPriceRealtime.connect(ChartPriceRealtime.lastToken);
-        }, 1500);
+        }, evt, { baseDelay: 1000, maxDelay: 30000, hiddenDelay: 5000 });
       };
     }
   };
 
   var MarketSummaryRealtime = {
     ws: null,
+    reconnectAttempts: 0,
+    reconnectTimer: null,
+    lastMessageAt: 0,
+    currentConnectSeq: 0,
 
     close: function () {
-      try {
-        if (this.ws) {
-          this.ws.close();
-        }
-      } catch (e) {}
+      clearReconnectTimer(this);
+      this.currentConnectSeq += 1;
+      this.reconnectAttempts = 0;
+      this.lastMessageAt = 0;
+      safeCloseWs(this.ws);
       this.ws = null;
     },
 
     connect: function () {
-      if (this.ws && this.ws.readyState === 1) {
+      if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) {
         return;
       }
 
+      clearReconnectTimer(this);
       this.close();
 
       var wsSummaryCandidate = global.__WS_MARKET_SUMMARY;
@@ -673,21 +932,37 @@
         ? wsSummaryCandidate
         : "/finance/marketSummaryRealtime.ws";
       var url = buildWsUrl(path, "");
+      var connectSeq = ++this.currentConnectSeq;
 
       var ws = new WebSocket(url);
       this.ws = ws;
 
+      ws.onopen = function () {
+        if (MarketSummaryRealtime.ws !== ws || MarketSummaryRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
+        clearReconnectTimer(MarketSummaryRealtime);
+      };
+
       ws.onmessage = function (evt) {
+        if (MarketSummaryRealtime.ws !== ws || MarketSummaryRealtime.currentConnectSeq !== connectSeq) {
+          return;
+        }
         try {
           var msg = JSON.parse(evt.data);
+          if (msg && msg.type === "SUMMARY") {
+            markMessageReceived(MarketSummaryRealtime);
+          }
           queueMarketSummaryUpdate(msg);
         } catch (e) {}
       };
 
-      ws.onclose = function () {
-        setTimeout(function () {
+      ws.onclose = function (evt) {
+        if (ws.__manualClose) return;
+        if (MarketSummaryRealtime.ws !== ws || MarketSummaryRealtime.currentConnectSeq !== connectSeq) return;
+        scheduleReconnect(MarketSummaryRealtime, function () {
           MarketSummaryRealtime.connect();
-        }, 2000);
+        }, evt, { baseDelay: 1500, maxDelay: 30000, hiddenDelay: 5000 });
       };
     }
   };

@@ -37,7 +37,7 @@ import com.scheduler.kis_client.util.JsonUtil;
  *
  * 二쇨린?곸쑝濡?REST 議고쉶 ??釉뚮씪?곗???push ?쒕떎.
  */
-@ServerEndpoint("/finance/marketSummaryRealtime.ws")
+@ServerEndpoint(value = "/finance/marketSummaryRealtime.ws", configurator = NoExtensionsConfigurator.class)
 public class MarketSummaryRealtimeEndpoint {
 
     private static final Logger logger = LoggerFactory.getLogger(MarketSummaryRealtimeEndpoint.class);
@@ -109,6 +109,7 @@ public class MarketSummaryRealtimeEndpoint {
 
     @OnError
     public void onError(Session session, Throwable t) {
+        cancel(session);
         logger.warn("[MS-WS] error session={}", safeId(session), t);
     }
 
@@ -143,7 +144,7 @@ public class MarketSummaryRealtimeEndpoint {
         payload.items.put("DJI", fetchOverseasLike(client, new String[] { "N" },
                 new String[] { ".DJI", "DJI", "DOW" }));
         payload.items.put("IXIC", fetchOverseasLike(client, new String[] { "N" },
-                new String[] { ".IXIC", "IXIC", "NASDAQ" }));
+                new String[] { "COMP", ".COMP", ".IXIC", "IXIC", "NASDAQ" }));
         payload.items.put("SPX", fetchOverseasLike(client, new String[] { "N" },
                 new String[] { ".INX", "SPX", "S&P500" }));
 
@@ -278,16 +279,21 @@ public class MarketSummaryRealtimeEndpoint {
             return "-";
         }
 
-        String s = sign;
-        if ("-".equals(sign)) {
-            s = "-";
-        } else if ("+".equals(sign)) {
-            s = "+";
-        } else {
-            s = "";
-        }
+        return prpr + " (" + formatSignedDiff(diff, sign) + " / " + rate + "%)";
+    }
 
-        return prpr + " (" + s + diff + " / " + rate + "%)";
+    private String formatSignedDiff(String diff, String sign) {
+        String value = safe(diff);
+        if (value.isEmpty()) {
+            return value;
+        }
+        if (value.startsWith("+") || value.startsWith("-")) {
+            return value;
+        }
+        if ("+".equals(sign) || "-".equals(sign)) {
+            return sign + value;
+        }
+        return value;
     }
 
     private boolean isMissingOverseasValue(String price, String diff, String rate) {
@@ -315,11 +321,11 @@ public class MarketSummaryRealtimeEndpoint {
 
     private String normalizeSign(String prdyVrssSign) {
         String v = safe(prdyVrssSign);
-        // KIS: 1(?곸듅),2(?섎씫),3(蹂댄빀),4(?곹븳),5(?섑븳)
-        if ("1".equals(v) || "4".equals(v)) {
+        // KIS 부호코드: 1=상한, 2=상승, 3=보합, 4=하한, 5=하락
+        if ("1".equals(v) || "2".equals(v)) {
             return "+";
         }
-        if ("2".equals(v) || "5".equals(v)) {
+        if ("4".equals(v) || "5".equals(v)) {
             return "-";
         }
         return "0";

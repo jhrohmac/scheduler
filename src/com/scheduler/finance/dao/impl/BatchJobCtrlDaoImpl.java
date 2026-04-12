@@ -115,6 +115,26 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
         }
     }
 
+    private void recoverOrphanRunningIfNeeded(BatchJobCtrlVo job) {
+        if (job == null) return;
+        try {
+            if (!"Y".equalsIgnoreCase(nvl(job.getRunning_yn(), "N"))) return;
+            String jobId = nvl(job.getJob_id(), "");
+            if (jobId.isEmpty()) return;
+
+            Thread running = RUNNING_THREADS.get(jobId);
+            if (running != null && running.isAlive()) return;
+
+            HashMap<String, String> m = new HashMap<String, String>();
+            m.put("job_id", jobId);
+            m.put("last_result_msg", "AUTO_RECOVER_ORPHAN_LOCK");
+            getSqlSession().update(NS + "forceClearRunning", m);
+            RUNNING_THREADS.remove(jobId);
+            STOP_FLAGS.remove(jobId);
+        } catch (Exception ignore) {
+        }
+    }
+
     private int staleRecoverMinutes(String jobId) {
         String id = nvl(jobId, "");
         if ("STOCK_SMA_ANALYSIS_REFRESH".equals(id) || "STOCK_30MIN_ANALYSIS_REFRESH".equals(id)) {
@@ -135,6 +155,7 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
             if (job == null) {
                 return out("ERROR", "JOB NOT FOUND", null);
             }
+            recoverOrphanRunningIfNeeded(job);
             recoverStaleRunningIfNeeded(job, staleRecoverMinutes(jobId));
             job = selectJobOne(q);
 
@@ -222,7 +243,11 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                     continue;
                 }
 
+                recoverOrphanRunningIfNeeded(job);
                 recoverStaleRunningIfNeeded(job, staleRecoverMinutes(job.getJob_id()));
+                HashMap<String, String> q = new HashMap<String, String>();
+                q.put("job_id", job.getJob_id());
+                job = selectJobOne(q);
 
                 if (!isDue(job.getJob_id())) {
                     skipped++;
@@ -438,12 +463,8 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                 m.put("stock_aliases", stockCode + "|" + ko + "|KOSPI200|ETF:" + code);
                 m.put("tag", "KOSPI200");
 
-                int rows = getSqlSession().update(NS + "mergeKospi200InterestStock", m);
-                if (rows > 0) {
-                    updated++;
-                } else {
-                    failed++;
-                }
+                getSqlSession().update(NS + "mergeKospi200InterestStock", m);
+                updated++;
             } catch (Exception e) {
                 e.printStackTrace();
                 failed++;
@@ -1810,15 +1831,10 @@ private SearchStockInfoResult.Output fetchKisStockInfo(KisClient client, String 
     }
 
     private boolean tryLock(String jobId) {
-    	boolean updated = true;
         HashMap<String, String> m = new HashMap<String, String>();
         m.put("job_id", jobId);
-        HashMap<String, String> rt = new HashMap<String, String>();
-        rt = getSqlSession().selectOne(NS + "selectTryLock", m);
-        if(rt.get("RUNNING_YN").equals("N")) {
-        	getSqlSession().update(NS + "tryLock", m);        	
-        }
-        return updated;
+        Integer updated = getSqlSession().update(NS + "tryLock", m);
+        return updated != null && updated.intValue() > 0;
     }
 
     private void finish(String jobId, String resultCode, String resultMsg, int runCnt) {

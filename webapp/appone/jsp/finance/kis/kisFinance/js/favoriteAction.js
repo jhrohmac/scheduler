@@ -84,6 +84,14 @@
     return v;
   }
 
+  function selectedGroupDiv() {
+    var v = ($("#wlGroupDiv").val() || "").trim().toLowerCase();
+    if (v === "monthend") return "month";
+    if (v === "month") return "month";
+    if (v === "recommend") return "recommend";
+    return "normal";
+  }
+
   function currentClosePrice() {
     return parseNumberText($("#kisHdrNow").text() || "");
   }
@@ -137,6 +145,7 @@
 
   function syncFavState() {
     var gid = selectedGroupId();
+    var groupDiv = selectedGroupDiv();
     var code = currentStockCode();
 
     if (!gid || !code) {
@@ -147,7 +156,7 @@
       return;
     }
 
-    var key = gid + "|" + code;
+    var key = gid + "|" + groupDiv + "|" + code;
     if (key === _lastKey && _xhrCheck) {
       return;
     }
@@ -169,7 +178,7 @@
       url: resolveCheckUrl(),
       type: "GET",
       dataType: "json",
-      data: { groupId: gid, stockCode: code },
+      data: { groupId: gid, groupDiv: groupDiv, stockCode: code },
       success: function (res) {
         var u = unwrapOk(res);
         if (!u.ok) {
@@ -194,7 +203,7 @@
   var syncFavStateDebounced = debounce(syncFavState, 250);
 
   function bindAutoSync() {
-    $(document).on("change", "#wlGroup", function () {
+    $(document).on("change", "#wlGroup, #wlGroupDiv", function () {
       syncFavStateDebounced();
     });
 
@@ -219,6 +228,7 @@
     $(document).on("click", "#kisHdrFav", function () {
       var code = currentStockCode();
       var gid = selectedGroupId();
+      var groupDiv = selectedGroupDiv();
 
       if (!gid) {
         alert("관심그룹을 먼저 선택해 주세요.");
@@ -241,6 +251,7 @@
         dataType: "json",
         data: {
           groupId: gid,
+          groupDiv: groupDiv,
           stockCode: code,
           stockClose: currentClosePrice()
         },

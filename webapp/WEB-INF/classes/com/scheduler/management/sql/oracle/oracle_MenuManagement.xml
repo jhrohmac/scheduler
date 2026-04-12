@@ -69,6 +69,9 @@
   	<select id="selectOneCnt" resultType="int">
   		SELECT count(*) FROM TB_M_MENUCFG
 		WHERE MENU_ID =	#{in_menuId}
+		<if test="in_menuSeq != null and in_menuSeq != ''">
+		AND MENU_SEQ != #{in_menuSeq}
+		</if>
   	</select>
   	
   	<select id="selectMenuSeq" resultType="MenuVo">
@@ -81,6 +84,22 @@
         <if test="in_gridDiv != 'main'">
         	AND PARENT_ID = #{in_parentId}
         </if>
+  	</select>
+
+  	<select id="selectMenuBySeq" resultType="MenuVo">
+  		SELECT MENU_SEQ
+  		     , MENU_ID
+  		     , MENU_NM
+  		     , MENU_NM_ENG
+  		     , MENU_DESC
+  		     , MENU_ICON
+  		     , PARENT_ID
+  		     , SORT_ORDER
+  		     , URL
+  		     , USE_FLAG
+  		     , POPUP_FLAG
+  		  FROM TB_M_MENUCFG
+  		 WHERE MENU_SEQ = #{in_menuSeq}
   	</select>
   	
   	<select id="selectMenuGroupList" resultType="ItemCodeVo">

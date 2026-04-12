@@ -31,7 +31,7 @@
 
 <section class="analysis-tabs">
   <button class="analysis-tab active" data-tab="ai">AI예측</button>
-  <button class="analysis-tab" data-tab="signal">매매신호</button>
+  <button class="analysis-tab" data-tab="signal">추천신호</button>
   <button class="analysis-tab" data-tab="indicator">지표분석</button>
   <button class="analysis-tab" data-tab="theme">테마종목</button>
 </section>
@@ -55,11 +55,11 @@
 
 <section class="analysis-panel" data-panel="signal">
   <article class="analysis-card buy">
-    <div class="card-head"><span class="mi material-symbols-outlined">trending_up</span><strong>매매신호 TOP5</strong></div>
+    <div class="card-head"><span class="mi material-symbols-outlined">trending_up</span><strong>추천신호 TOP5</strong></div>
     <div id="signalListMini" class="signal-mini-list">
-      <div class="mini-empty">매매신호 로딩중...</div>
+      <div class="mini-empty">추천신호 로딩중...</div>
     </div>
-    <button class="cta" data-focus="signal">매매신호 전체보기</button>
+    <button class="cta" data-focus="signal">추천신호 전체보기</button>
   </article>
 </section>
 
@@ -95,6 +95,7 @@ window.__MOBILE.urls = Object.assign({}, window.__MOBILE.urls || {}, {
   mobileChart: "/scheduler/finance/mobile/chart.do",
   mobileWatchlist: "/scheduler/finance/mobile/watchlist.do",
   mobileAnalysis: "/scheduler/finance/mobile/analysis.do",
+  recSignalList: "<c:url value='/stock/recSignal/list.do' />",
   legacyHome: "/scheduler/appone/jsp/finance/kis/kisFinance/kisFinance.jsp"
 });
 </script>

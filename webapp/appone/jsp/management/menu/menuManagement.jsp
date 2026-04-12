@@ -252,6 +252,9 @@
 	var modal_menu_Info = $('#modal_menu_info');
 	var modal_subscribe = $('#modal_subscribe');
 	var oneRowdata ="";
+	var originalMenuId = "";
+	var menu_duplicate = "N";
+	var menuSaveInProgress = false;
 	// jQuery
 	$(document).on('click', '#btn_subscribe', function () {
 		var $box1 = $('#bootstrap-duallistbox-nonselected-list_pop_user_List').closest('.box1');
@@ -447,27 +450,37 @@
 	
 	/* 메뉴 코드 중복 확인 */
 	function fn_menuDuplicate(){
-		var in_menuId = modal_menu_Info.find('#txt_insupd_code').val();
-	
+		var in_menuId = $.trim(modal_menu_Info.find('#in_menuId').val());
+		var eventDiv = $("#in_eventDiv").val();
+
 		if(in_menuId == ""){
 			alert("메뉴 ID를 입력하세요.");
 			return false;
 		}
-	
-		var url = "/scheduler/menu/selectMenuCheck.do";
-		var param = "in_menuId="+in_menuId;
-		var type = "json";
-		
-		ajaxCall(url, type, param, fn_menuDuplicateResult);
-		
-		function fn_menuDuplicateResult(data){
-			
-			if(data.result == "사용중인 메뉴 코드 입니다. 코드명을 변경해주세요."){
-				menu_duplicate = "N";
-			}else{
-				menu_duplicate = "Y";
-			}
+
+		modal_menu_Info.find('#in_menuId').val(in_menuId);
+
+		if(eventDiv == "update" && originalMenuId != "" && in_menuId == originalMenuId){
+			menu_duplicate = "Y";
+			return true;
 		}
+
+		var isAvailable = false;
+		var url = "/scheduler/menu/selectMenuCheck.do";
+		var param = getJQParams(modal_menu_Info);
+		var type = "json";
+
+		ajaxCall(url, type, param, function(data){
+			if(data.result_code == "Y"){
+				menu_duplicate = "Y";
+				isAvailable = true;
+			}else{
+				menu_duplicate = "N";
+				alert(data.result_msg || "이미 사용 중인 메뉴 ID입니다. 메뉴 ID를 변경해주세요.");
+			}
+		});
+
+		return isAvailable;
 	}
 	
 	function fn_menuUpdate(div,row_data){
@@ -493,6 +506,7 @@
 		$("#in_sortOrder").val(row_data.sort_order);
 		$("#in_menuSeq").val(row_data.menu_seq);
 		$("#in_menuId").val(row_data.menu_id);
+		originalMenuId = $.trim(row_data.menu_id || "");
 		$("#in_menuIcon").val(row_data.menu_icon);
 		$("#in_menuName").val(row_data.menu_nm);
 		$("#in_menuNameEng").val(row_data.menu_nm_eng);
@@ -520,6 +534,7 @@
       		this.reset();
       		menu_duplicate = "N";
   		});
+		originalMenuId = "";
 		
 		fn_MenuSeq();
 		if(div =="main"){
@@ -554,15 +569,42 @@
 	
 	/* 메뉴 신규 등록 및 수정 */ 
 	function fn_menuSave(){
+		if (menuSaveInProgress) {
+			return false;
+		}
+
 		var grid_div = $("#in_gridDiv").val();
-		var in_menuId = $("#in_menuId").val();
+		var in_menuId = $.trim($("#in_menuId").val());
+
+		if (in_menuId == "") {
+			alert("메뉴 ID를 입력하세요.");
+			return false;
+		}
+
 		$("#in_menuId").val(in_menuId.trim());
+
+		if (!fn_menuDuplicate()) {
+			return false;
+		}
 		
 		var param = getJQParams(modal_menu_Info);
 		var type = "script";
 		var url = "/scheduler/menu/saveMenu.do";
+		var $saveBtn = modal_menu_Info.find('#btn_save');
+
+		menuSaveInProgress = true;
+		$saveBtn.prop('disabled', true);
+		setTimeout(function(){
+			if(menuSaveInProgress){
+				menuSaveInProgress = false;
+				$saveBtn.prop('disabled', false);
+			}
+		}, 3000);
+
 		ajaxCall(url, type, param, fn_menuSaveResult);
 		function fn_menuSaveResult(){
+			menuSaveInProgress = false;
+			$saveBtn.prop('disabled', false);
 			$("#modal_menu_info").modal('hide');			//menu 수정 Popup Open
 			
 			if(grid_div =="main"){

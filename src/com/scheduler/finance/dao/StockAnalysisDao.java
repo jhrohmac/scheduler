@@ -6,7 +6,6 @@ import java.util.List;
 import com.scheduler.finance.vo.FinanceOptionsVo;
 import com.scheduler.finance.vo.StockInfoVo;
 import com.scheduler.finance.vo.StockPortfolioVo;
-import com.scheduler.finance.vo.StockRecommendVo;
 
 import java.util.HashMap;
 
@@ -14,8 +13,6 @@ public interface StockAnalysisDao
 {
 	
 	public List<?> selectStockList(HashMap<String, String> map) throws Exception;
-	
-	public List<StockRecommendVo> selectRecommendStocks(HashMap<String, String> map) throws Exception;
 	
 	public void update_stockCode(HashMap<String, String> map) throws Exception;
 	

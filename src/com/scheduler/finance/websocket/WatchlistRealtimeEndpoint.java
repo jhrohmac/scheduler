@@ -30,7 +30,7 @@ import com.scheduler.kis_client.util.JsonUtil;
  *   (예: ',' -> %2C, '|' -> %7C)
  * - 따라서 codes 파싱은 반드시 URLDecode 후 split 해야 한다.
  */
-@ServerEndpoint("/finance/watchlistRealtime.ws")
+@ServerEndpoint(value = "/finance/watchlistRealtime.ws", configurator = NoExtensionsConfigurator.class)
 public class WatchlistRealtimeEndpoint {
 
     private static final Logger logger = LoggerFactory.getLogger(WatchlistRealtimeEndpoint.class);
@@ -80,6 +80,10 @@ public class WatchlistRealtimeEndpoint {
 
     @OnError
     public void onError(Session session, Throwable t) {
+        try {
+            quoteHub.unsubscribe(session);
+        } catch (Exception ignore) {
+        }
         logger.warn("[WL-WS] error session={}", safeId(session), t);
     }
 
