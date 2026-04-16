@@ -73,6 +73,18 @@ window.__HIGHCHARTS_SRC = {
           <button type="button" class="filter-chip" data-grade="C">C</button>
         </div>
       </div>
+      <div class="toolbar-group">
+        <label class="toolbar-label" for="indexFilter">지수 필터</label>
+        <div class="chip-group" id="indexFilter"></div>
+      </div>
+      <div class="toolbar-group">
+        <label class="toolbar-label">가격 범위</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="number" id="priceMin" class="price-input" placeholder="최소" title="최소 가격">
+          <span style="color: var(--muted);">~</span>
+          <input type="number" id="priceMax" class="price-input" placeholder="최대" title="최대 가격">
+        </div>
+      </div>
     </div>
     <div class="toolbar-right">
       <span id="toolbarBaseDateText" class="toolbar-base-date">조회 기준일 -</span>

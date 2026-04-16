@@ -395,6 +395,20 @@ select {
   background: #fff;
 }
 
+.price-input {
+  width: 100px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(216, 208, 195, 0.95);
+  background: #fff;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-input::placeholder {
+  color: rgba(98, 112, 123, 0.6);
+}
+
 .analysis-grid {
   margin-top: 14px;
   display: grid;
