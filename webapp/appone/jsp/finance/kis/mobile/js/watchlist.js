@@ -179,8 +179,11 @@
 
     ws.onclose = () => {
       if (ws.__manualClose) return;
+      if (state.pageUnloading) return;
       setStatus('재연결');
-      state.reconnectTimer = setTimeout(() => connectRealtime(state.items), 1500);
+      state.reconnectTimer = setTimeout(() => {
+        if (!state.pageUnloading) connectRealtime(state.items);
+      }, 1500);
     };
   }
 
@@ -339,6 +342,14 @@
     closeWs();
     loadGroups();
   };
+
+  // 페이지 이탈 시 WebSocket 종료 및 재연결 방지
+  function _onPageUnload() {
+    state.pageUnloading = true;
+    closeWs();
+  }
+  window.addEventListener("pagehide", _onPageUnload);
+  window.addEventListener("beforeunload", _onPageUnload);
 
   bind();
   loadGroups();

@@ -842,6 +842,9 @@ document.onkeyup = function(e) {
 * 페이지 이동
 *************************************************************************/
 function fn_PageMove(in_menuId) {
+	// 페이지 전용 WebSocket 종료 (메뉴 전환 시 orphan 방지)
+	try { if (window.WatchlistRealtime) WatchlistRealtime.close(true); } catch(e) {}
+	try { if (window.ChartPriceRealtime) ChartPriceRealtime.close(); } catch(e) {}
 	$('#mainContent').empty();
 	var url = "/scheduler/menu/selPageMove.do";
 	var type = "html";

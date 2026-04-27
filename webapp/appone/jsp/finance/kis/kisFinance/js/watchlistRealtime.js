@@ -33,6 +33,8 @@
     return "flat";
   }
 
+  var _pageUnloading = false;
+
   var WatchlistRealtime = {
     ws: null,
     lastCodesKey: "",
@@ -102,9 +104,10 @@
       };
 
       ws.onclose = function () {
+        if (_pageUnloading) return;
         // 자동 재연결 (DOM이 존재하면)
         setTimeout(function () {
-          WatchlistRealtime.connectFromDom();
+          if (!_pageUnloading) WatchlistRealtime.connectFromDom();
         }, 1500);
       };
     }
@@ -171,8 +174,9 @@
       };
 
       ws.onclose = function () {
+        if (_pageUnloading) return;
         setTimeout(function () {
-          MarketSummaryRealtime.connect();
+          if (!_pageUnloading) MarketSummaryRealtime.connect();
         }, 2000);
       };
     }
@@ -180,4 +184,13 @@
 
   global.WatchlistRealtime = WatchlistRealtime;
   global.MarketSummaryRealtime = MarketSummaryRealtime;
+
+  // 페이지 이탈 시 WebSocket 종료 및 재연결 방지
+  function _onPageUnload() {
+    _pageUnloading = true;
+    WatchlistRealtime.close();
+    MarketSummaryRealtime.close();
+  }
+  window.addEventListener("pagehide", _onPageUnload);
+  window.addEventListener("beforeunload", _onPageUnload);
 })(window, window.jQuery);

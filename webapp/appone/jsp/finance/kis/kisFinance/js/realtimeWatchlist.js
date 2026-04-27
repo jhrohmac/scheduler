@@ -671,7 +671,12 @@
     return delay + jitter;
   }
 
+  var _pageUnloading = false;
+
   function scheduleReconnect(target, reconnectFn, evt, options) {
+    if (_pageUnloading) {
+      return 0;
+    }
     if (!target || typeof reconnectFn !== "function" || !shouldReconnect(evt)) {
       return 0;
     }
@@ -999,4 +1004,14 @@
   global.WatchlistRealtime = WatchlistRealtime;
   global.MarketSummaryRealtime = MarketSummaryRealtime;
   global.ChartPriceRealtime = ChartPriceRealtime;
+
+  // 페이지 이탈 시 WebSocket 종료 및 재연결 방지
+  function _onPageUnload() {
+    _pageUnloading = true;
+    WatchlistRealtime.close(true);
+    ChartPriceRealtime.close();
+    MarketSummaryRealtime.close();
+  }
+  window.addEventListener("pagehide", _onPageUnload);
+  window.addEventListener("beforeunload", _onPageUnload);
 })(window, window.jQuery);

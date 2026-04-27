@@ -17,6 +17,10 @@ import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResul
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResult.Output2;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyPriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireOverseasDailyPriceResult;
+import com.scheduler.kis_api.api.rest.quotations.InquirePriceApi;
+import com.scheduler.kis_api.api.rest.quotations.InquirePriceResult;
+import com.scheduler.kis_api.api.rest.quotations.PriceApi;
+import com.scheduler.kis_api.api.rest.quotations.PriceResult;
 import com.scheduler.kis_client.KisClient;
 import com.scheduler.stock.dao.StkMasterDao;
 import com.scheduler.stock.dto.DlyPriceDto;
@@ -335,6 +339,123 @@ public class KisDlyPriceSyncService {
         dto.setTradeValue(parseLong(output.getTamt()));
         dto.setAdjFactor(Double.valueOf(1d));
         return dto;
+    }
+
+    /**
+     * priceList에 effectiveBaseDt 데이터가 없으면 KIS 현재가 API를 호출해 당일 row를 합성해 반환.
+     * 이미 데이터가 있거나 API 실패 시 원본 priceList를 반환한다.
+     */
+    public List<DlyPriceDto> appendCurrentPriceIfNeeded(List<DlyPriceDto> priceList, String stkCd, String mktCd,
+            String marketGroup, String effectiveBaseDt, long requestIntervalMs) {
+        if (hasTradeDt(priceList, effectiveBaseDt)) {
+            return priceList;
+        }
+        try {
+            if (requestIntervalMs > 0L) {
+                Thread.sleep(requestIntervalMs);
+            }
+            DlyPriceDto currentDto = fetchCurrentPriceDto(stkCd, mktCd, marketGroup, effectiveBaseDt);
+            if (currentDto == null
+                    || currentDto.getAdjClosePrice() == null
+                    || currentDto.getAdjClosePrice().doubleValue() <= 0d) {
+                return priceList;
+            }
+            List<DlyPriceDto> augmented = new ArrayList<DlyPriceDto>(priceList);
+            augmented.add(currentDto);
+            return augmented;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return priceList;
+        } catch (Exception e) {
+            return priceList;
+        }
+    }
+
+    private DlyPriceDto fetchCurrentPriceDto(String stkCd, String mktCd, String marketGroup,
+            String today) throws Exception {
+        if ("KR".equals(normalizeMarketGroup(marketGroup))) {
+            return fetchDomesticCurrentPriceDto(stkCd, today);
+        }
+        return fetchOverseasCurrentPriceDto(stkCd, mktCd, today);
+    }
+
+    private DlyPriceDto fetchDomesticCurrentPriceDto(String stkCd, String today) throws Exception {
+        KisClient client = KisClientFactory.getClient();
+        InquirePriceApi api = new InquirePriceApi();
+        api.setFidInputIscd(stkCd);
+
+        InquirePriceResult result = client.execute(api);
+        if (result == null) {
+            throw new IllegalStateException("KIS 주식현재가 응답이 null 입니다.");
+        }
+        if (!"0".equals(result.getRtCd())) {
+            throw new IllegalStateException("KIS 주식현재가 API 오류 rtCd=" + result.getRtCd()
+                    + ", msgCd=" + result.getMsgCd() + ", msg1=" + result.getMsg1());
+        }
+        InquirePriceResult.Output output = result.getOutput();
+        if (output == null) {
+            return null;
+        }
+        DlyPriceDto dto = new DlyPriceDto();
+        dto.setStkCd(stkCd);
+        dto.setTradeDt(today);
+        dto.setAdjOpenPrice(parseDouble(output.getStckOprc()));
+        dto.setAdjHighPrice(parseDouble(output.getStckHgpr()));
+        dto.setAdjLowPrice(parseDouble(output.getStckLwpr()));
+        dto.setAdjClosePrice(parseDouble(output.getStckPrpr()));
+        dto.setVolume(parseLong(output.getAcmlVol()));
+        dto.setTradeValue(parseLong(output.getAcmlTrPbmn()));
+        dto.setAdjFactor(Double.valueOf(1d));
+        return dto;
+    }
+
+    private DlyPriceDto fetchOverseasCurrentPriceDto(String stkCd, String mktCd, String today) throws Exception {
+        KisClient client = KisClientFactory.getClient();
+        PriceApi api = new PriceApi();
+        api.setExcd(normalizeOverseasExcd(mktCd, "US"));
+        api.setSymb(stkCd);
+
+        PriceResult result = client.execute(api);
+        if (result == null) {
+            throw new IllegalStateException("KIS 해외주식 현재가 응답이 null 입니다.");
+        }
+        if (!"0".equals(result.getRtCd())) {
+            throw new IllegalStateException("KIS 해외주식 현재가 API 오류 rtCd=" + result.getRtCd()
+                    + ", msgCd=" + result.getMsgCd() + ", msg1=" + result.getMsg1());
+        }
+        PriceResult.Output output = result.getOutput();
+        if (output == null) {
+            return null;
+        }
+        // US 현재가 API는 시가/고가/저가를 제공하지 않으므로 현재가로 대체
+        Double currentPrice = parseDouble(output.getLast());
+        if (currentPrice == null || currentPrice.doubleValue() <= 0d) {
+            return null;
+        }
+        DlyPriceDto dto = new DlyPriceDto();
+        dto.setStkCd(stkCd);
+        dto.setTradeDt(today);
+        dto.setAdjOpenPrice(currentPrice);
+        dto.setAdjHighPrice(currentPrice);
+        dto.setAdjLowPrice(currentPrice);
+        dto.setAdjClosePrice(currentPrice);
+        dto.setVolume(parseLong(output.getTvol()));
+        dto.setTradeValue(parseLong(output.getTamt()));
+        dto.setAdjFactor(Double.valueOf(1d));
+        return dto;
+    }
+
+    private boolean hasTradeDt(List<DlyPriceDto> priceList, String tradeDt) {
+        if (priceList == null || isBlank(tradeDt)) {
+            return false;
+        }
+        for (int i = 0; i < priceList.size(); i++) {
+            DlyPriceDto dto = priceList.get(i);
+            if (dto != null && tradeDt.equals(dto.getTradeDt())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String normalizeMarketGroup(String marketGroup) {
