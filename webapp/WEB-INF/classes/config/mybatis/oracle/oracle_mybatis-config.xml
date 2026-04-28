@@ -93,6 +93,7 @@
 		
 		<!-- WF-2-4: 보유종목 관리 -->
 		<mapper resource="com/scheduler/finance/sql/oracle/oracle_Position.xml"/>
+		<mapper resource="com/scheduler/finance/sql/oracle/oracle_StkSearch.xml"/>
 		
 		<!-- Stock Rec Signal -->
 		<mapper resource="com/scheduler/stock/sql/oracle/RecSignalMapper.xml"/>

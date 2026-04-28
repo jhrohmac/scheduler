@@ -17,6 +17,21 @@ public class StockBatchAdminDaoImpl extends SqlSessionDaoSupport implements Stoc
     }
 
     @Override
+    public List<HashMap<String, Object>> selectTaskDefList(HashMap<String, String> map) throws Exception {
+        return getSqlSession().selectList(NS + "selectTaskDefList", map);
+    }
+
+    @Override
+    public int insertTaskDef(HashMap<String, String> map) throws Exception {
+        return getSqlSession().insert(NS + "insertTaskDef", map);
+    }
+
+    @Override
+    public int deleteTaskDef(HashMap<String, String> map) throws Exception {
+        return getSqlSession().delete(NS + "deleteTaskDef", map);
+    }
+
+    @Override
     public List<HashMap<String, Object>> selectJobList(HashMap<String, String> map) throws Exception {
         return getSqlSession().selectList(NS + "selectJobList", map);
     }
@@ -72,8 +87,18 @@ public class StockBatchAdminDaoImpl extends SqlSessionDaoSupport implements Stoc
     }
 
     @Override
+    public int deleteJobParamsExcept(HashMap<String, Object> map) throws Exception {
+        return getSqlSession().delete(NS + "deleteJobParamsExcept", map);
+    }
+
+    @Override
     public int insertJobParam(HashMap<String, String> map) throws Exception {
         return getSqlSession().insert(NS + "insertJobParam", map);
+    }
+
+    @Override
+    public int upsertJobParam(HashMap<String, String> map) throws Exception {
+        return getSqlSession().update(NS + "upsertJobParam", map);
     }
 
     @Override
@@ -149,6 +174,16 @@ public class StockBatchAdminDaoImpl extends SqlSessionDaoSupport implements Stoc
     @Override
     public int markJobFinish(HashMap<String, String> map) throws Exception {
         return getSqlSession().update(NS + "markJobFinish", map);
+    }
+
+    @Override
+    public int insertJobExecLog(HashMap<String, String> map) throws Exception {
+        return getSqlSession().insert(NS + "insertJobExecLog", map);
+    }
+
+    @Override
+    public int updateJobExecLog(HashMap<String, String> map) throws Exception {
+        return getSqlSession().update(NS + "updateJobExecLog", map);
     }
 
     @Override

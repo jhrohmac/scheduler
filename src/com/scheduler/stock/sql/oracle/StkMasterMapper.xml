@@ -7,9 +7,11 @@
 
     <!-- RecSignal 배치용 종목 목록 (활성 + 정상 종목만) -->
     <select id="selectStkMasterList" parameterType="hashmap" resultType="recSignalDto">
-        SELECT STK_CD AS stkCd,
-               STK_NM AS stkNm,
-               MKT_CD AS mktCd
+        SELECT STK_CD    AS stkCd,
+               STK_NM    AS stkNm,
+               MKT_CD    AS mktCd,
+               STK_TYPE  AS stkType,
+               INDEX_CD  AS indexCd
           FROM TB_STK_MASTER
          WHERE USE_YN      = 'Y'
            AND STK_STATUS  = 'NORMAL'
@@ -17,7 +19,6 @@
     </select>
 
     <!-- 특정 시장의 활성 종목코드 목록 (상장폐지 감지용) -->
-    <!-- mktCd: 단일값 또는 'KOSPI,KOSDAQ' 처럼 콤마 구분 → 호출 측에서 IN 절 생성 후 사용 -->
     <select id="selectActiveStkCdListByMktCd" parameterType="hashmap" resultType="string">
         SELECT STK_CD
           FROM TB_STK_MASTER
@@ -28,7 +29,7 @@
     <!--
         종목 MERGE
         - INSERT: USE_YN 기본값 'Y' (DELIST 이면 'N')
-        - UPDATE: STK_NM/MKT_CD/STK_STATUS/LIST_DT/INDEX_CD 갱신
+        - UPDATE: 기본정보 + 상세정보 전체 갱신
                   USE_YN 은 DELIST 일 때만 'N' 으로 변경 (수동 제외 종목 보호)
                   DELIST_DT 는 DELIST 상태 전환 시에만 기록
     -->
@@ -36,26 +37,106 @@
         MERGE INTO TB_STK_MASTER T
         USING (
             SELECT
-                #{stkCd,jdbcType=VARCHAR}      AS STK_CD,
-                #{stkNm,jdbcType=VARCHAR}      AS STK_NM,
-                #{stkNmEn,jdbcType=VARCHAR}    AS STK_NM_EN,
-                #{mktCd,jdbcType=VARCHAR}      AS MKT_CD,
-                #{stkStatus,jdbcType=VARCHAR}  AS STK_STATUS,
+                #{stkCd,jdbcType=VARCHAR}           AS STK_CD,
+                #{stkNm,jdbcType=VARCHAR}           AS STK_NM,
+                #{stkNmEn,jdbcType=VARCHAR}         AS STK_NM_EN,
+                #{mktCd,jdbcType=VARCHAR}           AS MKT_CD,
+                #{stkStatus,jdbcType=VARCHAR}       AS STK_STATUS,
                 NVL(#{stkType,jdbcType=VARCHAR}, 'STOCK') AS STK_TYPE,
-                #{indexCd,jdbcType=VARCHAR}    AS INDEX_CD,
-                #{sectorCd,jdbcType=VARCHAR}   AS SECTOR_CD,
-                #{mktCapSize,jdbcType=CHAR}    AS MKT_CAP_SIZE,
-                NVL(#{prefYn,jdbcType=CHAR}, 'N') AS PREF_YN,
-                #{settleMonth,jdbcType=VARCHAR} AS SETTLE_MONTH,
-                #{currency,jdbcType=VARCHAR}   AS CURRENCY,
+                #{indexCd,jdbcType=VARCHAR}         AS INDEX_CD,
+                #{sectorCd,jdbcType=VARCHAR}        AS SECTOR_CD,
+                #{mktCapSize,jdbcType=CHAR}         AS MKT_CAP_SIZE,
+                NVL(#{prefYn,jdbcType=CHAR}, 'N')  AS PREF_YN,
+                #{settleMonth,jdbcType=VARCHAR}     AS SETTLE_MONTH,
+                #{currency,jdbcType=VARCHAR}        AS CURRENCY,
                 <choose>
                     <when test="listDt != null and listDt != ''">
                         TO_DATE(#{listDt,jdbcType=VARCHAR}, 'YYYYMMDD')
                     </when>
-                    <otherwise>
-                        NULL
-                    </otherwise>
-                </choose>                       AS LIST_DT
+                    <otherwise>NULL</otherwise>
+                </choose>                           AS LIST_DT,
+                /* 그룹1: 공통 */
+                #{scrtGrpClsCd,jdbcType=VARCHAR}    AS SCRT_GRP_CLS_CD,
+                #{symbol,jdbcType=VARCHAR}          AS SYMBOL,
+                /* 그룹2: 해외종목 */
+                #{natnCd,jdbcType=VARCHAR}          AS NATN_CD,
+                #{exchCd,jdbcType=VARCHAR}          AS EXCH_CD,
+                #{ovrsBstpCd,jdbcType=VARCHAR}      AS OVRS_BSTP_CD,
+                #{dow30Yn,jdbcType=CHAR}            AS DOW30_YN,
+                #{nas100Yn,jdbcType=CHAR}           AS NAS100_YN,
+                #{snp500Yn,jdbcType=CHAR}           AS SNP500_YN,
+                /* 그룹3: 업종분류 */
+                #{bstpMedmDivCd,jdbcType=VARCHAR}   AS BSTP_MEDM_DIV_CD,
+                #{bstpSmalDivCd,jdbcType=VARCHAR}   AS BSTP_SMAL_DIV_CD,
+                /* 그룹3: 지수편입 */
+                #{kospi200SectCd,jdbcType=CHAR}     AS KOSPI200_SECT_CD,
+                #{kospi100Yn,jdbcType=CHAR}         AS KOSPI100_YN,
+                #{kospi50Yn,jdbcType=CHAR}          AS KOSPI50_YN,
+                #{kospiYn,jdbcType=CHAR}            AS KOSPI_YN,
+                #{kosdaq150Yn,jdbcType=CHAR}        AS KOSDAQ150_YN,
+                #{krxYn,jdbcType=CHAR}              AS KRX_YN,
+                #{krx100Yn,jdbcType=CHAR}           AS KRX100_YN,
+                #{krx300Yn,jdbcType=CHAR}           AS KRX300_YN,
+                #{krxCarYn,jdbcType=CHAR}           AS KRX_CAR_YN,
+                #{krxSmcnYn,jdbcType=CHAR}          AS KRX_SMCN_YN,
+                #{krxBioYn,jdbcType=CHAR}           AS KRX_BIO_YN,
+                #{krxBankYn,jdbcType=CHAR}          AS KRX_BANK_YN,
+                #{krxEnrgChmsYn,jdbcType=CHAR}      AS KRX_ENRG_CHMS_YN,
+                #{krxStelYn,jdbcType=CHAR}          AS KRX_STEL_YN,
+                #{krxMediCmncYn,jdbcType=CHAR}      AS KRX_MEDI_CMNC_YN,
+                #{krxCnstYn,jdbcType=CHAR}          AS KRX_CNST_YN,
+                #{krxScrtYn,jdbcType=CHAR}          AS KRX_SCRT_YN,
+                #{krxShipYn,jdbcType=CHAR}          AS KRX_SHIP_YN,
+                #{krxInsuYn,jdbcType=CHAR}          AS KRX_INSU_YN,
+                #{krxTrnsYn,jdbcType=CHAR}          AS KRX_TRNS_YN,
+                #{sriYn,jdbcType=CHAR}              AS SRI_YN,
+                #{etpClsCd,jdbcType=CHAR}           AS ETP_CLS_CD,
+                #{elwPblcYn,jdbcType=CHAR}          AS ELW_PBLC_YN,
+                #{spacYn,jdbcType=CHAR}             AS SPAC_YN,
+                /* 그룹3: 종목특성 */
+                #{mninYn,jdbcType=CHAR}             AS MNIN_YN,
+                #{lowCurrentYn,jdbcType=CHAR}       AS LOW_CURRENT_YN,
+                #{sprnNmixYn,jdbcType=CHAR}         AS SPRN_NMIX_YN,
+                #{ventYn,jdbcType=CHAR}             AS VENT_YN,
+                #{invtCatnYn,jdbcType=CHAR}         AS INVT_CATN_YN,
+                /* 그룹3: 거래경보 */
+                #{sltrYn,jdbcType=CHAR}             AS SLTR_YN,
+                #{mangYn,jdbcType=CHAR}             AS MANG_YN,
+                #{shortOverClsCd,jdbcType=CHAR}     AS SHORT_OVER_CLS_CD,
+                #{mrktAlrmClsCd,jdbcType=VARCHAR}   AS MRKT_ALRM_CLS_CD,
+                #{mrktAlrmRiskYn,jdbcType=CHAR}     AS MRKT_ALRM_RISK_YN,
+                #{insnPbntYn,jdbcType=CHAR}         AS INSN_PBNT_YN,
+                #{bypsLstnYn,jdbcType=VARCHAR}      AS BYPS_LSTN_YN,
+                #{flngClsCd,jdbcType=VARCHAR}       AS FLNG_CLS_CD,
+                #{fcamModClsCd,jdbcType=VARCHAR}    AS FCAM_MOD_CLS_CD,
+                #{icicClsCd,jdbcType=VARCHAR}       AS ICIC_CLS_CD,
+                #{sstsHotYn,jdbcType=CHAR}          AS SSTS_HOT_YN,
+                #{stangeRunupYn,jdbcType=CHAR}      AS STANGE_RUNUP_YN,
+                /* 그룹3: 신용/거래 */
+                #{margRate,jdbcType=VARCHAR}        AS MARG_RATE,
+                #{crdtAble,jdbcType=CHAR}           AS CRDT_ABLE,
+                #{crdtDays,jdbcType=VARCHAR}        AS CRDT_DAYS,
+                #{coCrdtLimtOverYn,jdbcType=CHAR}   AS CO_CRDT_LIMT_OVER_YN,
+                #{secuLendAbleYn,jdbcType=CHAR}     AS SECU_LEND_ABLE_YN,
+                #{stlnAbleYn,jdbcType=CHAR}         AS STLN_ABLE_YN,
+                /* 그룹3: 기본수치 */
+                #{stckSdpr,jdbcType=VARCHAR}        AS STCK_SDPR,
+                #{frmlMrktDealQtyUnit,jdbcType=VARCHAR} AS FRML_MRKT_DEAL_QTY_UNIT,
+                #{ovtmMrktDealQtyUnit,jdbcType=VARCHAR} AS OVTM_MRKT_DEAL_QTY_UNIT,
+                #{prdyVol,jdbcType=VARCHAR}         AS PRDY_VOL,
+                #{stckFcam,jdbcType=VARCHAR}        AS STCK_FCAM,
+                #{lstnStcn,jdbcType=VARCHAR}        AS LSTN_STCN,
+                #{cpfn,jdbcType=VARCHAR}            AS CPFN,
+                #{poPrc,jdbcType=VARCHAR}           AS PO_PRC,
+                /* 그룹3: 재무 */
+                #{saleAccount,jdbcType=VARCHAR}     AS SALE_ACCOUNT,
+                #{bsopPrfi,jdbcType=VARCHAR}        AS BSOP_PRFI,
+                #{opPrfi,jdbcType=VARCHAR}          AS OP_PRFI,
+                #{thtrNtin,jdbcType=VARCHAR}        AS THTR_NTIN,
+                #{roeVal,jdbcType=VARCHAR}          AS ROE_VAL,
+                #{baseDt,jdbcType=VARCHAR}          AS BASE_DT,
+                #{prdyAvlsScal,jdbcType=VARCHAR}    AS PRDY_AVLS_SCAL,
+                #{coCd,jdbcType=VARCHAR}            AS CO_CD
             FROM DUAL
         ) S
         ON (T.STK_CD = S.STK_CD)
@@ -76,17 +157,135 @@
                 T.USE_YN       = CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE T.USE_YN END,
                 T.DELIST_DT    = CASE WHEN S.STK_STATUS = 'DELIST' AND T.STK_STATUS != 'DELIST'
                                       THEN SYSDATE ELSE T.DELIST_DT END,
-                T.UPDATED_AT   = SYSDATE
+                /* 그룹1 */
+                T.SCRT_GRP_CLS_CD = NVL(S.SCRT_GRP_CLS_CD, T.SCRT_GRP_CLS_CD),
+                T.SYMBOL           = NVL(S.SYMBOL, T.SYMBOL),
+                /* 그룹2 */
+                T.NATN_CD      = NVL(S.NATN_CD, T.NATN_CD),
+                T.EXCH_CD      = NVL(S.EXCH_CD, T.EXCH_CD),
+                T.OVRS_BSTP_CD = NVL(S.OVRS_BSTP_CD, T.OVRS_BSTP_CD),
+                /* 그룹3: 업종 */
+                T.BSTP_MEDM_DIV_CD = NVL(S.BSTP_MEDM_DIV_CD, T.BSTP_MEDM_DIV_CD),
+                T.BSTP_SMAL_DIV_CD = NVL(S.BSTP_SMAL_DIV_CD, T.BSTP_SMAL_DIV_CD),
+                /* 그룹3: 지수편입 */
+                T.KOSPI200_SECT_CD = S.KOSPI200_SECT_CD,
+                T.KOSPI100_YN      = S.KOSPI100_YN,
+                T.KOSPI50_YN       = S.KOSPI50_YN,
+                T.KOSPI_YN         = S.KOSPI_YN,
+                T.KOSDAQ150_YN     = S.KOSDAQ150_YN,
+                T.KRX_YN           = S.KRX_YN,
+                T.KRX100_YN        = S.KRX100_YN,
+                T.KRX300_YN        = S.KRX300_YN,
+                T.KRX_CAR_YN       = S.KRX_CAR_YN,
+                T.KRX_SMCN_YN      = S.KRX_SMCN_YN,
+                T.KRX_BIO_YN       = S.KRX_BIO_YN,
+                T.KRX_BANK_YN      = S.KRX_BANK_YN,
+                T.KRX_ENRG_CHMS_YN = S.KRX_ENRG_CHMS_YN,
+                T.KRX_STEL_YN      = S.KRX_STEL_YN,
+                T.KRX_MEDI_CMNC_YN = S.KRX_MEDI_CMNC_YN,
+                T.KRX_CNST_YN      = S.KRX_CNST_YN,
+                T.KRX_SCRT_YN      = S.KRX_SCRT_YN,
+                T.KRX_SHIP_YN      = S.KRX_SHIP_YN,
+                T.KRX_INSU_YN      = S.KRX_INSU_YN,
+                T.KRX_TRNS_YN      = S.KRX_TRNS_YN,
+                T.SRI_YN           = S.SRI_YN,
+                T.ETP_CLS_CD       = S.ETP_CLS_CD,
+                T.ELW_PBLC_YN      = S.ELW_PBLC_YN,
+                T.SPAC_YN          = S.SPAC_YN,
+                /* 그룹3: 종목특성 */
+                T.MNIN_YN        = S.MNIN_YN,
+                T.LOW_CURRENT_YN = S.LOW_CURRENT_YN,
+                T.SPRN_NMIX_YN   = S.SPRN_NMIX_YN,
+                T.VENT_YN        = S.VENT_YN,
+                T.INVT_CATN_YN   = S.INVT_CATN_YN,
+                /* 그룹3: 거래경보 */
+                T.SLTR_YN           = S.SLTR_YN,
+                T.MANG_YN           = S.MANG_YN,
+                T.SHORT_OVER_CLS_CD = S.SHORT_OVER_CLS_CD,
+                T.MRKT_ALRM_CLS_CD  = S.MRKT_ALRM_CLS_CD,
+                T.MRKT_ALRM_RISK_YN = S.MRKT_ALRM_RISK_YN,
+                T.INSN_PBNT_YN      = S.INSN_PBNT_YN,
+                T.BYPS_LSTN_YN      = S.BYPS_LSTN_YN,
+                T.FLNG_CLS_CD       = S.FLNG_CLS_CD,
+                T.FCAM_MOD_CLS_CD   = S.FCAM_MOD_CLS_CD,
+                T.ICIC_CLS_CD       = S.ICIC_CLS_CD,
+                T.SSTS_HOT_YN       = S.SSTS_HOT_YN,
+                T.STANGE_RUNUP_YN   = S.STANGE_RUNUP_YN,
+                /* 그룹3: 신용 */
+                T.MARG_RATE           = S.MARG_RATE,
+                T.CRDT_ABLE           = S.CRDT_ABLE,
+                T.CRDT_DAYS           = S.CRDT_DAYS,
+                T.CO_CRDT_LIMT_OVER_YN = S.CO_CRDT_LIMT_OVER_YN,
+                T.SECU_LEND_ABLE_YN   = S.SECU_LEND_ABLE_YN,
+                T.STLN_ABLE_YN        = S.STLN_ABLE_YN,
+                /* 그룹3: 기본수치 */
+                T.STCK_SDPR              = S.STCK_SDPR,
+                T.FRML_MRKT_DEAL_QTY_UNIT = S.FRML_MRKT_DEAL_QTY_UNIT,
+                T.OVTM_MRKT_DEAL_QTY_UNIT = S.OVTM_MRKT_DEAL_QTY_UNIT,
+                T.PRDY_VOL  = S.PRDY_VOL,
+                T.STCK_FCAM = S.STCK_FCAM,
+                T.LSTN_STCN = S.LSTN_STCN,
+                T.CPFN      = S.CPFN,
+                T.PO_PRC    = S.PO_PRC,
+                /* 그룹3: 재무 */
+                T.SALE_ACCOUNT  = S.SALE_ACCOUNT,
+                T.BSOP_PRFI     = S.BSOP_PRFI,
+                T.OP_PRFI       = S.OP_PRFI,
+                T.THTR_NTIN     = S.THTR_NTIN,
+                T.ROE_VAL       = S.ROE_VAL,
+                T.BASE_DT       = S.BASE_DT,
+                T.PRDY_AVLS_SCAL = S.PRDY_AVLS_SCAL,
+                T.CO_CD         = S.CO_CD,
+                T.UPDATED_AT    = SYSDATE
         WHEN NOT MATCHED THEN
             INSERT (
                 STK_CD, STK_NM, STK_NM_EN, MKT_CD, STK_STATUS, STK_TYPE,
-                INDEX_CD, SECTOR_CD, MKT_CAP_SIZE, PREF_YN, SETTLE_MONTH, CURRENCY,
-                LIST_DT, USE_YN, CREATED_AT, UPDATED_AT
+                INDEX_CD, SECTOR_CD, MKT_CAP_SIZE, PREF_YN, SETTLE_MONTH, CURRENCY, LIST_DT,
+                SCRT_GRP_CLS_CD, SYMBOL,
+                NATN_CD, EXCH_CD, OVRS_BSTP_CD, DOW30_YN, NAS100_YN, SNP500_YN,
+                BSTP_MEDM_DIV_CD, BSTP_SMAL_DIV_CD,
+                KOSPI200_SECT_CD, KOSPI100_YN, KOSPI50_YN, KOSPI_YN, KOSDAQ150_YN,
+                KRX_YN, KRX100_YN, KRX300_YN,
+                KRX_CAR_YN, KRX_SMCN_YN, KRX_BIO_YN, KRX_BANK_YN,
+                KRX_ENRG_CHMS_YN, KRX_STEL_YN, KRX_MEDI_CMNC_YN, KRX_CNST_YN,
+                KRX_SCRT_YN, KRX_SHIP_YN, KRX_INSU_YN, KRX_TRNS_YN,
+                SRI_YN, ETP_CLS_CD, ELW_PBLC_YN, SPAC_YN,
+                MNIN_YN, LOW_CURRENT_YN, SPRN_NMIX_YN, VENT_YN, INVT_CATN_YN,
+                SLTR_YN, MANG_YN, SHORT_OVER_CLS_CD,
+                MRKT_ALRM_CLS_CD, MRKT_ALRM_RISK_YN, INSN_PBNT_YN,
+                BYPS_LSTN_YN, FLNG_CLS_CD, FCAM_MOD_CLS_CD, ICIC_CLS_CD,
+                SSTS_HOT_YN, STANGE_RUNUP_YN,
+                MARG_RATE, CRDT_ABLE, CRDT_DAYS,
+                CO_CRDT_LIMT_OVER_YN, SECU_LEND_ABLE_YN, STLN_ABLE_YN,
+                STCK_SDPR, FRML_MRKT_DEAL_QTY_UNIT, OVTM_MRKT_DEAL_QTY_UNIT,
+                PRDY_VOL, STCK_FCAM, LSTN_STCN, CPFN, PO_PRC,
+                SALE_ACCOUNT, BSOP_PRFI, OP_PRFI, THTR_NTIN, ROE_VAL,
+                BASE_DT, PRDY_AVLS_SCAL, CO_CD,
+                USE_YN, CREATED_AT, UPDATED_AT
             )
             VALUES (
                 S.STK_CD, S.STK_NM, S.STK_NM_EN, S.MKT_CD, S.STK_STATUS, S.STK_TYPE,
-                S.INDEX_CD, S.SECTOR_CD, S.MKT_CAP_SIZE, S.PREF_YN, S.SETTLE_MONTH, S.CURRENCY,
-                S.LIST_DT,
+                S.INDEX_CD, S.SECTOR_CD, S.MKT_CAP_SIZE, S.PREF_YN, S.SETTLE_MONTH, S.CURRENCY, S.LIST_DT,
+                S.SCRT_GRP_CLS_CD, S.SYMBOL,
+                S.NATN_CD, S.EXCH_CD, S.OVRS_BSTP_CD, S.DOW30_YN, S.NAS100_YN, S.SNP500_YN,
+                S.BSTP_MEDM_DIV_CD, S.BSTP_SMAL_DIV_CD,
+                S.KOSPI200_SECT_CD, S.KOSPI100_YN, S.KOSPI50_YN, S.KOSPI_YN, S.KOSDAQ150_YN,
+                S.KRX_YN, S.KRX100_YN, S.KRX300_YN,
+                S.KRX_CAR_YN, S.KRX_SMCN_YN, S.KRX_BIO_YN, S.KRX_BANK_YN,
+                S.KRX_ENRG_CHMS_YN, S.KRX_STEL_YN, S.KRX_MEDI_CMNC_YN, S.KRX_CNST_YN,
+                S.KRX_SCRT_YN, S.KRX_SHIP_YN, S.KRX_INSU_YN, S.KRX_TRNS_YN,
+                S.SRI_YN, S.ETP_CLS_CD, S.ELW_PBLC_YN, S.SPAC_YN,
+                S.MNIN_YN, S.LOW_CURRENT_YN, S.SPRN_NMIX_YN, S.VENT_YN, S.INVT_CATN_YN,
+                S.SLTR_YN, S.MANG_YN, S.SHORT_OVER_CLS_CD,
+                S.MRKT_ALRM_CLS_CD, S.MRKT_ALRM_RISK_YN, S.INSN_PBNT_YN,
+                S.BYPS_LSTN_YN, S.FLNG_CLS_CD, S.FCAM_MOD_CLS_CD, S.ICIC_CLS_CD,
+                S.SSTS_HOT_YN, S.STANGE_RUNUP_YN,
+                S.MARG_RATE, S.CRDT_ABLE, S.CRDT_DAYS,
+                S.CO_CRDT_LIMT_OVER_YN, S.SECU_LEND_ABLE_YN, S.STLN_ABLE_YN,
+                S.STCK_SDPR, S.FRML_MRKT_DEAL_QTY_UNIT, S.OVTM_MRKT_DEAL_QTY_UNIT,
+                S.PRDY_VOL, S.STCK_FCAM, S.LSTN_STCN, S.CPFN, S.PO_PRC,
+                S.SALE_ACCOUNT, S.BSOP_PRFI, S.OP_PRFI, S.THTR_NTIN, S.ROE_VAL,
+                S.BASE_DT, S.PRDY_AVLS_SCAL, S.CO_CD,
                 CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE 'Y' END,
                 SYSDATE, SYSDATE
             )

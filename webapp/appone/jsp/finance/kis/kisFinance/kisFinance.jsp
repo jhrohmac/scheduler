@@ -27,7 +27,7 @@
   };
 </script>
 
-<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.css?v=20260404-1" />
+<link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.css?v=20260428-1" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/common.css" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisFinance.mobileFix.css?v=20260406-7" />
 <link rel="stylesheet" href="/scheduler/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css?v=20260305-1" />
@@ -169,11 +169,19 @@
 						<option value="A">해외</option>
 					</select>
 					<select id="wlGroup"></select>
-					<select id="wlGroupDiv" aria-label="관심그룹 분류">
+					<select id="wlGroupDiv" aria-hidden="true" tabindex="-1" style="display:none;">
 						<option value="normal">노멀</option>
 						<option value="month">월말</option>
 						<option value="recommend">추천</option>
 					</select>
+					<button type="button" class="zoom-step-btn wl-group-div-btn" id="wlGroupDivBtn" data-div-mode="normal" title="분류: 노멀" aria-label="관심그룹 분류">
+						<span class="wl-group-div-btn-mode">노멀</span>
+						<span class="double-chart-dots" aria-hidden="true">
+							<span class="double-chart-dot is-active"></span>
+							<span class="double-chart-dot"></span>
+							<span class="double-chart-dot"></span>
+						</span>
+					</button>
 				</div>
 
 				<div id="wlError" class="err" style="display: none;"></div>
@@ -369,7 +377,7 @@
 										<option value="rank">기본 순위</option>
 										<option value="monthChange">월간 상승률</option>
 										<option value="trend">추세 강도</option>
-										<option value="tradeValue">평균 거래대금</option>
+										<option value="tradeValue" selected>평균 거래대금</option>
 									</select>
 								</div>
 							</div>

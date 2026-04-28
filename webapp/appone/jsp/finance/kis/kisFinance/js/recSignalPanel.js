@@ -32,7 +32,7 @@
     country: resolveInitialCountry(),
     marketFilter: MARKET_FILTER_ALL,
     grade: "ALL",
-    sort: "rank",
+    sort: "tradeValue",
     cache: {},
     allStocks: [],
     baseDt: "",
@@ -1296,11 +1296,6 @@
 
     Array.prototype.forEach.call(tbody.querySelectorAll(".signal-rec-row"), function (row) {
       row.addEventListener("click", function () {
-        state.selectedCode = safeStr(this.getAttribute("data-code"));
-        state.selectedMarket = safeStr(this.getAttribute("data-market")) || state.country;
-        renderTable();
-      });
-      row.addEventListener("dblclick", function () {
         var code = safeStr(this.getAttribute("data-code"));
         var market = safeStr(this.getAttribute("data-market")) || state.country;
         var selected = null;
@@ -1318,6 +1313,12 @@
 
         renderTable();
         applyStockSelection(selected);
+        // 모바일: 패널 닫기
+        if (document.body.classList.contains("mobile-open-right")) {
+          document.body.classList.remove("mobile-open-right", "mobile-open-left");
+          var backdrop = document.getElementById("mobilePanelBackdrop");
+          if (backdrop) { backdrop.setAttribute("aria-hidden", "true"); }
+        }
       });
     });
   }

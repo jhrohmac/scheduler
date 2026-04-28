@@ -7,6 +7,12 @@ public interface StockBatchAdminDao {
 
     List<HashMap<String, Object>> selectTaskCatalog(HashMap<String, String> map) throws Exception;
 
+    List<HashMap<String, Object>> selectTaskDefList(HashMap<String, String> map) throws Exception;
+
+    int insertTaskDef(HashMap<String, String> map) throws Exception;
+
+    int deleteTaskDef(HashMap<String, String> map) throws Exception;
+
     List<HashMap<String, Object>> selectJobList(HashMap<String, String> map) throws Exception;
 
     HashMap<String, Object> selectJobOne(HashMap<String, String> map) throws Exception;
@@ -29,7 +35,11 @@ public interface StockBatchAdminDao {
 
     int deleteJobParams(HashMap<String, String> map) throws Exception;
 
+    int deleteJobParamsExcept(HashMap<String, Object> map) throws Exception;
+
     int insertJobParam(HashMap<String, String> map) throws Exception;
+
+    int upsertJobParam(HashMap<String, String> map) throws Exception;
 
     int ensureJobRuntime(HashMap<String, String> map) throws Exception;
 
@@ -60,6 +70,10 @@ public interface StockBatchAdminDao {
     int markJobStart(HashMap<String, String> map) throws Exception;
 
     int markJobFinish(HashMap<String, String> map) throws Exception;
+
+    int insertJobExecLog(HashMap<String, String> map) throws Exception;
+
+    int updateJobExecLog(HashMap<String, String> map) throws Exception;
 
     int purgeOldBatchExecLogs(HashMap<String, String> map) throws Exception;
 

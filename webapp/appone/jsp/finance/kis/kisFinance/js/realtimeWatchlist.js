@@ -887,6 +887,11 @@
         return;
       }
 
+      // 종목 전환 시 lastMessageAt 초기화 → kisUpdateTopLine이 차트 데이터로 초기값 표시 가능
+      if (this.lastToken !== token) {
+        this.lastMessageAt = 0;
+      }
+
       clearReconnectTimer(this);
       safeCloseWs(this.ws);
       this.ws = null;

@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>추천 종목 상세 분석</title>
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/recSignalList.css?v=20260317-8' />">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/css/recSignalList.css?v=20260317-8">
 </head>
 <body>
 <div class="rec-shell">
@@ -108,6 +108,6 @@ window.recSignalDetailConfig = {
   mktCd: "<c:out value='${mktCd}' />"
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/recSignalDetail.js?v=20260317-5' />"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/js/recSignalDetail.js?v=20260317-5"></script>
 </body>
 </html>

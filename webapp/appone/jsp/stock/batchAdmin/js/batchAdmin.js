@@ -16,7 +16,8 @@
         selectedJobId: "",
         batchAdminTable: null,
         batchLogTable: null,
-        batchItemFailTable: null
+        batchItemFailTable: null,
+        jobIdCheckOk: false
     };
 
     function initTooltips($scope) {
@@ -389,6 +390,7 @@
 
         $("#cron_schedule_panel").toggle(isCron);
         $("#interval_schedule_panel").toggle(!isCron);
+        $("#row_interval_min").toggle(!isCron);
         $("#interval_field_wrap").toggleClass("schedule-disabled", isCron);
         $("#edit_interval_sec").prop("disabled", isCron);
         $(".btn-interval-preset").prop("disabled", isCron);
@@ -480,39 +482,41 @@
             paging: true,
             info: true,
             autoWidth: false,
-            responsive: true,
+            responsive: false,
             processing: false,
             ordering: false,
+            scrollX: false,
             columns: [
-                { data: "job_id", defaultContent: "" },
-                { data: "job_name", defaultContent: "" },
-                { data: "task_key", defaultContent: "" },
-                { data: "enabled_yn", defaultContent: "" },
+                { data: "job_id",          defaultContent: "", width: "60px",  className: "text-nowrap" },
+                { data: "job_name",        defaultContent: "", width: "130px", className: "text-nowrap" },
+                { data: "task_key",        defaultContent: "", width: "160px", className: "text-nowrap" },
+                { data: "enabled_yn",      defaultContent: "", width: "55px",  className: "text-center text-nowrap" },
                 {
                     data: "running_yn",
                     defaultContent: "",
+                    width: "60px",
+                    className: "text-center text-nowrap",
                     render: function (data) {
                         return String(data || "N") === "Y"
                             ? '<span class="badge badge-info">Y</span>'
                             : '<span class="badge badge-secondary">N</span>';
                     }
                 },
-                { data: "next_run_at", defaultContent: "" },
-                { data: "last_start_at", defaultContent: "" },
-                { data: "last_end_at", defaultContent: "" },
-                { data: "last_result_code", defaultContent: "" },
+                { data: "next_run_at",    defaultContent: "", width: "130px", className: "text-nowrap" },
+                { data: "last_start_at",  defaultContent: "", width: "130px", className: "text-nowrap" },
+                { data: "last_end_at",    defaultContent: "", width: "130px", className: "text-nowrap" },
+                { data: "last_result_code", defaultContent: "", width: "55px", className: "text-center text-nowrap" },
                 {
                     data: "last_result_msg",
                     defaultContent: "",
+                    width: "180px",
+                    className: "text-nowrap",
                     render: function (data, type) {
                         var fullText = data || "";
-                        var shortText = fullText;
                         if (type !== "display") {
                             return fullText;
                         }
-                        if (shortText.length > 60) {
-                            shortText = shortText.substring(0, 60) + "...";
-                        }
+                        var shortText = fullText.length > 40 ? fullText.substring(0, 40) + "..." : fullText;
                         return '<span title="' + escapeHtml(fullText) + '">' + escapeHtml(shortText) + "</span>";
                     }
                 },
@@ -520,6 +524,8 @@
                     data: null,
                     orderable: false,
                     searchable: false,
+                    width: "155px",
+                    className: "text-nowrap text-center",
                     render: function (data, type, row) {
                         var jobId = escapeHtml(val(row, "job_id"));
                         var html = "";
@@ -769,6 +775,8 @@
     function loadLogs(jobId) {
         if (!jobId) return;
         state.selectedJobId = jobId;
+        $("#lbl_exec_job_id").text(jobId);
+        $("#div_batch_exec_log").show();
         var payload = { job_id: jobId };
         for (var i = 0; i < state.jobs.length; i++) {
             var row = state.jobs[i];
@@ -847,11 +855,16 @@
     function collectParamsJson() {
         var taskKey = $("#edit_task_key").val();
         var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
+        var isRecTask     = (taskKey === REC_SIGNAL_RUN_TASK);
         var rows = [];
 
         /* STK_MASTER_REFRESH: 전용 패널 값을 우선 수집 */
         if (isRefreshTask) {
             rows = collectStkMasterRefreshParams();
+        }
+        /* REC_SIGNAL_RUN: 전용 패널 값을 우선 수집 */
+        if (isRecTask) {
+            rows = collectRecSignalRunParams();
         }
 
         $("#param_rows_container .param-row").each(function () {
@@ -859,6 +872,10 @@
             var paramKey = $row.find(".param-key").val().trim();
             /* STK_MASTER_REFRESH 관리 키는 일반 파라미터 목록에서 제외 */
             if (isRefreshTask && isStkMasterRefreshManagedKey(paramKey)) {
+                return;
+            }
+            /* REC_SIGNAL_RUN 관리 키는 일반 파라미터 목록에서 제외 */
+            if (isRecTask && isRecSignalRunManagedKey(paramKey)) {
                 return;
             }
             var paramType = $row.find(".param-type").val();
@@ -880,6 +897,7 @@
         return JSON.stringify(rows, null, 2);
     }
 
+    var REC_SIGNAL_RUN_TASK    = "REC_SIGNAL_RUN";
     var STK_MASTER_REFRESH_TASK = "STK_MASTER_REFRESH";
 
     function defaultParamsByTask(taskKey, jobId) {
@@ -902,6 +920,42 @@
         return [];
     }
 
+    /* ── REC_SIGNAL_RUN 전용 패널 ───────────────────────────────────── */
+
+    function syncRecSignalRunPanel(taskKey, paramsArr) {
+        var isRecTask = (taskKey === REC_SIGNAL_RUN_TASK);
+        $("#rec_signal_run_panel").toggle(isRecTask);
+        if (!isRecTask) return;
+
+        var listingMkt  = "ALL";
+        var indexFilter = "ALL";
+        var stkType     = "ALL";
+        if (paramsArr && paramsArr.length) {
+            for (var i = 0; i < paramsArr.length; i++) {
+                var k = paramsArr[i].paramKey;
+                var v = paramsArr[i].paramValue;
+                if (k === "listingMarket" && v) { listingMkt  = v; }
+                if (k === "indexFilter"   && v) { indexFilter = v; }
+                if (k === "stkType"       && v) { stkType     = v; }
+            }
+        }
+        setStkBtnGroupValue("rec_listing_mkt_btn",  "rec_listing_mkt_val",  listingMkt);
+        setStkBtnGroupValue("rec_index_filter_btn", "rec_index_filter_val", indexFilter);
+        setStkBtnGroupValue("rec_stk_type_btn",     "rec_stk_type_val",     stkType);
+    }
+
+    function collectRecSignalRunParams() {
+        return [
+            { paramKey: "listingMarket", paramValue: $("#rec_listing_mkt_val").val()  || "ALL", paramType: "STRING" },
+            { paramKey: "indexFilter",   paramValue: $("#rec_index_filter_val").val() || "ALL", paramType: "STRING" },
+            { paramKey: "stkType",       paramValue: $("#rec_stk_type_val").val()     || "ALL", paramType: "STRING" }
+        ];
+    }
+
+    function isRecSignalRunManagedKey(key) {
+        return (key === "listingMarket" || key === "indexFilter" || key === "stkType");
+    }
+
     /* ── STK_MASTER_REFRESH 전용 패널 ─────────────────────────────── */
 
     function setStkBtnGroupValue(groupId, hiddenId, value) {
@@ -916,6 +970,7 @@
     function syncStkMasterRefreshPanel(taskKey, paramsArr) {
         var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
         $("#stk_master_refresh_panel").toggle(isRefreshTask);
+        $("#btn_save_and_run").toggleClass("d-none", !isRefreshTask);
         if (!isRefreshTask) {
             return;
         }
@@ -951,11 +1006,13 @@
     function openCreate() {
         $("#edit_mode").val("I");
         $("#edit_job_id").val("").prop("readonly", false);
+        $("#div_job_id_check_btn").show();
+        state.jobIdCheckOk = false;
         $("#edit_job_name").val("");
         $("#edit_task_key").val("");
         $("#edit_enabled_yn").val("Y");
         $("#edit_timezone").val("Asia/Seoul");
-        $("#edit_max_runtime_sec").val("7200");
+        $("#edit_max_runtime_sec").val("3600");
         $("#edit_schedule_type").val("CRON");
         $("#edit_cron_expr").val(DEFAULT_CRON_EXPR);
         $("#edit_interval_sec").val("60");
@@ -964,6 +1021,8 @@
         $("#edit_log_retention_days").val("30");
         renderParamRows([]);
         syncStkMasterRefreshPanel("", []);
+        syncRecSignalRunPanel("", []);
+        updateParamSummary();
         refreshScheduleEditor(true);
         $("#modal_batch_admin_edit").modal("show");
     }
@@ -977,11 +1036,13 @@
 
             $("#edit_mode").val("U");
             $("#edit_job_id").val(val(job, "job_id") || "").prop("readonly", true);
+            $("#div_job_id_check_btn").hide();
+            state.jobIdCheckOk = true;
             $("#edit_job_name").val(val(job, "job_name") || "");
             $("#edit_task_key").val(val(job, "task_key") || "");
             $("#edit_enabled_yn").val(val(job, "enabled_yn") || "Y");
             $("#edit_timezone").val(val(job, "timezone") || "Asia/Seoul");
-            $("#edit_max_runtime_sec").val(val(job, "max_runtime_sec") || "7200");
+            $("#edit_max_runtime_sec").val(val(job, "max_runtime_sec") || "3600");
 
             $("#edit_schedule_type").val(val(schedule, "schedule_type") || "CRON");
             $("#edit_cron_expr").val(val(schedule, "cron_expr") || "");
@@ -992,13 +1053,13 @@
 
             var taskKey = val(job, "task_key") || "";
             var isRefreshTask = (taskKey === STK_MASTER_REFRESH_TASK);
+            var isRecTask     = (taskKey === REC_SIGNAL_RUN_TASK);
             var paramsJson = [];
             for (var i = 0; i < params.length; i++) {
                 var pKey = val(params[i], "param_key");
-                /* STK_MASTER_REFRESH 관리 키는 일반 파라미터 목록에서 제외 */
-                if (isRefreshTask && isStkMasterRefreshManagedKey(pKey)) {
-                    continue;
-                }
+                /* 전용 패널 관리 키는 일반 파라미터 목록에서 제외 */
+                if (isRefreshTask && isStkMasterRefreshManagedKey(pKey)) { continue; }
+                if (isRecTask     && isRecSignalRunManagedKey(pKey))     { continue; }
                 paramsJson.push({
                     paramKey: pKey,
                     paramValue: val(params[i], "param_value"),
@@ -1008,12 +1069,36 @@
                 });
             }
             renderParamRows(paramsJson);
-            syncStkMasterRefreshPanel(taskKey, params.map(function (p) {
+            var flatParams = params.map(function (p) {
                 return { paramKey: val(p, "param_key"), paramValue: val(p, "param_value") };
-            }));
+            });
+            syncStkMasterRefreshPanel(taskKey, flatParams);
+            syncRecSignalRunPanel(taskKey, flatParams);
+            updateParamSummary();
 
             refreshScheduleEditor(true);
             $("#modal_batch_admin_edit").modal("show");
+        });
+    }
+
+    function checkJobIdDuplicate() {
+        var jobId = $.trim($("#edit_job_id").val()).toUpperCase();
+        if (!jobId) {
+            alert("JOB ID를 입력하세요.");
+            return;
+        }
+        api(config.jobDetailUrl || "/stock/batchAdmin/jobDetail.do", { job_id: jobId }, function (res) {
+            var detail = singleOf(res);
+            if (detail && detail.job && val(detail.job, "job_id")) {
+                alert("이미 사용 중인 JOB ID입니다: " + jobId);
+                state.jobIdCheckOk = false;
+            } else {
+                alert("사용 가능한 JOB ID입니다.");
+                state.jobIdCheckOk = true;
+            }
+        }, function () {
+            alert("사용 가능한 JOB ID입니다.");
+            state.jobIdCheckOk = true;
         });
     }
 
@@ -1023,6 +1108,11 @@
 
         if (!jobId) {
             alert("JOB ID를 입력하세요.");
+            return;
+        }
+
+        if (mode === "I" && !state.jobIdCheckOk) {
+            alert("JOB ID 중복 확인을 해주세요.");
             return;
         }
 
@@ -1092,6 +1182,48 @@
         });
     }
 
+    function saveAndRunJob() {
+        var jobId = $.trim($("#edit_job_id").val()).toUpperCase();
+        if (!jobId) { return; }
+
+        if ($("#edit_schedule_type").val() === "CRON") {
+            if (getCronEditorMode() === "simple") {
+                var simpleCronExpr = buildSimpleCronExpr();
+                if (!simpleCronExpr) { alert("주간 반복은 최소 1개 요일을 선택하세요."); return; }
+                $("#edit_cron_expr").val(simpleCronExpr);
+            }
+            if (!$.trim($("#edit_cron_expr").val())) { alert("CRON 실행 규칙을 입력하세요."); return; }
+        }
+
+        var scheduleJson = {
+            scheduleType:     $("#edit_schedule_type").val(),
+            cronExpr:         $.trim($("#edit_cron_expr").val()),
+            intervalSec:      intervalMinutesToSeconds($("#edit_interval_sec").val()),
+            misfirePolicy:    $("#edit_misfire_policy").val(),
+            enabledYn:        $("#edit_schedule_enabled_yn").val(),
+            logRetentionDays: parseInt($("#edit_log_retention_days").val(), 10) || 0
+        };
+
+        var payload = {
+            job_id:              jobId,
+            job_name:            $("#edit_job_name").val(),
+            task_key:            $("#edit_task_key").val(),
+            enabled_yn:          $("#edit_enabled_yn").val(),
+            timezone:            $("#edit_timezone").val(),
+            max_runtime_sec:     $("#edit_max_runtime_sec").val(),
+            allow_manual_run_yn: "Y",
+            schedule_json:       JSON.stringify(scheduleJson),
+            params_json:         collectParamsJson()
+        };
+
+        var url = config.jobUpdateUrl || "/stock/batchAdmin/jobUpdate.do";
+        api(url, payload, function () {
+            $("#modal_batch_admin_edit").modal("hide");
+            loadJobs();
+            runJob(jobId);
+        });
+    }
+
     function runJob(jobId) {
         api(config.jobRunNowUrl || "/stock/batchAdmin/jobRunNow.do", { job_id: jobId }, function (res) {
             var d = res && res.singleData ? res.singleData : {};
@@ -1127,6 +1259,106 @@
         });
     }
 
+    /* ── TASK DEF 관리 ──────────────────────────────────────── */
+
+    function loadTaskDefList(openModal) {
+        api(config.taskDefListUrl || "/stock/batchAdmin/taskDefList.do", {}, function (res) {
+            var list = rowsOf(res);
+            var $tbody = $("#tblTaskDefBody");
+            $tbody.empty();
+
+            if (!list.length) {
+                $tbody.append('<tr><td colspan="6" class="text-center text-muted">등록된 TASK KEY가 없습니다.</td></tr>');
+            } else {
+                for (var i = 0; i < list.length; i++) {
+                    var d = list[i];
+                    var taskKey  = val(d, "task_key")  || val(d, "taskKey")  || "";
+                    var taskDesc = val(d, "task_desc") || val(d, "taskDesc") || "";
+                    var useYn    = val(d, "use_yn")    || val(d, "useYn")    || "Y";
+                    var regId    = val(d, "reg_id")    || val(d, "regId")    || "";
+                    var regDt    = val(d, "reg_dt")    || val(d, "regDt")    || "";
+                    $tbody.append(
+                        "<tr>" +
+                        "<td><span class=\"badge badge-warning\">" + escapeHtml(taskKey) + "</span></td>" +
+                        "<td>" + escapeHtml(taskDesc) + "</td>" +
+                        "<td class=\"text-center\"><span class=\"badge " + (useYn === "Y" ? "badge-success\">Y" : "badge-secondary\">N") + "</span></td>" +
+                        "<td class=\"text-center\">" + escapeHtml(regId) + "</td>" +
+                        "<td class=\"text-center\">" + escapeHtml(regDt) + "</td>" +
+                        "<td class=\"text-center\"><button class=\"btn btn-xs btn-danger btn-del-task-def\" data-task-key=\"" + escapeHtml(taskKey) + "\"><i class=\"fas fa-trash\"></i></button></td>" +
+                        "</tr>"
+                    );
+                }
+            }
+
+            loadTasks();
+
+            if (openModal) {
+                $("#in_new_task_key, #in_new_task_desc").val("");
+                $("#modal_task_def").modal("show");
+            }
+        }, function () {
+            if (openModal) { $("#modal_task_def").modal("show"); }
+        });
+    }
+
+    function insertTaskDef() {
+        var taskKey  = $.trim($("#in_new_task_key").val()).toUpperCase();
+        var taskDesc = $.trim($("#in_new_task_desc").val());
+        var beanName = $.trim($("#in_new_bean_name").val());
+
+        if (!taskKey) { alert("TASK KEY를 입력하세요."); $("#in_new_task_key").focus(); return; }
+        if (!/^[A-Z0-9_]+$/.test(taskKey)) {
+            alert("TASK KEY는 영문 대문자, 숫자, 언더스코어(_)만 사용할 수 있습니다.");
+            $("#in_new_task_key").focus();
+            return;
+        }
+        if (!beanName) { alert("BEAN NAME을 입력하세요."); $("#in_new_bean_name").focus(); return; }
+        api(
+            config.taskDefInsertUrl || "/stock/batchAdmin/taskDefInsert.do",
+            { task_key: taskKey, task_desc: taskDesc, bean_name: beanName },
+            function () {
+                $("#in_new_task_key, #in_new_task_desc, #in_new_bean_name").val("");
+                loadTaskDefList(false);
+                alert("[" + taskKey + "] TASK KEY가 등록되었습니다.");
+            }
+        );
+    }
+
+    function deleteTaskDef(taskKey) {
+        if (!confirm("[" + taskKey + "] TASK KEY를 삭제하시겠습니까?\n※ 해당 TASK KEY를 사용 중인 JOB은 실행 시 오류가 발생합니다.")) return;
+        api(
+            config.taskDefDeleteUrl || "/stock/batchAdmin/taskDefDelete.do",
+            { task_key: taskKey },
+            function () {
+                loadTaskDefList(false);
+                alert("[" + taskKey + "] TASK KEY가 삭제되었습니다.");
+            }
+        );
+    }
+
+    /* ── 파라미터 요약 & 팝업 ────────────────────────────────── */
+
+    function updateParamSummary() {
+        var $rows = $("#param_rows_container .param-row");
+        var count = $rows.length;
+        $("#lbl_param_count").text(count + "개");
+
+        if (!count) {
+            $("#param_summary_preview").text("파라미터가 없습니다.");
+            return;
+        }
+        var parts = [];
+        $rows.each(function () {
+            var k = $.trim($(this).find(".param-key").val());
+            if (k) parts.push(k);
+        });
+        $("#param_summary_preview").text(parts.join(", "));
+    }
+
+    function openParamsModal() {
+        $("#modal_batch_params").modal("show");
+    }
+
     $(document).ready(function () {
         ensureBatchAdminTable();
         ensureBatchLogTable();
@@ -1144,6 +1376,14 @@
             openCreate();
         });
 
+        $("#btn_job_id_check").on("click", function () {
+            checkJobIdDuplicate();
+        });
+
+        $("#edit_job_id").on("input", function () {
+            state.jobIdCheckOk = false;
+        });
+
         $("#edit_task_key").on("change", function () {
             var taskKey = $(this).val();
             if (!$("#param_rows_container .param-row").length) {
@@ -1151,6 +1391,7 @@
                 renderParamRows(defaultParamsByTask(taskKey, jobId));
             }
             syncStkMasterRefreshPanel(taskKey, []);
+            syncRecSignalRunPanel(taskKey, []);
         });
 
         $("#edit_schedule_type").on("change", function () {
@@ -1197,6 +1438,16 @@
         $(".btn-interval-preset").on("click", function () {
             $("#edit_interval_sec").val(String($(this).data("minutes")));
             updateIntervalPresetState();
+        });
+
+        /* REC_SIGNAL_RUN 전용 패널 — 버튼 그룹 토글 */
+        $("#rec_signal_run_panel").on("click", ".btn-group button", function () {
+            var $btn    = $(this);
+            var $group  = $btn.closest(".btn-group");
+            var $hidden = $group.next("input[type=hidden]");
+            $group.find("button").removeClass("btn-primary active").addClass("btn-default");
+            $btn.removeClass("btn-default").addClass("btn-primary active");
+            $hidden.val($btn.data("value"));
         });
 
         /* STK_MASTER_REFRESH 전용 패널 — 버튼 그룹 토글 */
@@ -1248,6 +1499,10 @@
             saveJob();
         });
 
+        $("#btn_save_and_run").on("click", function () {
+            saveAndRunJob();
+        });
+
         $("#btn_delete").on("click", function () {
             var mode = $("#edit_mode").val();
             if (mode !== "U") {
@@ -1264,7 +1519,14 @@
 
         $("#tblBatchAdmin tbody").on("click", ".btn-run", function () {
             var row = toBatchAdminRow(this);
-            runJob(row ? val(row, "job_id") : $(this).data("jobId"));
+            var jobId   = row ? val(row, "job_id")   : $(this).data("jobId");
+            var taskKey = row ? val(row, "task_key")  : "";
+            /* STK_MASTER_REFRESH: 설정 패널에서 시장/종목 구분 확인 후 실행 */
+            if (taskKey === STK_MASTER_REFRESH_TASK) {
+                openEdit(jobId);
+            } else {
+                runJob(jobId);
+            }
         });
 
         $("#tblBatchAdmin tbody").on("click", ".btn-stop", function () {
@@ -1302,6 +1564,62 @@
         $("#modal_batch_admin_edit").on("shown.bs.modal", function () {
             refreshScheduleEditor(false);
             initTooltips($(this));
+        });
+
+        /* ── TASK DEF 관리 이벤트 ── */
+        $("#btn_task_def_open").on("click", function () {
+            loadTaskDefList(true);
+        });
+
+        $("#btn_insert_task_def").on("click", function () {
+            insertTaskDef();
+        });
+
+        $(document).on("click", ".btn-del-task-def", function () {
+            var taskKey = $(this).data("taskKey");
+            if (taskKey) { deleteTaskDef(taskKey); }
+        });
+
+        /* ── 새로고침(중복 버튼) ── */
+        $("#btn_reload2").on("click", function () {
+            loadJobs();
+        });
+
+        /* ── 파라미터 팝업 이벤트 ── */
+        $("#btn_open_params").on("click", function () {
+            openParamsModal();
+        });
+
+        $("#btn_params_done, #btn_params_close").on("click", function () {
+            $("#modal_batch_params").modal("hide");
+        });
+
+        $("#modal_batch_params").on("hide.bs.modal", function () {
+            updateParamSummary();
+        });
+
+        /* 파라미터 팝업 추가 시 요약 즉시 갱신 */
+        $("#btn_add_param").on("click.summary", function () {
+            setTimeout(updateParamSummary, 50);
+        });
+        $("#param_rows_container").on("click.summary", ".btn-remove-param", function () {
+            setTimeout(updateParamSummary, 50);
+        });
+
+        /* ── 중첩 모달 z-index 보정 ── */
+        $(document).on("show.bs.modal", "#modal_batch_params", function () {
+            if ($("#modal_batch_admin_edit").hasClass("show")) {
+                $(this).css("z-index", 1070);
+                setTimeout(function () {
+                    $(".modal-backdrop").last().css("z-index", 1060);
+                }, 0);
+            }
+        });
+
+        $(document).on("hidden.bs.modal", "#modal_batch_params", function () {
+            if ($("#modal_batch_admin_edit").hasClass("show")) {
+                $("body").addClass("modal-open");
+            }
         });
     });
 })();

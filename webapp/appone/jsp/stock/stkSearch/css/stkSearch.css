@@ -1,0 +1,38 @@
+/* 종목 검색 페이지 */
+#div_stkSearch_main .stkSearch-domain-tabs .btn {
+    min-width: 60px;
+}
+
+#div_stkSearch_main .stkSearch-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+#div_stkSearch_main .stkSearch-filter-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+#div_stkSearch_main .stkSearch-input-keyword {
+    width: 200px;
+    display: inline-block;
+}
+
+#stkSearchGrid thead th {
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+
+#stkSearchGrid tbody td {
+    font-size: 0.78rem;
+    vertical-align: middle;
+}
+
+#stkSearchGrid .badge {
+    font-size: 0.65rem;
+}

@@ -79,6 +79,14 @@
 		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
 	</bean>
 	
+	<!-- 종목 검색 -->
+	<bean id="stkSearchController" class="com.scheduler.finance.controller.StkSearchController">
+		<property name="stkSearchDao" ref="stkSearchDaoImpl"></property>
+	</bean>
+	<bean id="stkSearchDaoImpl" class="com.scheduler.finance.dao.impl.StkSearchDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"></property>
+	</bean>
+
 	<!-- WF-2-4: 보유종목 관리 -->
 	<bean id="positionController" class="com.scheduler.finance.controller.PositionController">
 		<property name="positionDao" ref="positionDaoImpl"></property>

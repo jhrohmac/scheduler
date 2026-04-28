@@ -693,9 +693,16 @@ public class WatchlistQuoteHub {
 
 			PriceResult.Output o = result.getOutput();
 			payload.price = safe(o.getLast());
-			payload.diff = safe(o.getDiff());
 			payload.rate = safe(o.getRate());
 			payload.sign = safe(o.getSign());
+			// 해외 API는 diff가 절대값으로 오므로 sign(4=하락,5=하한)일 때 음수로 변환
+			String diffVal = safe(o.getDiff());
+			String signCode = payload.sign;
+			if (!diffVal.isEmpty() && !diffVal.startsWith("-")
+					&& ("4".equals(signCode) || "5".equals(signCode))) {
+				diffVal = "-" + diffVal;
+			}
+			payload.diff = diffVal;
 			return payload;
 		} catch (Exception e) {
 			return payload;

@@ -406,26 +406,29 @@ html, body {
 
 @media (max-width: 991.98px) {
   .login-page {
-    height: auto;
-    min-height: 100vh;
-    overflow: auto;
+    height: 100vh;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(15, 93, 184, 0.16), transparent 32%),
+      linear-gradient(135deg, #eef5ff 0%, #f7fbff 42%, #ffffff 100%);
   }
 
   .login-shell {
-    height: auto;
-    min-height: 100vh;
+    height: 100vh;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
   }
 
   .login-visual {
-    min-height: clamp(260px, 42vh, 420px);
-    padding: 28px 22px 84px;
+    display: none;
   }
 
   .login-panel {
-    flex: 1 1 auto;
-    padding: 0 18px 28px;
-    margin-top: -56px;
+    flex: none;
+    width: 100%;
+    padding: 24px 18px;
+    margin-top: 0;
   }
 
   .login-card {

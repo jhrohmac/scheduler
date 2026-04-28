@@ -217,6 +217,11 @@ public class RecSignalService {
                             requestIntervalMs
                         );
                     }
+                    // 일봉 데이터에 effectiveBaseDt가 없으면(장 중) 현재가 API로 당일 row 합성
+                    priceList = kisDlyPriceSyncService.appendCurrentPriceIfNeeded(
+                        priceList, stock.getStkCd(), stock.getMktCd(),
+                        marketGroup, effectiveBaseDt, requestIntervalMs
+                    );
 
                     mergeTradeCalendar(priceList, marketGroup, mergedTradeDateSet);
 
@@ -279,7 +284,10 @@ public class RecSignalService {
             throws Exception {
         List<RecSignalDto> stockList = stkMasterDao.selectStkMasterList(new HashMap<String, String>());
         List<RecSignalDto> filteredList = new ArrayList<RecSignalDto>();
-        String targetStkCd = trim(requestMap.get("stkCd"));
+        String targetStkCd      = trim(requestMap.get("stkCd"));
+        String listingMktFilter = normalizeFilterValue(requestMap.get("listingMarket"));
+        String indexFilter      = normalizeFilterValue(requestMap.get("indexFilter"));
+        String stkTypeFilter    = normalizeFilterValue(requestMap.get("stkType"));
 
         for (int i = 0; stockList != null && i < stockList.size(); i++) {
             RecSignalDto stock = stockList.get(i);
@@ -292,9 +300,29 @@ public class RecSignalService {
             if (!isBlank(targetStkCd) && !targetStkCd.equals(stock.getStkCd())) {
                 continue;
             }
+            // 시장(상장시장) 필터: KOSPI / KOSDAQ / NASDAQ / NYSE
+            if (!isBlank(listingMktFilter) && !listingMktFilter.equalsIgnoreCase(stock.getMktCd())) {
+                continue;
+            }
+            // 지수 필터: KOSPI200 / KOSDAQ150
+            if (!isBlank(indexFilter) && !indexFilter.equalsIgnoreCase(stock.getIndexCd())) {
+                continue;
+            }
+            // 유형 필터: STOCK / ETF / ETN / ELW
+            if (!isBlank(stkTypeFilter) && !stkTypeFilter.equalsIgnoreCase(stock.getStkType())) {
+                continue;
+            }
             filteredList.add(stock);
         }
         return filteredList;
+    }
+
+    /** ALL 또는 빈 값이면 null(필터 없음)로 정규화 */
+    private String normalizeFilterValue(String value) {
+        if (isBlank(value) || "ALL".equalsIgnoreCase(value.trim())) {
+            return null;
+        }
+        return value.trim().toUpperCase();
     }
 
     private EffectiveBaseDateResult resolveEffectiveBaseDate(HashMap<String, String> requestMap, String marketGroup,

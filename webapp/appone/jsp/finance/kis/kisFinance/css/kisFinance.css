@@ -266,6 +266,54 @@ body {
 #wlGroupDiv {
   flex: 0 0 72px;
 }
+#wlGroupDivBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-width: auto;
+}
+.wl-group-div-btn-label {
+  white-space: nowrap;
+  font-weight: 700;
+}
+.wl-group-div-btn-mode {
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+}
+#wlGroupDivBtn[data-div-mode="normal"] .wl-group-div-btn-mode {
+  color: #64748b;
+}
+#wlGroupDivBtn[data-div-mode="normal"] .double-chart-dot.is-active {
+  background: #64748b;
+  opacity: 1;
+}
+#wlGroupDivBtn[data-div-mode="month"] .wl-group-div-btn-mode {
+  color: #f59e0b;
+}
+#wlGroupDivBtn[data-div-mode="month"] .double-chart-dot.is-active {
+  background: #f59e0b;
+  opacity: 1;
+}
+#wlGroupDivBtn[data-div-mode="month"].is-active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+#wlGroupDivBtn[data-div-mode="recommend"] .wl-group-div-btn-mode {
+  color: #38bdf8;
+}
+#wlGroupDivBtn[data-div-mode="recommend"] .double-chart-dot.is-active {
+  background: #38bdf8;
+  opacity: 1;
+}
+#wlGroupDivBtn[data-div-mode="recommend"].is-active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
 
 .watchlist {
   display: flex;
@@ -332,6 +380,7 @@ body {
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
+  color: #111827; /* 기본색 명시: up/down/flat 클래스 교체 순간 검정 flash 방지 */
 }
 
 /* ===== [Added] Watchlist change (diff/rate) ===== */
@@ -1930,10 +1979,10 @@ body {
   .left-panel,
   .right-panel {
     position: fixed !important;
-    left: 10px;
-    right: 10px;
-    top: 112px;
-    bottom: 12px;
+    left: 0;
+    right: 0;
+    top: var(--topbar-h);
+    bottom: 0;
     width: auto !important;
     min-width: auto !important;
     max-width: none !important;
@@ -1942,6 +1991,10 @@ body {
     opacity: 0;
     transform: translateY(16px);
     pointer-events: none;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
     transition: transform 180ms ease, opacity 180ms ease;
   }
 
@@ -2634,7 +2687,7 @@ body {
    ========================================================= */
 .wl-price.up, .wl-diff.up, .wl-rate.up, .wl-event.up, .v.up { color: #ef4444; }
 .wl-price.down, .wl-diff.down, .wl-rate.down, .wl-event.down, .v.down { color: #2563eb; }
-.wl-price.flat, .wl-diff.flat, .wl-rate.flat, .wl-event.flat, .v.flat { color: inherit; }
+.wl-price.flat, .wl-diff.flat, .wl-rate.flat, .wl-event.flat, .v.flat { color: #111827; }
 
 @keyframes wlBorderBlinkUp {
   0%   { border-color: #ef4444; }

@@ -9,10 +9,10 @@
 		{"id":"n6","type":"text","text":"6. Target Stock Selection\n요약: primary 실행 대상 종목 목록을 만들고 전체 refresh 여부를 확정한다.\n관련 테이블:\n- TB_STK_MASTER\n핵심 처리:\n- limit 파라미터가 있으면 대상 수 축소\n- retry 제약 없이 전체 대상 구성\n- full refresh 가능 여부 판단","x":0,"y":1708,"width":700,"height":272},
 		{"id":"n7","type":"text","text":"7. Snapshot Reset And Price Fetch\n요약: full refresh 조건이면 기존 미국 스냅샷을 비우고 종목별 해외 일봉 을 받아 온다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_TRADE_CALENDAR\n핵심 처리:\n- TB_REC_SIGNAL 에서 시장 US 대상 snapshot 정리\n- KisDlyPriceSyncService 로 해외 일봉 조회\n- 수신한 거래일을 TB_TRADE_CALENDAR 에 MERGE","x":0,"y":2040,"width":700,"height":296},
 		{"id":"n8","type":"text","text":"8. Signal Calculation\n요약: 월 시가, 이동평균선, 거래대금, 월간 수익률을 계산해 최종 추천 여부와 등급을 만든다.\n핵심 처리:\n- buildRecSignal()\n- MA5, MA20, MA60, MA120, MA240 계산\n- goldenYn, monUpYn, recYn, recGrade 산출","x":0,"y":2396,"width":700,"height":224},
-		{"id":"n9","type":"text","text":"9. Result Persist\n요약: 계산 결과와 종목별 처리 로그를 저장한다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_ITEM_LOG\n핵심 처리:\n- TB_REC_SIGNAL MERGE\n- TB_BATCH_EXEC_ITEM_LOG 에 SUCCESS, EXCLUDED, FAIL 기록","x":0,"y":2680,"width":700,"height":272},
 		{"id":"n10","type":"text","text":"10. Finish\n요약: 배치 실행 로그를 마감하고 runtime lock 을 해제한다.\n관련 테이블:\n- TB_BATCH_EXEC_LOG\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- 최종 상태 SUCCESS 또는 FAIL 정리\n- markJobFinish() 와 runtime 해제","x":0,"y":3012,"width":700,"height":272},
 		{"id":"db1","type":"text","text":"Input Tables\n요약: 시그널 계산 전에 읽는 기준 데이터와 거래일 보정용 테이블이다.\n관련 테이블:\n- TB_STK_MASTER\n- TB_TRADE_CALENDAR","x":860,"y":1352,"width":620,"height":200,"color":"4"},
-		{"id":"db2","type":"text","text":"Output Tables\n요약: 시그널 결과와 실행 로그가 저장되는 테이블이다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_LOG\n- TB_BATCH_EXEC_ITEM_LOG","x":860,"y":2680,"width":620,"height":224,"color":"4"}
+		{"id":"db2","type":"text","text":"Output Tables\n요약: 시그널 결과와 실행 로그가 저장되는 테이블이다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_LOG\n- TB_BATCH_EXEC_ITEM_LOG","x":860,"y":2680,"width":620,"height":224,"color":"4"},
+		{"id":"n9","type":"text","text":"9. Result Persist\n요약: 계산 결과와 종목별 처리 로그를 저장한다.\n관련 테이블:\n- TB_REC_SIGNAL\n- TB_BATCH_EXEC_ITEM_LOG\n핵심 처리:\n- TB_REC_SIGNAL MERGE\n- TB_BATCH_EXEC_ITEM_LOG 에 SUCCESS, EXCLUDED, FAIL 기록","x":0,"y":2680,"width":700,"height":272}
 	],
 	"edges":[
 		{"id":"e1","fromNode":"title","fromSide":"bottom","toNode":"n1","toSide":"top","color":"#90a4ae"},

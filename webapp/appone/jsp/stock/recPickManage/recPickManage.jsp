@@ -1,6 +1,6 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/recPickManage.css?v=20260403-1' />">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickManage/css/recPickManage.css?v=20260403-1">
 
 <div class="container-fluid" id="div_rec_pick_manage">
 	<div class="card card-primary card-outline collapsed-card">
@@ -318,4 +318,4 @@ window.recPickManageConfig = {
   }
 };
 </script>
-<script src="<c:url value='/appone/jsp/stock/recPickManage.js?v=20260406-2' />"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickManage/js/recPickManage.js?v=20260406-2"></script>

@@ -1,0 +1,22 @@
+oracle-trust.jks
+*.jks
+
+# 컴파일 결과물
+*.class
+build/
+
+# 시크릿
+kis.properties
+oracle.db.properties
+
+# IDE / OS
+.DS_Store
+.metadata/
+.settings/
+.classpath
+.project
+
+# 임시 작업 디렉토리
+.tmp*/
+.tomcat.pid
+*.pid

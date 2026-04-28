@@ -210,25 +210,29 @@
 		if (priceEl) {
 			priceEl.textContent = state.priceText;
 			priceEl.title = state.diffText + " / " + state.rateText;
-			priceEl.classList.remove("up", "down", "flat");
-			priceEl.classList.add(state.dir);
+			priceEl.classList.toggle("up", state.dir === "up");
+			priceEl.classList.toggle("down", state.dir === "down");
+			priceEl.classList.toggle("flat", state.dir === "flat");
 		}
 
 		if (diffEl) {
 			diffEl.textContent = state.diffText;
-			diffEl.classList.remove("up", "down", "flat");
-			diffEl.classList.add(state.dir);
+			diffEl.classList.toggle("up", state.dir === "up");
+			diffEl.classList.toggle("down", state.dir === "down");
+			diffEl.classList.toggle("flat", state.dir === "flat");
 		}
 
 		if (rateEl) {
 			rateEl.textContent = state.rateText;
-			rateEl.classList.remove("up", "down", "flat");
-			rateEl.classList.add(state.dir);
+			rateEl.classList.toggle("up", state.dir === "up");
+			rateEl.classList.toggle("down", state.dir === "down");
+			rateEl.classList.toggle("flat", state.dir === "flat");
 		}
 
 		if (eventEl) {
-			eventEl.classList.remove("up", "down", "flat");
-			eventEl.classList.add(state.dir);
+			eventEl.classList.toggle("up", state.dir === "up");
+			eventEl.classList.toggle("down", state.dir === "down");
+			eventEl.classList.toggle("flat", state.dir === "flat");
 		}
 	}
 
@@ -405,9 +409,9 @@
 			});
 		});
 
+		// characterData 감지 제외: WebSocket 가격 업데이트 → Observer 발동 → API 재호출 루프 방지
 		observer.observe(wrap, {
 			childList: true,
-			characterData: true,
 			subtree: true
 		});
 	}

@@ -497,6 +497,22 @@ function fmtYmdToPlain(ymd) {
     return normalizeWatchlistGroupDiv($("#wlGroupDiv").val());
   }
 
+  var __WL_GROUP_DIV_LABELS = { normal: "노멀", month: "월말", recommend: "추천" };
+  var __WL_GROUP_DIV_ORDER = ["normal", "month", "recommend"];
+
+  function syncWlGroupDivBtn(mode) {
+    var $btn = $("#wlGroupDivBtn");
+    if (!$btn.length) return;
+    mode = normalizeWatchlistGroupDiv(mode);
+    var label = __WL_GROUP_DIV_LABELS[mode] || "노멀";
+    var idx = __WL_GROUP_DIV_ORDER.indexOf(mode);
+    $btn.attr("data-div-mode", mode).attr("title", "분류: " + label);
+    $btn.toggleClass("is-active", mode !== "normal");
+    $btn.find(".wl-group-div-btn-mode").text(label);
+    $btn.find(".double-chart-dot").removeClass("is-active");
+    if (idx >= 0) $btn.find(".double-chart-dot").eq(idx).addClass("is-active");
+  }
+
   function syncWlGroupDivFromMarket() {
     var $sel = $("#wlGroupDiv");
     if (!$sel.length) return;
@@ -505,6 +521,7 @@ function fmtYmdToPlain(ymd) {
       normalized = "normal";
     }
     $sel.val(normalized);
+    syncWlGroupDivBtn(normalized);
   }
 
   var __watchlistItemsXhr = null;
@@ -677,10 +694,6 @@ function fmtYmdToPlain(ymd) {
       if (!code) return;
       $("#stockCode").val(code);
       doSearch();
-    });
-
-    // Mobile: double click on watchlist item closes the popup panel
-    $(".wl-item").off("dblclick").on("dblclick", function () {
       closeMobilePanelsIfOpen();
     });
   }
@@ -1705,13 +1718,17 @@ function fmtYmdToPlain(ymd) {
     var diff = (lastClose !== null && prevClose !== null && !isNaN(lastClose) && !isNaN(prevClose)) ? (Number(lastClose) - Number(prevClose)) : null;
     var pct = (diff !== null && prevClose && Number(prevClose) !== 0) ? (diff / Number(prevClose) * 100) : null;
 
-    kisSetText($("#kisHdrNow"), (lastClose === null ? "-" : kisComma(kisRound(Number(lastClose), 2))));
-    kisSetText($("#kisHdrPct"), (pct === null ? "-" : kisFormatPct(pct, 2)));
-    kisSetText($("#kisHdrDiff"), (diff === null ? "-" : kisFormatSigned(diff, 2)));
+    // 실시간 WebSocket 데이터 수신 중이면 현재가/등락폭/률은 덮어쓰지 않음
+    var realtimeActive = window.ChartPriceRealtime && ChartPriceRealtime.lastMessageAt > 0;
+    if (!realtimeActive) {
+      kisSetText($("#kisHdrNow"), (lastClose === null ? "-" : kisComma(kisRound(Number(lastClose), 2))));
+      kisSetText($("#kisHdrPct"), (pct === null ? "-" : kisFormatPct(pct, 2)));
+      kisSetText($("#kisHdrDiff"), (diff === null ? "-" : kisFormatSigned(diff, 2)));
 
-    kisSetUpDown($("#kisHdrNow"), diff);
-    kisSetUpDown($("#kisHdrPct"), pct);
-    kisSetUpDown($("#kisHdrDiff"), diff);
+      kisSetUpDown($("#kisHdrNow"), diff);
+      kisSetUpDown($("#kisHdrPct"), pct);
+      kisSetUpDown($("#kisHdrDiff"), diff);
+    }
 
     // 거래량/대금: volume series가 있으면 표시
     var volSeries = null;
@@ -2666,7 +2683,16 @@ $(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
         var marketVal = $("#wlMarket").val();
         wlSaveGroupDiv(marketVal, $("#wlGroupDiv").val());
       } catch (e) {}
+      syncWlGroupDivBtn($("#wlGroupDiv").val());
       loadWatchlistItems();
+    });
+
+    $("#wlGroupDivBtn").on("click", function () {
+      var $sel = $("#wlGroupDiv");
+      var cur = normalizeWatchlistGroupDiv($sel.val());
+      var idx = __WL_GROUP_DIV_ORDER.indexOf(cur);
+      var next = __WL_GROUP_DIV_ORDER[(idx + 1) % __WL_GROUP_DIV_ORDER.length];
+      $sel.val(next).trigger("change");
     });
 
     $("#btnWlReload").on("click", function () {

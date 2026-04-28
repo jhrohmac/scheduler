@@ -418,16 +418,17 @@ var ChartScript = (function () {
         setTextIfDifferent($("#kisHdrMarket"), headerStatic.market || "-");
 
         if ($("#kisHdrNow").length) $("#kisHdrNow").text(formatNumber(c));
-        if ($("#kisHdrPct").length) $("#kisHdrPct").text(isNaN(pct) ? "0%" : formatSignedPct(pct));
-        if ($("#kisHdrDiff").length) $("#kisHdrDiff").text(isNaN(diff) ? "0" : formatSignedNumber(diff));
+        // prevClose 없으면 등락폭/률을 "0"으로 덮어쓰지 않고 기존 값 유지
+        if (!isNaN(diff)) {
+            if ($("#kisHdrPct").length) $("#kisHdrPct").text(formatSignedPct(pct));
+            if ($("#kisHdrDiff").length) $("#kisHdrDiff").text(formatSignedNumber(diff));
+        }
 
         // 등락 색상
         setUpDownClass($("#kisHdrNow"), c, p);
         if (!isNaN(diff)) {
             setUpDownClass($("#kisHdrPct"), diff, 0);
             setUpDownClass($("#kisHdrDiff"), diff, 0);
-        } else {
-            $("#kisHdrPct,#kisHdrDiff").removeClass("kis-up kis-down").addClass("kis-flat");
         }
     }
 

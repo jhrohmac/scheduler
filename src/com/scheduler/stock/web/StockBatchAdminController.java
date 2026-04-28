@@ -44,6 +44,46 @@ public class StockBatchAdminController {
         return mv;
     }
 
+    @RequestMapping("/stock/batchAdmin/taskDefList.do")
+    public void selectTaskDefList(HttpServletRequest req, HttpServletResponse res) {
+        HashMap<String, String> map = RequestHandler.extractParameters(req);
+        try {
+            List<HashMap<String, Object>> list = stockBatchAdminService.selectTaskDefList(map);
+            DataTableSettingVo vo = new DataTableSettingVo();
+            vo.setData(list);
+            vo.setRecordsTotal(list == null ? 0 : list.size());
+            vo.setRecordsFiltered(list == null ? 0 : list.size());
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, vo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    @RequestMapping("/stock/batchAdmin/taskDefInsert.do")
+    public void insertTaskDef(HttpServletRequest req, HttpServletResponse res) {
+        HashMap<String, String> map = RequestHandler.extractParameters(req);
+        try {
+            stockBatchAdminService.insertTaskDef(map);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    @RequestMapping("/stock/batchAdmin/taskDefDelete.do")
+    public void deleteTaskDef(HttpServletRequest req, HttpServletResponse res) {
+        HashMap<String, String> map = RequestHandler.extractParameters(req);
+        try {
+            stockBatchAdminService.deleteTaskDef(map);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
     @RequestMapping("/stock/batchAdmin/taskCatalog.do")
     public void selectTaskCatalog(HttpServletRequest req, HttpServletResponse res) {
         HashMap<String, String> map = RequestHandler.extractParameters(req);
@@ -131,14 +171,28 @@ public class StockBatchAdminController {
     public void createJob(HttpServletRequest req, HttpServletResponse res) {
         HashMap<String, String> map = RequestHandler.extractParameters(req);
 
-        try {
-            Map<String, Object> out = stockBatchAdminService.createJob(map);
-            DataTableSettingVo vo = new DataTableSettingVo();
-            vo.setSingleData(out);
-            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, vo);
-        } catch (Exception e) {
-            e.printStackTrace();
-            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        Exception lastEx = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                if (attempt > 0) Thread.sleep(100L * attempt);
+                Map<String, Object> out = stockBatchAdminService.createJob(map);
+                DataTableSettingVo vo = new DataTableSettingVo();
+                vo.setSingleData(out);
+                ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, vo);
+                return;
+            } catch (Exception e) {
+                if (isDeadlockError(e) && attempt < 2) {
+                    lastEx = e;
+                    continue;
+                }
+                e.printStackTrace();
+                ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+                return;
+            }
+        }
+        if (lastEx != null) {
+            lastEx.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, lastEx.getLocalizedMessage(), null);
         }
     }
 
@@ -146,15 +200,42 @@ public class StockBatchAdminController {
     public void updateJob(HttpServletRequest req, HttpServletResponse res) {
         HashMap<String, String> map = RequestHandler.extractParameters(req);
 
-        try {
-            Map<String, Object> out = stockBatchAdminService.updateJob(map);
-            DataTableSettingVo vo = new DataTableSettingVo();
-            vo.setSingleData(out);
-            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, vo);
-        } catch (Exception e) {
-            e.printStackTrace();
-            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        Exception lastEx = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                if (attempt > 0) Thread.sleep(100L * attempt);
+                Map<String, Object> out = stockBatchAdminService.updateJob(map);
+                DataTableSettingVo vo = new DataTableSettingVo();
+                vo.setSingleData(out);
+                ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, vo);
+                return;
+            } catch (Exception e) {
+                if (isDeadlockError(e) && attempt < 2) {
+                    lastEx = e;
+                    continue;
+                }
+                e.printStackTrace();
+                ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+                return;
+            }
         }
+        if (lastEx != null) {
+            lastEx.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, lastEx.getLocalizedMessage(), null);
+        }
+    }
+
+    private boolean isDeadlockError(Throwable e) {
+        while (e != null) {
+            if (e instanceof java.sql.SQLException) {
+                int code = ((java.sql.SQLException) e).getErrorCode();
+                if (code == 60 || code == 12860) return true;
+            }
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("ORA-00060") || msg.contains("ORA-12860"))) return true;
+            e = e.getCause();
+        }
+        return false;
     }
 
     @RequestMapping("/stock/batchAdmin/jobDelete.do")

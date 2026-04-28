@@ -92,6 +92,7 @@
 }
 
 .scheduler-topbar__group {
+    display: flex;
     align-items: center;
     gap: 0.15rem;
 }
@@ -218,13 +219,13 @@
     }
 
     .scheduler-topbar__group {
-        width: 100%;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
     }
 
     .scheduler-topbar__group--right {
-        margin-left: 0 !important;
-        justify-content: space-between;
+        margin-left: auto !important;
+        justify-content: flex-end;
+        gap: 0.1rem 0.5rem;
     }
 
     .scheduler-topbar .nav-link {
@@ -232,9 +233,8 @@
     }
 
     #nav_session_timer {
-        order: 10;
-        width: 100%;
         padding-right: 0 !important;
+        white-space: nowrap;
     }
 
     .header-user-info {

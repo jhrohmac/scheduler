@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.finance.sql.StkSearch">
+
+    <!-- TB_STK_MASTER 종목 검색 (페이징) -->
+    <select id="selectStkSearchList" parameterType="hashmap" resultType="stkMasterDto">
+        /*selectStkSearchList*/
+        SELECT *
+          FROM (
+            SELECT A.*, ROWNUM AS rnum
+              FROM (
+                SELECT
+                    STK_CD            AS stkCd,
+                    STK_NM            AS stkNm,
+                    STK_NM_EN         AS stkNmEn,
+                    MKT_CD            AS mktCd,
+                    STK_STATUS        AS stkStatus,
+                    STK_TYPE          AS stkType,
+                    SCRT_GRP_CLS_CD   AS scrtGrpClsCd,
+                    INDEX_CD          AS indexCd,
+                    SECTOR_CD         AS sectorCd,
+                    MKT_CAP_SIZE      AS mktCapSize,
+                    CURRENCY          AS currency,
+                    LIST_DT           AS listDt,
+                    SYMBOL            AS symbol,
+                    NATN_CD           AS natnCd,
+                    EXCH_CD           AS exchCd,
+                    DOW30_YN          AS dow30Yn,
+                    NAS100_YN         AS nas100Yn,
+                    SNP500_YN         AS snp500Yn,
+                    KOSPI200_SECT_CD  AS kospi200SectCd,
+                    KOSPI100_YN       AS kospi100Yn,
+                    KOSPI50_YN        AS kospi50Yn,
+                    KOSDAQ150_YN      AS kosdaq150Yn,
+                    MANG_YN           AS mangYn,
+                    SLTR_YN           AS sltrYn,
+                    USE_YN            AS useYn,
+                    TO_NUMBER(PRDY_AVLS_SCAL)  AS prdyAvlsScal,
+                    TO_NUMBER(BSOP_PRFI)       AS bsopPrfi,
+                    TO_NUMBER(THTR_NTIN)       AS thtrNtin,
+                    TO_NUMBER(ROE_VAL)         AS roeVal,
+                    BASE_DT                    AS baseDt,
+                    COUNT(*) OVER()            AS totalCount
+                FROM TB_STK_MASTER
+                WHERE STK_STATUS != 'DELIST'
+                <choose>
+                    <when test="in_domain == 'domestic'">
+                        AND MKT_CD IN ('KOSPI', 'KOSDAQ')
+                        <if test="in_mkt_cd != null and in_mkt_cd != ''">
+                            AND MKT_CD = #{in_mkt_cd}
+                        </if>
+                        <if test="in_index_cd != null and in_index_cd != ''">
+                            <choose>
+                                <when test="in_index_cd == 'KOSPI200'">AND KOSPI200_SECT_CD IS NOT NULL</when>
+                                <when test="in_index_cd == 'KOSPI100'">AND KOSPI100_YN = 'Y'</when>
+                                <when test="in_index_cd == 'KOSPI50'">AND KOSPI50_YN = 'Y'</when>
+                                <when test="in_index_cd == 'KOSDAQ150'">AND KOSDAQ150_YN = 'Y'</when>
+                                <when test="in_index_cd == 'KRX300'">AND KRX300_YN = 'Y'</when>
+                            </choose>
+                        </if>
+                    </when>
+                    <when test="in_domain == 'overseas'">
+                        AND MKT_CD IN ('NASDAQ', 'NYSE')
+                        <if test="in_mkt_cd != null and in_mkt_cd != ''">
+                            AND MKT_CD = #{in_mkt_cd}
+                        </if>
+                        <if test="in_index_cd != null and in_index_cd != ''">
+                            <choose>
+                                <when test="in_index_cd == 'SNP500'">AND SNP500_YN = 'Y'</when>
+                                <when test="in_index_cd == 'DOW30'">AND DOW30_YN = 'Y'</when>
+                                <when test="in_index_cd == 'NAS100'">AND NAS100_YN = 'Y'</when>
+                            </choose>
+                        </if>
+                    </when>
+                </choose>
+                <if test="in_stk_type != null and in_stk_type != ''">
+                    AND (STK_TYPE = #{in_stk_type} OR SCRT_GRP_CLS_CD = #{in_stk_type})
+                </if>
+                <if test="in_keyword != null and in_keyword != ''">
+                    AND (UPPER(STK_CD)    LIKE UPPER('%' || #{in_keyword} || '%')
+                      OR UPPER(STK_NM)    LIKE UPPER('%' || #{in_keyword} || '%')
+                      OR UPPER(STK_NM_EN) LIKE UPPER('%' || #{in_keyword} || '%')
+                      OR UPPER(SYMBOL)    LIKE UPPER('%' || #{in_keyword} || '%'))
+                </if>
+                ORDER BY
+                <choose>
+                    <when test="in_sort == 'mktcap'">PRDY_AVLS_SCAL DESC NULLS LAST</when>
+                    <when test="in_sort == 'bsop_prfi'">TO_NUMBER(BSOP_PRFI) DESC NULLS LAST</when>
+                    <when test="in_sort == 'thtr_ntin'">TO_NUMBER(THTR_NTIN) DESC NULLS LAST</when>
+                    <when test="in_sort == 'roe'">TO_NUMBER(ROE_VAL) DESC NULLS LAST</when>
+                    <otherwise>STK_CD ASC</otherwise>
+                </choose>
+              ) A
+          ) WHERE RNUM <![CDATA[<=]]> ${totalPagesize}
+            AND   RNUM > ${currentPageSize}
+    </select>
+
+</mapper>

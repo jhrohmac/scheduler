@@ -234,10 +234,10 @@ body.mobile-open-right #btnMobileOpenSummary {
   .left-panel,
   .right-panel {
     position: fixed !important;
-    left: 10px;
-    right: 10px;
-    top: 64px;
-    bottom: 12px;
+    left: 0;
+    right: 0;
+    top: var(--topbar-h);
+    bottom: 0;
     width: auto !important;
     min-width: auto !important;
     max-width: none !important;
@@ -247,6 +247,10 @@ body.mobile-open-right #btnMobileOpenSummary {
     opacity: 0;
     transform: translateY(16px);
     pointer-events: none;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
 
     transition: transform 180ms ease, opacity 180ms ease;
   }
@@ -672,10 +676,10 @@ body.mobile-open-right #btnMobileOpenSummary {
   .left-panel,
   .right-panel {
     position: fixed !important;
-    left: 10px;
-    right: 10px;
-    top: 64px;
-    bottom: 12px;
+    left: 0;
+    right: 0;
+    top: var(--topbar-h);
+    bottom: 0;
     width: auto !important;
     min-width: auto !important;
     max-width: none !important;
@@ -684,6 +688,10 @@ body.mobile-open-right #btnMobileOpenSummary {
     opacity: 0;
     transform: translateY(16px);
     pointer-events: none;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
     transition: transform 180ms ease, opacity 180ms ease;
   }
 

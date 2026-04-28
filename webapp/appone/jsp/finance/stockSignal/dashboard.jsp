@@ -5,10 +5,10 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>StockSignal Dashboard</title>
-  <link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/finance/stockSignal/dashboard.css"/>
+  <link rel="stylesheet" href="/scheduler/appone/jsp/finance/stockSignal/dashboard.css"/>
 </head>
 <body>
-  <input type="hidden" id="ctx" value="${pageContext.request.contextPath}"/>
+  <input type="hidden" id="ctx" value="/scheduler/"/>
 
   <header class="hdr">
     <div>
@@ -46,6 +46,6 @@
     </div>
   </main>
 
-  <script src="${pageContext.request.contextPath}/appone/jsp/finance/stockSignal/dashboard.js"></script>
+  <script src="/scheduler/appone/jsp/finance/stockSignal/dashboard.js"></script>
 </body>
 </html>

@@ -175,15 +175,13 @@
 
 #modal_batch_admin_edit .cron-preview-expr {
     margin-top: 4px;
-    color: #6b7785;
+    color: #b44363;
     font-size: 12px;
+    font-weight: 600;
     word-break: break-all;
 }
 
-#modal_batch_admin_edit .cron-preview-expr code {
-    padding: 1px 4px;
-    border-radius: 4px;
-    background: #f8eef2;
+#modal_batch_admin_edit .cron-preview-expr span {
     color: #b44363;
 }
 
@@ -201,4 +199,78 @@
 
 #modal_batch_admin_edit .schedule-disabled {
     opacity: 0.55;
+}
+
+/* ── 파라미터 요약 박스 ── */
+.param-summary-box {
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px dashed #ced4da;
+    border-radius: 4px;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-size: 0.82rem;
+    word-break: break-all;
+}
+
+/* ── 실패 종목 카드 ── */
+.batch-fail-card {
+    border: 2px solid #dc3545;
+}
+
+.batch-fail-header {
+    background: #dc3545;
+    color: #fff;
+}
+
+/* ── TASK DEF 모달 batch-tip 재사용 ── */
+#modal_task_def .batch-tip,
+#modal_batch_params .batch-tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    border-radius: 999px;
+    border: 1px solid #7e8a97;
+    color: #566170;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: help;
+    background: #f7f9fb;
+}
+
+/* ── 파라미터 모달 내 param-row 스타일 상속 ── */
+#modal_batch_params .param-row-header {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#modal_batch_params .param-row {
+    border-bottom: 1px solid #f0f0f0;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+#modal_batch_params .param-row:last-child {
+    border-bottom: none;
+}
+
+#modal_batch_params .param-value[disabled] {
+    background-color: #e8f4fd;
+    color: #1a6a9a;
+    font-style: italic;
+}
+
+#modal_batch_params .btn-sysdate {
+    font-size: 10px;
+    padding: 2px 5px;
+    white-space: nowrap;
+}
+
+#modal_batch_params .btn-sysdate.btn-info {
+    font-weight: 700;
 }

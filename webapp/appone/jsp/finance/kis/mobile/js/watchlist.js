@@ -14,11 +14,13 @@
     items: [],
     ws: null,
     reconnectTimer: null,
+    reconnectDelay: 1500,
     listByToken: Object.create(null),
     inFlight: null,
     sortAsc: true,
     editMode: false,
-    market: localStorage.getItem('mobile.market') || 'KR'
+    market: localStorage.getItem('mobile.market') || 'KR',
+    pageUnloading: false
   };
 
   function wsProto() {
@@ -166,7 +168,10 @@
     const ws = new WebSocket(url);
     state.ws = ws;
 
-    ws.onopen = () => setStatus('연결됨');
+    ws.onopen = () => {
+      state.reconnectDelay = 1500;
+      setStatus('연결됨');
+    };
 
     ws.onmessage = evt => {
       let msg;
@@ -180,10 +185,12 @@
     ws.onclose = () => {
       if (ws.__manualClose) return;
       if (state.pageUnloading) return;
-      setStatus('재연결');
-      state.reconnectTimer = setTimeout(() => {
-        if (!state.pageUnloading) connectRealtime(state.items);
-      }, 1500);
+      if (document.hidden) {
+        // 백그라운드 상태면 타이머 없이 대기 (visibilitychange에서 재연결)
+        setStatus('백그라운드');
+        return;
+      }
+      scheduleReconnect();
     };
   }
 
@@ -343,13 +350,63 @@
     loadGroups();
   };
 
+  function scheduleReconnect() {
+    if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+    setStatus('재연결');
+    state.reconnectTimer = setTimeout(() => {
+      state.reconnectTimer = null;
+      if (state.pageUnloading || document.hidden || !navigator.onLine) return;
+      connectRealtime(state.items);
+    }, state.reconnectDelay);
+    // 지수 백오프: 최대 30초
+    state.reconnectDelay = Math.min(state.reconnectDelay * 2, 30000);
+  }
+
   // 페이지 이탈 시 WebSocket 종료 및 재연결 방지
   function _onPageUnload() {
     state.pageUnloading = true;
     closeWs();
   }
-  window.addEventListener("pagehide", _onPageUnload);
-  window.addEventListener("beforeunload", _onPageUnload);
+  // BFCache 복귀(뒤로 가기) 시 WebSocket 재연결
+  function _onPageShow(e) {
+    state.pageUnloading = false;
+    state.reconnectDelay = 1500;
+    if (e.persisted) {
+      // BFCache에서 복원된 경우 연결 상태 재확인
+      if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        connectRealtime(state.items);
+      }
+    }
+  }
+  // 탭 활성화/비활성화 처리
+  function _onVisibilityChange() {
+    if (document.hidden) {
+      // 백그라운드 전환: 재연결 타이머 취소 (불필요한 재연결 방지)
+      if (state.reconnectTimer) {
+        clearTimeout(state.reconnectTimer);
+        state.reconnectTimer = null;
+      }
+    } else {
+      // 포그라운드 복귀: 연결 상태 확인 후 재연결
+      state.reconnectDelay = 1500;
+      if (!state.pageUnloading && (!state.ws || state.ws.readyState !== WebSocket.OPEN)) {
+        if (state.items.length) connectRealtime(state.items);
+      }
+    }
+  }
+  // 네트워크 복구 시 재연결
+  function _onOnline() {
+    state.reconnectDelay = 1500;
+    if (!state.pageUnloading && !document.hidden && (!state.ws || state.ws.readyState !== WebSocket.OPEN)) {
+      if (state.items.length) connectRealtime(state.items);
+    }
+  }
+
+  window.addEventListener('pagehide', _onPageUnload);
+  window.addEventListener('beforeunload', _onPageUnload);
+  window.addEventListener('pageshow', _onPageShow);
+  document.addEventListener('visibilitychange', _onVisibilityChange);
+  window.addEventListener('online', _onOnline);
 
   bind();
   loadGroups();

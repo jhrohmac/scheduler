@@ -21,6 +21,7 @@ import org.json.JSONObject;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.scheduling.support.CronSequenceGenerator;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.scheduler.stock.batchadmin.dao.StockBatchAdminDao;
 import com.scheduler.stock.batchadmin.task.StockBatchTask;
@@ -52,6 +53,32 @@ public class StockBatchAdminService implements ApplicationContextAware {
         return stockBatchAdminDao.selectTaskCatalog(map);
     }
 
+    public List<HashMap<String, Object>> selectTaskDefList(HashMap<String, String> map) throws Exception {
+        return stockBatchAdminDao.selectTaskDefList(map);
+    }
+
+    public void insertTaskDef(HashMap<String, String> map) throws Exception {
+        String taskKey = nvl(map.get("task_key"), "").toUpperCase().trim();
+        if (taskKey.isEmpty()) {
+            throw new IllegalArgumentException("task_key는 필수입니다.");
+        }
+        String beanName = nvl(map.get("bean_name"), "").trim();
+        if (beanName.isEmpty()) {
+            throw new IllegalArgumentException("bean_name은 필수입니다.");
+        }
+        map.put("task_key", taskKey);
+        map.put("bean_name", beanName);
+        stockBatchAdminDao.insertTaskDef(map);
+    }
+
+    public void deleteTaskDef(HashMap<String, String> map) throws Exception {
+        String taskKey = nvl(map.get("task_key"), "").trim();
+        if (taskKey.isEmpty()) {
+            throw new IllegalArgumentException("task_key는 필수입니다.");
+        }
+        stockBatchAdminDao.deleteTaskDef(map);
+    }
+
     public List<HashMap<String, Object>> selectJobList(HashMap<String, String> map) throws Exception {
         return stockBatchAdminDao.selectJobList(map);
     }
@@ -77,6 +104,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         return stockBatchAdminDao.selectJobLogItemFailList(enrichJobLogQuery(map));
     }
 
+    @Transactional
     public Map<String, Object> createJob(HashMap<String, String> map) throws Exception {
         String jobId = upperId(map.get("job_id"));
         String jobName = nvl(map.get("job_name"), "");
@@ -112,6 +140,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         return out;
     }
 
+    @Transactional
     public Map<String, Object> updateJob(HashMap<String, String> map) throws Exception {
         String jobId = upperId(map.get("job_id"));
         if (jobId.isEmpty()) throw new IllegalArgumentException("job_id is required");
@@ -252,6 +281,13 @@ public class StockBatchAdminService implements ApplicationContextAware {
         int skipped = 0;
 
         for (HashMap<String, Object> job : dueJobs) {
+            if (isMisfiredSkip(job)) {
+                updateNextRun(job);
+                skipped++;
+                System.out.println("[StockBatchAdminService] MISFIRE SKIP jobId=" + mapVal(job, "job_id")
+                        + ", next_run_at=" + mapVal(job, "next_run_at"));
+                continue;
+            }
             boolean queued = triggerJob(job, true, "SCHEDULER");
             if (queued) {
                 triggered++;
@@ -299,15 +335,14 @@ public class StockBatchAdminService implements ApplicationContextAware {
             return false;
         }
         if (locked <= 0) {
-            System.out.println("[StockBatchAdminService] triggerJob lock acquired by state-check (executorType=batch) jobId=" + jobId + ", execId=" + execId + ", triggerType=" + triggerType + ", updateCount=" + locked);
+            // UPDATE 0건: DB 경쟁 상태 가능성. lockOwned(state-check)로 진행하되 경고 기록.
+            System.out.println("[StockBatchAdminService] WARN: triggerJob lock UPDATE returned 0 but state-check passed jobId=" + jobId + ", execId=" + execId + ", triggerType=" + triggerType);
         } else {
             System.out.println("[StockBatchAdminService] triggerJob lock acquired jobId=" + jobId + ", execId=" + execId + ", triggerType=" + triggerType + ", updateCount=" + locked);
         }
         boolean started = false;
         try {
-            if (schedulerRun) {
-                updateNextRun(job);
-            }
+            updateNextRun(job);
 
             stockBatchAdminDao.clearStopRequest(q);
             clearStopFlag(jobId);
@@ -317,6 +352,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
                 public void run() {
                     String resultCode = "SUCCESS";
                     String resultMsg = "OK";
+                    Map<String, Object> taskResult = null;
                     AtomicBoolean heartbeatRunning = new AtomicBoolean(false);
                     Thread heartbeatThread = null;
 
@@ -325,18 +361,19 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
                     try {
                         stockBatchAdminDao.markJobStart(startMap);
+
                         heartbeatRunning.set(true);
                         heartbeatThread = startHeartbeatThread(jobId, heartbeatRunning);
                         System.out.println("[StockBatchAdminService] job thread started jobId=" + jobId + ", execId=" + execId + ", triggerType=" + triggerType);
-                        Map<String, Object> result = executeTask(jobId, execId, triggerType);
-                        if (result != null) {
-                            String status = toStr(result.get("status"));
+                        taskResult = executeTask(jobId, execId, triggerType);
+                        if (taskResult != null) {
+                            String status = toStr(taskResult.get("status"));
                             if ("FAIL".equalsIgnoreCase(status) || "ERROR".equalsIgnoreCase(status)) {
                                 resultCode = "ERROR";
                             } else if ("STOP".equalsIgnoreCase(status)) {
                                 resultCode = "STOP";
                             }
-                            resultMsg = buildResultMessage(result);
+                            resultMsg = buildResultMessage(taskResult);
                         }
                     } catch (Exception e) {
                         resultCode = "ERROR";
@@ -453,22 +490,35 @@ public class StockBatchAdminService implements ApplicationContextAware {
     }
 
     private void replaceJobParams(String jobId, String paramsJson) throws Exception {
-        HashMap<String, String> q = new HashMap<String, String>();
-        q.put("job_id", jobId);
-
-        stockBatchAdminDao.deleteJobParams(q);
-
         List<HashMap<String, String>> params = parseParams(paramsJson);
+
+        List<String> keepKeys = new ArrayList<String>();
         for (HashMap<String, String> p : params) {
-            HashMap<String, String> ins = new HashMap<String, String>();
-            ins.put("job_id", jobId);
-            ins.put("param_key", nvl(p.get("paramKey"), ""));
-            ins.put("param_value", nvl(p.get("paramValue"), ""));
-            ins.put("param_type", nvl(p.get("paramType"), "STRING").toUpperCase());
-            ins.put("required_yn", yn(p.get("requiredYn"), "N"));
-            ins.put("masked_yn", yn(p.get("maskedYn"), "N"));
-            if (!isBlank(ins.get("param_key"))) {
-                stockBatchAdminDao.insertJobParam(ins);
+            String key = nvl(p.get("paramKey"), "");
+            if (!isBlank(key)) keepKeys.add(key);
+        }
+
+        if (keepKeys.isEmpty()) {
+            HashMap<String, String> q = new HashMap<String, String>();
+            q.put("job_id", jobId);
+            stockBatchAdminDao.deleteJobParams(q);
+        } else {
+            HashMap<String, Object> delEx = new HashMap<String, Object>();
+            delEx.put("job_id", jobId);
+            delEx.put("keep_keys", keepKeys);
+            stockBatchAdminDao.deleteJobParamsExcept(delEx);
+        }
+
+        for (HashMap<String, String> p : params) {
+            HashMap<String, String> up = new HashMap<String, String>();
+            up.put("job_id", jobId);
+            up.put("param_key", nvl(p.get("paramKey"), ""));
+            up.put("param_value", nvl(p.get("paramValue"), ""));
+            up.put("param_type", nvl(p.get("paramType"), "STRING").toUpperCase());
+            up.put("required_yn", yn(p.get("requiredYn"), "N"));
+            up.put("masked_yn", yn(p.get("maskedYn"), "N"));
+            if (!isBlank(up.get("param_key"))) {
+                stockBatchAdminDao.upsertJobParam(up);
             }
         }
     }
@@ -613,6 +663,27 @@ public class StockBatchAdminService implements ApplicationContextAware {
 
         int sec = intervalSec > 0 ? intervalSec : 3600;
         return now.plusSeconds(sec);
+    }
+
+    private boolean isMisfiredSkip(HashMap<String, Object> job) {
+        String policy = nvl(mapVal(job, "misfire_policy"), "SKIP").toUpperCase();
+        if (!"SKIP".equals(policy)) {
+            return false;
+        }
+        String nextRunStr = mapVal(job, "next_run_at");
+        if (isBlank(nextRunStr)) {
+            return false;
+        }
+        try {
+            ZoneId zone = safeZone(mapVal(job, "timezone"));
+            LocalDateTime ldt = LocalDateTime.parse(nextRunStr.trim(), DATETIME_FMT);
+            ZonedDateTime nextRun = ldt.atZone(zone);
+            // 스케줄러 tick(60s) 2배 이상 지났으면 misfire로 판단
+            ZonedDateTime misfireThreshold = ZonedDateTime.now(zone).minusSeconds(120);
+            return nextRun.isBefore(misfireThreshold);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean isStopRequested(String jobId) {
@@ -822,6 +893,26 @@ public class StockBatchAdminService implements ApplicationContextAware {
         String m = nvl(msg, "");
         if (m.length() > 1000) return m.substring(0, 1000);
         return m;
+    }
+
+    private int safeResultInt(Map<String, Object> result, String key) {
+        if (result == null) return 0;
+        Object v = result.get(key);
+        if (v instanceof Number) return ((Number) v).intValue();
+        if (v != null) {
+            try { return Integer.parseInt(v.toString().trim()); } catch (Exception ignored) {}
+        }
+        return 0;
+    }
+
+    /* totalCnt가 있으면 우선 사용, 없으면 fallback 키들을 합산 */
+    private int sumResultInts(Map<String, Object> result, String primaryKey, String... fallbackKeys) {
+        if (result == null) return 0;
+        int primary = safeResultInt(result, primaryKey);
+        if (primary > 0) return primary;
+        int sum = 0;
+        for (String key : fallbackKeys) sum += safeResultInt(result, key);
+        return sum;
     }
 
     private String yn(String value, String dft) {

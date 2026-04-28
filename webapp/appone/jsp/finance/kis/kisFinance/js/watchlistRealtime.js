@@ -97,7 +97,8 @@
             }
 
             var cls = signClass(sign);
-            $row.find(".wl-price").text(price).attr("title", (sign === "+" ? "+" : (sign === "-" ? "-" : "")) + diff + " / " + rate + "%").removeClass("up down flat").addClass(cls);
+            $row.find(".wl-price").text(price).attr("title", (sign === "+" ? "+" : (sign === "-" ? "-" : "")) + diff + " / " + rate + "%")
+              .toggleClass("up", cls === "up").toggleClass("down", cls === "down").toggleClass("flat", cls === "flat");
             return;
           }
         } catch (e) {}
@@ -159,7 +160,7 @@
             if ($el.length === 0) {
               return;
             }
-            $el.text(it.text).removeClass("up down flat").addClass(cls);
+            $el.text(it.text).toggleClass("up", cls === "up").toggleClass("down", cls === "down").toggleClass("flat", cls === "flat");
           }
 
           apply("KOSPI", "#kospVal");

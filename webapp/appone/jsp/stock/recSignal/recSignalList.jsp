@@ -8,7 +8,7 @@
 <title>추천 종목 분석</title>
 <link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/kisFinance/css/common.css' />">
 <link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css?v=20260305-1' />">
-<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/recSignalList.css?v=20260317-8' />">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/css/recSignalList.css?v=20260317-8">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
 window.__CTX_PATH = "${pageContext.request.contextPath}";
@@ -348,7 +348,7 @@ window.__URLS = {
   selectPositionState: "<c:url value='/finance/selectPositionState.do' />"
 };
 </script>
-<script defer src="<c:url value='/appone/jsp/stock/recSignalChartOptions.js?v=20260317-1' />"></script>
-<script defer src="<c:url value='/appone/jsp/stock/recSignalList.js?v=20260317-6' />"></script>
+<script defer src="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/js/recSignalChartOptions.js?v=20260317-1"></script>
+<script defer src="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/js/recSignalList.js?v=20260317-6"></script>
 </body>
 </html>

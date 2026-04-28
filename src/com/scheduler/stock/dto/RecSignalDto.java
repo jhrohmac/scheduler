@@ -7,6 +7,7 @@ public class RecSignalDto {
     private String mktCd;
     private String listingMarket;
     private String indexCd;
+    private String stkType;
     private String baseDt;
     private Double curPrice;
     private Double monOpenPrice;
@@ -70,6 +71,14 @@ public class RecSignalDto {
 
     public void setIndexCd(String indexCd) {
         this.indexCd = indexCd;
+    }
+
+    public String getStkType() {
+        return stkType;
+    }
+
+    public void setStkType(String stkType) {
+        this.stkType = stkType;
     }
 
     public Double getCurPrice() {
