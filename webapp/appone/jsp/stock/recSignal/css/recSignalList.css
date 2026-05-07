@@ -395,20 +395,6 @@ select {
   background: #fff;
 }
 
-.price-input {
-  width: 100px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(216, 208, 195, 0.95);
-  background: #fff;
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-}
-
-.price-input::placeholder {
-  color: rgba(98, 112, 123, 0.6);
-}
-
 .analysis-grid {
   margin-top: 14px;
   display: grid;
@@ -675,6 +661,27 @@ select {
 .detail-link-button span[aria-hidden="true"] {
   font-size: 14px;
   line-height: 1;
+}
+
+.pick-btn {
+  border-color: var(--olive);
+  color: var(--olive);
+}
+
+.pick-btn:not(:disabled):hover {
+  background: var(--olive-soft);
+  border-color: var(--olive);
+}
+
+.pick-btn--active {
+  background: var(--olive-soft);
+  border-color: var(--olive);
+  color: var(--olive);
+}
+
+.pick-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .detail-link.inline {

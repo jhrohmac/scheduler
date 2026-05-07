@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic.css?v=20260507-1">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260507-1">
 
 <div class="rpd-app" id="rpdApp">
 
@@ -187,14 +187,14 @@ window.recPickDynamicConfig = {
 </script>
 
 <!-- 지표 모듈 (각 모듈은 IndicatorRegistry 에 자동 등록됨) -->
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/IndicatorRegistry.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/GoldenArrayIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/MonthUpIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/TrendStrengthIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/VolumeFilterIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/PriceRangeIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/RsiIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/js/indicators/MacdIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260507-1"></script>
 
 <!-- 메인 컨트롤러 -->
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic.js?v=20260507-1"></script>
+<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260507-1"></script>

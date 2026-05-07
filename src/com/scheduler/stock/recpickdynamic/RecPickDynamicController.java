@@ -39,7 +39,7 @@ public class RecPickDynamicController {
     @RequestMapping("/stock/recPickDynamic/listView.do")
     public ModelAndView openListView(HttpServletRequest req, HttpServletResponse res) {
         ModelAndView mv = new ModelAndView();
-        mv.setViewName("stock/recPickDynamic");
+        mv.setViewName("stock/recPickDynamic/recPickDynamic");
         return mv;
     }
 

@@ -23,7 +23,6 @@
   var state = {
     country: resolveConfiguredCountry(config),
     marketFilter: resolveConfiguredMarketFilter(config),
-    indexFilter: "ALL",
     grade: "ALL",
     sort: "rank",
     tableSortKey: "rank",
@@ -32,8 +31,6 @@
     selectedMktCd: resolveConfiguredCountry(config),
     chartKey: "",
     baseDt: config.baseDt || "",
-    priceMin: null,
-    priceMax: null,
     allStocks: [],
     detailCache: {},
     batchStatus: null,
@@ -49,9 +46,6 @@
     batchStatusPanel: document.getElementById("batchStatusPanel"),
     countryFilter: document.getElementById("countryFilter"),
     marketFilter: document.getElementById("marketFilter"),
-    indexFilter: document.getElementById("indexFilter"),
-    priceMin: document.getElementById("priceMin"),
-    priceMax: document.getElementById("priceMax"),
     toolbarBaseDateText: document.getElementById("toolbarBaseDateText"),
     summaryRecommended: document.getElementById("summaryRecommended"),
     summaryGradeA: document.getElementById("summaryGradeA"),
@@ -73,7 +67,8 @@
     periodDivCode: document.getElementById("periodDivCode"),
     kisChartContainer: document.getElementById("kisChartContainer"),
     comparisonBody: document.getElementById("comparisonBody"),
-    sortFilter: document.getElementById("sortFilter")
+    sortFilter: document.getElementById("sortFilter"),
+    btnSaveToWatchlist: document.getElementById("btnSaveToWatchlist")
   };
 
   function normalizeCountryValue(value) {
@@ -150,21 +145,6 @@
       var active = option.value === currentMarketFilter() ? " active" : "";
       return '<button type="button" class="filter-chip' + active + '" data-market-filter="' + option.value + '">' + option.label + "</button>";
     }).join("");
-  }
-
-  function renderIndexFilterOptions() {
-    if (!els.indexFilter) {
-      return;
-    }
-
-    var indexLabel = state.country === COUNTRY_US ? "S&P500" : "KOSPI200";
-    var active = state.indexFilter === "ALL" ? " active" : "";
-    var specificActive = state.indexFilter !== "ALL" ? " active" : "";
-
-    els.indexFilter.innerHTML = [
-      '<button type="button" class="filter-chip' + active + '" data-index-filter="ALL">전체</button>',
-      '<button type="button" class="filter-chip' + specificActive + '" data-index-filter="SPECIFIC">' + indexLabel + '</button>'
-    ].join("");
   }
 
   function loadScriptOnce(url, id) {
@@ -291,7 +271,7 @@
       name: String(raw.stkNm || raw.stk_nm || raw.name || ""),
       mktCd: String(raw.mktCd || raw.mkt_cd || raw.marketGroup || "KR"),
       listingMarket: String(raw.listingMarket || raw.listing_market || raw.market || ""),
-      indexCd: String(raw.indexCd || raw.index_cd || ""),
+      dowMemberYn: String(raw.dowMemberYn || raw.dow_member_yn || "N"),
       grade: String(raw.recGrade || raw.rec_grade || raw.grade || ""),
       recYn: String(raw.recYn || raw.rec_yn || "N"),
       baseDt: String(raw.baseDt || raw.base_dt || state.baseDt || ""),
@@ -319,29 +299,7 @@
 
   function filteredStocks() {
     return state.allStocks.filter(function (stock) {
-      // 등급 필터
-      if (state.grade !== "ALL" && stock.grade !== state.grade) {
-        return false;
-      }
-
-      // 지수 필터
-      if (state.indexFilter !== "ALL") {
-        var expectedIndex = state.country === COUNTRY_US ? "SNP500" : "KOSPI200";
-        if (stock.indexCd !== expectedIndex) {
-          return false;
-        }
-      }
-
-      // 가격 범위 필터
-      var price = stock.currentPrice;
-      if (state.priceMin !== null && price < state.priceMin) {
-        return false;
-      }
-      if (state.priceMax !== null && price > state.priceMax) {
-        return false;
-      }
-
-      return true;
+      return state.grade === "ALL" || stock.grade === state.grade;
     });
   }
 
@@ -505,12 +463,7 @@
     return Number(value || 0).toLocaleString("ko-KR");
   }
 
-  function formatCurrency(value, country) {
-    var mktCd = country || state.country;
-    if (String(mktCd || "").toUpperCase() === COUNTRY_US) {
-      var num = Number(value || 0);
-      return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$";
-    }
+  function formatCurrency(value) {
     return formatNumber(value) + "원";
   }
 
@@ -929,7 +882,7 @@
         '    </div>',
         '    <div class="rank-price-box">',
         '      <span class="rank-price-label">현재가</span>',
-        '      <strong class="rank-price mono">' + formatCurrency(stock.currentPrice, stock.mktCd) + '</strong>',
+        '      <strong class="rank-price mono">' + formatCurrency(stock.currentPrice) + '</strong>',
         '    </div>',
         '  </div>',
         '  <div class="rank-bottom">',
@@ -972,11 +925,11 @@
       + "&mktCd=" + encodeURIComponent(stock.mktCd || "KR"));
 
     var metrics = [
-      { label: "현재가", value: formatCurrency(stock.currentPrice, stock.mktCd) },
-      { label: "월초 시가", value: formatCurrency(stock.monthOpenPrice, stock.mktCd) },
-      { label: "5일 평균가", value: formatCurrency(stock.ma5, stock.mktCd) },
-      { label: "20일 평균가", value: formatCurrency(stock.ma20, stock.mktCd) },
-      { label: "60일 평균가", value: formatCurrency(stock.ma60, stock.mktCd) },
+      { label: "현재가", value: formatCurrency(stock.currentPrice) },
+      { label: "월초 시가", value: formatCurrency(stock.monthOpenPrice) },
+      { label: "5일 평균가", value: formatCurrency(stock.ma5) },
+      { label: "20일 평균가", value: formatCurrency(stock.ma20) },
+      { label: "60일 평균가", value: formatCurrency(stock.ma60) },
       { label: "정배열", value: yesNoText(stock.goldenYn) },
       { label: "추천 사유", value: buildReasonText(stock), wide: true },
       { label: "5일선 대비", value: formatSignedCurrency(stock.currentPrice - stock.ma5) },
@@ -1001,6 +954,7 @@
     renderMaLadder(stock);
     renderAnalysisNotes(stock);
     renderDetailChart(stock);
+    renderPickButton(stock);
   }
 
   function renderEmptyDetail() {
@@ -1040,6 +994,7 @@
     }
     renderAnalysisNotes(null);
     renderChartEmpty("추천 종목을 선택하면 KIS 차트가 표시됩니다.");
+    renderPickButton(null);
   }
 
   function renderDecision(stock) {
@@ -1113,7 +1068,7 @@
         '<div class="ma-row">',
         '  <div>',
         '    <div class="ma-label">' + item.label + '</div>',
-        '    <strong class="mono">' + formatCurrency(item.value, stock.mktCd) + '</strong>',
+        '    <strong class="mono">' + formatCurrency(item.value) + '</strong>',
         '  </div>',
         '  <div class="ma-bar"><span class="ma-fill" style="width:' + pct.toFixed(2) + '%;"></span></div>',
         '</div>'
@@ -1140,10 +1095,10 @@
         '  <td class="mono">' + stock.rank + '</td>',
         '  <td><a class="detail-link inline" href="' + detailUrl + '"><strong>' + formatStockName(stock) + '</strong></a><div class="rank-code">' + stock.code + '</div></td>',
         '  <td><span class="grade-chip ' + gradeClass(stock.grade) + '">' + (stock.grade || "-") + '</span></td>',
-        '  <td class="mono">' + formatCurrency(stock.currentPrice, stock.mktCd) + '</td>',
-        '  <td class="mono">' + formatCurrency(stock.monthOpenPrice, stock.mktCd) + '</td>',
+        '  <td class="mono">' + formatCurrency(stock.currentPrice) + '</td>',
+        '  <td class="mono">' + formatCurrency(stock.monthOpenPrice) + '</td>',
         '  <td class="mono">' + rate.toFixed(2) + '%</td>',
-        '  <td class="mono">' + formatCurrency(stock.ma5, stock.mktCd) + '</td>',
+        '  <td class="mono">' + formatCurrency(stock.ma5) + '</td>',
         '  <td class="mono">' + stock.trendStrength.toFixed(1) + '</td>',
         '  <td class="mono">' + formatBillion(stock.avgTradeValue20) + '</td>',
         '</tr>'
@@ -1339,7 +1294,6 @@
 
         state.country = normalizeCountryValue(nextCountry);
         state.marketFilter = MARKET_FILTER_ALL;
-        state.indexFilter = "ALL";
         state.selectedCode = "";
         state.selectedMktCd = state.country;
         state.detailCache = {};
@@ -1348,7 +1302,6 @@
         state.batchStatus = null;
         renderCountryFilterState();
         renderMarketFilterOptions();
-        renderIndexFilterOptions();
         renderAll();
         loadList();
       });
@@ -1374,42 +1327,6 @@
       });
     }
 
-    if (els.indexFilter) {
-      els.indexFilter.addEventListener("click", function (event) {
-        var button = event.target;
-        var nextIndexFilter;
-
-        if (!button || button.tagName !== "BUTTON") {
-          return;
-        }
-
-        nextIndexFilter = button.getAttribute("data-index-filter");
-        if (!nextIndexFilter || nextIndexFilter === state.indexFilter) {
-          return;
-        }
-
-        state.indexFilter = nextIndexFilter;
-        renderIndexFilterOptions();
-        ensureSelection();
-        loadDetailAndRender();
-      });
-    }
-
-    if (els.priceMin || els.priceMax) {
-      var updatePriceFilter = function () {
-        state.priceMin = els.priceMin && els.priceMin.value ? Number(els.priceMin.value) : null;
-        state.priceMax = els.priceMax && els.priceMax.value ? Number(els.priceMax.value) : null;
-        ensureSelection();
-        loadDetailAndRender();
-      };
-      if (els.priceMin) {
-        els.priceMin.addEventListener("change", updatePriceFilter);
-      }
-      if (els.priceMax) {
-        els.priceMax.addEventListener("change", updatePriceFilter);
-      }
-    }
-
     els.sortFilter.addEventListener("change", function () {
       state.sort = this.value;
       ensureSelection();
@@ -1431,15 +1348,85 @@
     });
 
     window.addEventListener("resize", queueScrollCapUpdate);
+
+    if (els.btnSaveToWatchlist) {
+      els.btnSaveToWatchlist.addEventListener("click", function () {
+        var stock = selectedStock();
+        if (stock) {
+          saveToWatchlist(stock);
+        }
+      });
+    }
+  }
+
+  function renderPickButton(stock) {
+    var btn = els.btnSaveToWatchlist;
+    if (!btn) {
+      return;
+    }
+    if (!stock || stock.recYn !== "Y") {
+      btn.disabled = true;
+      btn.classList.remove("pick-btn--active");
+      btn.innerHTML = '<span aria-hidden="true">★</span> 픽 등록';
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.remove("pick-btn--active");
+    btn.innerHTML = '<span aria-hidden="true">★</span> 픽 등록';
+  }
+
+  function saveToWatchlist(stock) {
+    var btn = els.btnSaveToWatchlist;
+    if (!config.saveToWatchlistUrl || !stock) {
+      return;
+    }
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span aria-hidden="true">★</span> 저장 중…';
+    }
+    fetchJson(config.saveToWatchlistUrl, {
+      baseDt: stock.baseDt || state.baseDt,
+      mktCd: stock.mktCd,
+      stkCd: stock.code
+    }).then(function (json) {
+      if (isSuccessResponse(json)) {
+        if (btn) {
+          btn.classList.add("pick-btn--active");
+          btn.innerHTML = '<span aria-hidden="true">★</span> 픽 완료';
+          btn.disabled = true;
+        }
+        var name = stock.name || stock.code;
+        setPageNotice(name + " 픽 등록 완료. 관리 화면에서 확인하세요.", false);
+      } else {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span aria-hidden="true">★</span> 픽 등록';
+        }
+        setPageNotice("픽 등록 실패: " + (json && json.msg ? json.msg : "서버 오류"), true);
+      }
+    }).catch(function () {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span aria-hidden="true">★</span> 픽 등록';
+      }
+      setPageNotice("픽 등록 중 오류가 발생했습니다.", true);
+    });
+  }
+
+  function setPageNotice(msg, isError) {
+    var el = els.pageNotice;
+    if (!el) {
+      return;
+    }
+    el.textContent = msg;
+    el.className = "page-notice" + (isError ? " fallback" : "");
+    el.removeAttribute("hidden");
   }
 
   function renderAll() {
     renderNotice();
     renderBatchStatus();
     renderSummary();
-    renderCountryFilterState();
-    renderMarketFilterOptions();
-    renderIndexFilterOptions();
     renderList();
     renderDetail(selectedStock());
     renderTableSortState();
@@ -1625,7 +1612,6 @@
 
   renderCountryFilterState();
   renderMarketFilterOptions();
-  renderIndexFilterOptions();
   bindControls();
   loadBatchStatus(config.baseDt || state.baseDt);
   loadList();

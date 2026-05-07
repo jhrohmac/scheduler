@@ -48,7 +48,7 @@ public class RecSignalController {
     @RequestMapping("/stock/recSignal/listView.do")
     public ModelAndView openRecSignalListView(HttpServletRequest req, HttpServletResponse res) {
         ModelAndView mv = new ModelAndView();
-        mv.setViewName("stock/recSignalList");
+        mv.setViewName("stock/recSignal/recSignalList");
         return mv;
     }
 
@@ -58,7 +58,7 @@ public class RecSignalController {
         mv.addObject("baseDt", req.getParameter("baseDt"));
         mv.addObject("stkCd", req.getParameter("stkCd"));
         mv.addObject("mktCd", req.getParameter("mktCd"));
-        mv.setViewName("stock/recSignalDetail");
+        mv.setViewName("stock/recSignal/recSignalDetail");
         return mv;
     }
 

@@ -8,7 +8,7 @@
 <title>추천 종목 분석</title>
 <link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/kisFinance/css/common.css' />">
 <link rel="stylesheet" href="<c:url value='/appone/jsp/finance/kis/kisFinance/css/kisDashboardChart.css?v=20260305-1' />">
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/css/recSignalList.css?v=20260317-8">
+<link rel="stylesheet" href="<c:url value='/appone/jsp/stock/recSignal/css/recSignalList.css?v=20260317-8' />">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
 window.__CTX_PATH = "${pageContext.request.contextPath}";
@@ -73,18 +73,6 @@ window.__HIGHCHARTS_SRC = {
           <button type="button" class="filter-chip" data-grade="C">C</button>
         </div>
       </div>
-      <div class="toolbar-group">
-        <label class="toolbar-label" for="indexFilter">지수 필터</label>
-        <div class="chip-group" id="indexFilter"></div>
-      </div>
-      <div class="toolbar-group">
-        <label class="toolbar-label">가격 범위</label>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <input type="number" id="priceMin" class="price-input" placeholder="최소" title="최소 가격">
-          <span style="color: var(--muted);">~</span>
-          <input type="number" id="priceMax" class="price-input" placeholder="최대" title="최대 가격">
-        </div>
-      </div>
     </div>
     <div class="toolbar-right">
       <span id="toolbarBaseDateText" class="toolbar-base-date">조회 기준일 -</span>
@@ -123,7 +111,10 @@ window.__HIGHCHARTS_SRC = {
             <span class="detail-tab active">차트</span>
             <a id="btnChartOptions" class="detail-link" href="#"><span aria-hidden="true">⚙</span></a>
             <span id="detailGrade" class="grade-chip">-</span>
-            <span id="detailRecommend" class="status-chip">추천 상태 확인 중</span>            
+            <span id="detailRecommend" class="status-chip">추천 상태 확인 중</span>
+            <button type="button" id="btnSaveToWatchlist" class="detail-link detail-link-button pick-btn" disabled>
+              <span aria-hidden="true">★</span> 픽 등록
+            </button>
             <a id="detailPageLink" class="detail-link" href="#">상세페이지</a>
           </div>
         </div>
@@ -335,6 +326,7 @@ window.recSignalConfig = {
   detailUrl: "<c:url value='/stock/recSignal/detail.do' />",
   batchStatusUrl: "<c:url value='/stock/recSignal/batchStatus.do' />",
   detailViewUrl: "<c:url value='/stock/recSignal/detailView.do' />",
+  saveToWatchlistUrl: "<c:url value='/stock/recPick/saveToWatchlist.do' />",
   baseDt: "<c:out value='${param.baseDt}' />",
   mktCd: "<c:out value='${param.mktCd}' />",
   marketFilter: "<c:out value='${param.marketFilter}' />"
@@ -348,7 +340,7 @@ window.__URLS = {
   selectPositionState: "<c:url value='/finance/selectPositionState.do' />"
 };
 </script>
-<script defer src="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/js/recSignalChartOptions.js?v=20260317-1"></script>
-<script defer src="${pageContext.request.contextPath}/appone/jsp/stock/recSignal/js/recSignalList.js?v=20260317-6"></script>
+<script defer src="<c:url value='/appone/jsp/stock/recSignal/js/recSignalChartOptions.js?v=20260317-1' />"></script>
+<script defer src="<c:url value='/appone/jsp/stock/recSignal/js/recSignalList.js?v=20260317-6' />"></script>
 </body>
 </html>
