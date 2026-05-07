@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>동적 추천 종목 선별 — 목업</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/annotations.js"></script>
+<style>
+  :root {
+    --olive: #6b8e23;
+    --olive-soft: #f1f5e8;
+    --bg: #fafafa;
+    --border: #e5e7eb;
+    --text-muted: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; background: var(--bg); font-size: 13px; }
+
+  .app-header {
+    background: #fff; border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .app-header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .app-header .breadcrumb { font-size: 12px; color: var(--text-muted); margin: 0; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 12px;
+    padding: 12px;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── 좌: 지표 패널 ───────────────────────────────── */
+  .panel {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    display: flex; flex-direction: column;
+  }
+  .panel-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .panel-body { padding: 12px; overflow-y: auto; flex: 1; }
+  .panel-footer { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+
+  .market-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .market-tabs button {
+    flex: 1; padding: 6px 10px; border: 1px solid var(--border);
+    background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .market-tabs button.active { background: var(--olive); color: #fff; border-color: var(--olive); }
+
+  .filter-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .filter-row label { font-size: 11px; color: var(--text-muted); width: 40px; padding-top: 4px; }
+  .filter-row .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .chip {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px;
+    background: #fff; font-size: 11px; cursor: pointer;
+  }
+  .chip.active { background: var(--olive); color: #fff; border-color: var(--olive); }
+
+  .indicator-section { margin-top: 16px; }
+  .indicator-section h6 {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+    margin: 12px 0 6px; letter-spacing: 0.5px;
+  }
+
+  .indicator-card {
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    margin-bottom: 6px; background: #fff;
+  }
+  .indicator-card.active { border-color: var(--olive); background: var(--olive-soft); }
+  .indicator-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .indicator-head input[type="checkbox"] { margin: 0; }
+  .indicator-head .name { flex: 1; font-weight: 500; font-size: 12.5px; }
+  .indicator-head .badge-cat { font-size: 10px; padding: 1px 6px; background: #eef2f7; border-radius: 3px; color: #475569; }
+  .indicator-params {
+    display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+  }
+  .indicator-card.active .indicator-params { display: block; }
+  .param-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11.5px;
+  }
+  .param-row label { width: 90px; color: var(--text-muted); }
+  .param-row input[type="number"], .param-row select {
+    flex: 1; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 11.5px;
+  }
+  .param-row input[type="range"] { flex: 1; }
+  .param-row .value-display {
+    width: 50px; text-align: right; font-weight: 600; color: var(--olive);
+  }
+
+  .add-indicator-btn {
+    width: 100%; padding: 8px; border: 1px dashed #94a3b8; background: #fff;
+    border-radius: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer;
+  }
+  .add-indicator-btn:hover { background: #f8fafc; }
+
+  .btn-apply {
+    flex: 1; padding: 8px; background: var(--olive); color: #fff; border: 0;
+    border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;
+  }
+  .btn-secondary {
+    padding: 8px 12px; background: #fff; color: #475569; border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+
+  /* ── 우: 결과 그리드 ─────────────────────────────── */
+  .main-area { display: flex; flex-direction: column; gap: 12px; }
+
+  .summary-bar {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; display: flex; gap: 16px; font-size: 12px;
+  }
+  .summary-bar .stat-num { font-size: 18px; font-weight: 700; color: var(--olive); }
+  .summary-bar .stat-label { color: var(--text-muted); margin-left: 4px; }
+  .summary-bar .divider { border-left: 1px solid var(--border); }
+
+  .grid-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  table.grid {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  table.grid th {
+    background: #f8fafc; padding: 8px 10px; text-align: left;
+    border-bottom: 2px solid var(--border); font-weight: 600; color: #475569;
+    position: sticky; top: 0; z-index: 1;
+  }
+  table.grid td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+  table.grid tbody tr { cursor: pointer; }
+  table.grid tbody tr:hover { background: var(--olive-soft); }
+  table.grid tbody tr.selected { background: var(--olive-soft); }
+
+  .matched-badges { display: flex; gap: 3px; flex-wrap: wrap; }
+  .badge-match {
+    background: #dcfce7; color: #166534; font-size: 10px;
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .badge-miss {
+    background: #fee2e2; color: #991b1b; font-size: 10px;
+    padding: 2px 6px; border-radius: 3px; opacity: 0.5;
+  }
+
+  .pick-btn {
+    border: 1px solid var(--olive); color: var(--olive); background: #fff;
+    padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;
+  }
+  .pick-btn:hover { background: var(--olive); color: #fff; }
+  .pick-btn.done { background: var(--olive-soft); cursor: default; }
+
+  .text-up { color: #dc2626; font-weight: 500; }
+  .text-down { color: #2563eb; font-weight: 500; }
+
+  /* ── 슬라이드 상세 ───────────────────────────────── */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 50;
+  }
+  .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 480px;
+    background: #fff; box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+    transform: translateX(100%); transition: transform 0.25s ease-out;
+    z-index: 51; display: flex; flex-direction: column;
+  }
+  .drawer.open { transform: translateX(0); }
+
+  .drawer-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .drawer-header .close-btn {
+    border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--text-muted);
+  }
+  .drawer-header .stk-name { font-weight: 600; font-size: 14px; flex: 1; }
+  .drawer-header .stk-code { color: var(--text-muted); font-size: 12px; }
+
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+  .drawer-section { margin-bottom: 20px; }
+  .drawer-section h6 {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 0 0 8px;
+  }
+
+  #chart-container { height: 240px; }
+
+  .indicator-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  .indicator-table td {
+    padding: 6px 8px; border-bottom: 1px solid #f1f5f9;
+  }
+  .indicator-table td:first-child { color: var(--text-muted); width: 40%; }
+  .indicator-table td:last-child { font-weight: 500; text-align: right; }
+
+  .match-list { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+  .match-list li {
+    padding: 6px 0; border-bottom: 1px dashed #f1f5f9;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .match-list .check { color: #16a34a; font-weight: 700; }
+
+  .drawer-footer {
+    padding: 12px 18px; border-top: 1px solid var(--border);
+  }
+  .drawer-footer .pick-big {
+    width: 100%; padding: 10px; border: 1px solid var(--olive);
+    background: #fff; color: var(--olive); border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .drawer-footer .pick-big:hover { background: var(--olive); color: #fff; }
+  .drawer-footer .pick-big.done {
+    background: var(--olive-soft); cursor: default;
+  }
+
+  /* 토스트 */
+  .toast-msg {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 6px;
+    z-index: 100; opacity: 0; transition: opacity 0.2s;
+  }
+  .toast-msg.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div>
+    <h1>동적 추천 종목 선별</h1>
+    <p class="breadcrumb">Stock &gt; 추천 &gt; 동적 선별 (목업)</p>
+  </div>
+  <div style="font-size:11px;color:var(--text-muted);">
+    기준일: 2026-05-07 (월) · TB_REC_SIGNAL 최신본
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ════════ 좌: 지표 패널 ════════ -->
+  <aside class="panel">
+    <div class="panel-header">🔍 필터 / 지표 설정</div>
+    <div class="panel-body">
+
+      <!-- 시장 탭 -->
+      <div class="market-tabs">
+        <button class="active">국내</button>
+        <button>해외</button>
+      </div>
+
+      <!-- 기본 필터 -->
+      <div class="filter-row">
+        <label>시장</label>
+        <div class="chips">
+          <span class="chip active">전체</span>
+          <span class="chip">코스피</span>
+          <span class="chip">코스닥</span>
+        </div>
+      </div>
+      <div class="filter-row">
+        <label>지수</label>
+        <div class="chips">
+          <span class="chip active">전체</span>
+          <span class="chip">KOSPI200</span>
+          <span class="chip">KOSDAQ150</span>
+        </div>
+      </div>
+      <div class="filter-row">
+        <label>유형</label>
+        <div class="chips">
+          <span class="chip active">주식</span>
+          <span class="chip">ETF</span>
+          <span class="chip">ETN</span>
+        </div>
+      </div>
+
+      <!-- 추세 지표 -->
+      <div class="indicator-section">
+        <h6>📈 추세 지표</h6>
+
+        <div class="indicator-card active" data-id="GOLDEN_ARRAY">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox" checked>
+            <span class="name">정배열 필터</span>
+            <span class="badge-cat">추세</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>조건</label>
+              <span style="font-size:11px;color:var(--text-muted);">MA5 &gt; MA20 &gt; MA60 &gt; MA120 &gt; MA240</span>
+            </div>
+            <div class="param-row">
+              <label>최소 적용 MA</label>
+              <select>
+                <option>5종 모두 (엄격)</option>
+                <option>4종 (MA240 제외)</option>
+                <option>3종 (MA60 이상)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="indicator-card active" data-id="TREND_STRENGTH">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox" checked>
+            <span class="name">추세 강도 필터</span>
+            <span class="badge-cat">추세</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>최소 강도(%)</label>
+              <input type="range" min="0" max="20" value="2.0" step="0.5"
+                     oninput="this.nextElementSibling.textContent=this.value+'%'">
+              <span class="value-display">2.0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 모멘텀 지표 -->
+      <div class="indicator-section">
+        <h6>⚡ 모멘텀 지표</h6>
+
+        <div class="indicator-card active" data-id="MONTH_UP">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox" checked>
+            <span class="name">당월 상승 필터</span>
+            <span class="badge-cat">모멘텀</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>최소 등락률</label>
+              <input type="number" value="0" step="0.5" style="max-width:80px;">
+              <span style="font-size:11px;">% 이상</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="indicator-card" data-id="RSI">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox">
+            <span class="name">RSI 과매수 필터 <small style="color:#dc2626;">신규</small></span>
+            <span class="badge-cat">모멘텀</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>기간(일)</label>
+              <input type="number" value="14" min="5" max="30" style="max-width:80px;">
+            </div>
+            <div class="param-row">
+              <label>최대 RSI</label>
+              <input type="range" min="50" max="100" value="70" step="5"
+                     oninput="this.nextElementSibling.textContent=this.value">
+              <span class="value-display">70</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="indicator-card" data-id="MACD">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox">
+            <span class="name">MACD 골든크로스 <small style="color:#dc2626;">신규</small></span>
+            <span class="badge-cat">모멘텀</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>Fast / Slow / Signal</label>
+              <input type="number" value="12" style="width:50px;">
+              <input type="number" value="26" style="width:50px;">
+              <input type="number" value="9"  style="width:50px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 거래량/유동성 -->
+      <div class="indicator-section">
+        <h6>💹 거래량 / 유동성</h6>
+
+        <div class="indicator-card active" data-id="VOLUME_FILTER">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox" checked>
+            <span class="name">거래대금 필터</span>
+            <span class="badge-cat">유동성</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>20일 평균 ≥</label>
+              <input type="number" value="50" step="10" style="max-width:80px;">
+              <span style="font-size:11px;">억원</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 가격대 -->
+      <div class="indicator-section">
+        <h6>💰 가격 / 시총</h6>
+
+        <div class="indicator-card" data-id="PRICE_RANGE">
+          <div class="indicator-head" onclick="toggleCard(this)">
+            <input type="checkbox">
+            <span class="name">가격대 필터</span>
+            <span class="badge-cat">기본</span>
+          </div>
+          <div class="indicator-params">
+            <div class="param-row">
+              <label>현재가 범위</label>
+              <input type="number" value="1000"   style="width:80px;">
+              <span>~</span>
+              <input type="number" value="500000" style="width:80px;">
+              <span style="font-size:11px;">원</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="add-indicator-btn" onclick="alert('지표 추가는 백엔드에 신규 Indicator 클래스를 추가하면 자동으로 이 목록에 노출됩니다.')">
+        + 지표 추가하기
+      </button>
+    </div>
+    <div class="panel-footer">
+      <button class="btn-apply" onclick="applyFilters()">🔄 적용</button>
+      <button class="btn-secondary" title="현재 설정 저장">💾</button>
+      <button class="btn-secondary" title="저장된 프리셋">📋</button>
+    </div>
+  </aside>
+
+  <!-- ════════ 우: 결과 영역 ════════ -->
+  <main class="main-area">
+
+    <!-- 요약 바 -->
+    <div class="summary-bar">
+      <div><span class="stat-num" id="cnt-total">234</span><span class="stat-label">건 매칭</span></div>
+      <div class="divider"></div>
+      <div><span class="stat-num">5</span><span class="stat-label">지표 적용</span></div>
+      <div class="divider"></div>
+      <div><span class="stat-num">A 14</span><span class="stat-label">B 89</span></div>
+      <div class="divider"></div>
+      <div style="margin-left:auto;color:var(--text-muted);font-size:11.5px;">
+        💡 행을 클릭하면 우측에 상세가 슬라이드로 나타납니다
+      </div>
+    </div>
+
+    <!-- 그리드 -->
+    <div class="panel grid-panel">
+      <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>📋 매칭 종목</span>
+        <div style="display:flex;gap:6px;font-size:11px;">
+          <select style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;">
+            <option>정렬: 추세강도 ↓</option>
+            <option>정렬: 등락률 ↓</option>
+            <option>정렬: 거래대금 ↓</option>
+            <option>정렬: 종목명</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1;">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:40px;">No</th>
+              <th>종목코드</th>
+              <th>종목명</th>
+              <th>시장</th>
+              <th style="text-align:right;">현재가</th>
+              <th style="text-align:right;">등락률</th>
+              <th style="text-align:right;">추세강도</th>
+              <th>매칭 지표</th>
+              <th style="width:80px;">픽 등록</th>
+            </tr>
+          </thead>
+          <tbody id="grid-body">
+            <!-- 동적 생성 -->
+          </tbody>
+        </table>
+      </div>
+      <div class="panel-footer" style="justify-content:space-between;font-size:11px;color:var(--text-muted);">
+        <span>현재 1 - 10 / 234건</span>
+        <div>
+          <button class="btn-secondary">이전</button>
+          <button class="btn-secondary" style="background:var(--olive);color:#fff;">1</button>
+          <button class="btn-secondary">2</button>
+          <button class="btn-secondary">3</button>
+          <button class="btn-secondary">다음</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ════════ 슬라이드 상세 ════════ -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-header">
+    <button class="close-btn" onclick="closeDrawer()">✕</button>
+    <span class="stk-name" id="d-name">—</span>
+    <span class="stk-code" id="d-code">—</span>
+  </div>
+  <div class="drawer-body">
+
+    <div class="drawer-section">
+      <h6>📈 일봉 차트 + MA</h6>
+      <div id="chart-container"></div>
+    </div>
+
+    <div class="drawer-section">
+      <h6>📊 지표 상세</h6>
+      <table class="indicator-table">
+        <tr><td>현재가</td>          <td id="d-price">—</td></tr>
+        <tr><td>당월 시가</td>       <td id="d-monopen">—</td></tr>
+        <tr><td>월 등락률</td>       <td id="d-chgrate">—</td></tr>
+        <tr><td>MA5 / MA20</td>     <td id="d-ma1">—</td></tr>
+        <tr><td>MA60 / MA120</td>   <td id="d-ma2">—</td></tr>
+        <tr><td>MA240</td>          <td id="d-ma3">—</td></tr>
+        <tr><td>추세 강도</td>       <td id="d-trend">—</td></tr>
+        <tr><td>20일 평균 거래대금</td><td id="d-trdval">—</td></tr>
+        <tr><td>RSI(14)</td>        <td id="d-rsi">—</td></tr>
+      </table>
+    </div>
+
+    <div class="drawer-section">
+      <h6>✅ 매칭 조건</h6>
+      <ul class="match-list" id="d-matches">
+        <!-- 동적 생성 -->
+      </ul>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="pick-big" id="pick-btn-big" onclick="registerPick()">★ 관심종목에 추가</button>
+  </div>
+</aside>
+
+<!-- 토스트 -->
+<div class="toast-msg" id="toast">픽 등록 완료</div>
+
+<script>
+/* ============================================================
+   목업 데이터 — 실제로는 /stock/recPickDynamic/list.do 응답
+   ============================================================ */
+var mockStocks = [
+  { stkCd:"005930", stkNm:"삼성전자",   mkt:"KOSPI",  price:71200,  rate:4.2,  trend:5.8, trdval:1240,
+    ma:[71200,69500,67800,65200,62100], rsi:62, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"068270", stkNm:"셀트리온",   mkt:"KOSPI",  price:182000, rate:6.8,  trend:8.2, trdval:980,
+    ma:[182000,176000,168000,160000,150000], rsi:71, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"035720", stkNm:"카카오",     mkt:"KOSPI",  price:48500,  rate:2.1,  trend:3.1, trdval:520,
+    ma:[48500,47800,46900,45200,43800], rsi:58, matched:["GOLDEN_ARRAY","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"035420", stkNm:"NAVER",     mkt:"KOSPI",  price:215000, rate:5.4,  trend:4.5, trdval:780,
+    ma:[215000,209000,202000,195000,188000], rsi:65, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"373220", stkNm:"LG에너지솔루션", mkt:"KOSPI", price:412000, rate:7.2, trend:9.1, trdval:1820,
+    ma:[412000,398000,381000,365000,340000], rsi:73, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"207940", stkNm:"삼성바이오로직스", mkt:"KOSPI", price:892000, rate:3.8, trend:2.4, trdval:610,
+    ma:[892000,876000,860000,841000,820000], rsi:55, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"005380", stkNm:"현대차",     mkt:"KOSPI",  price:248500, rate:1.9,  trend:1.8, trdval:430,
+    ma:[248500,244000,239000,232000,225000], rsi:52, matched:["GOLDEN_ARRAY","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"000660", stkNm:"SK하이닉스", mkt:"KOSPI",  price:178000, rate:8.4,  trend:11.2, trdval:2150,
+    ma:[178000,168000,158000,148000,138000], rsi:78, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"051910", stkNm:"LG화학",     mkt:"KOSPI",  price:368000, rate:0.8,  trend:0.5, trdval:285,
+    ma:[368000,366000,365000,362000,358000], rsi:48, matched:["GOLDEN_ARRAY","MONTH_UP","VOLUME_FILTER"] },
+  { stkCd:"096770", stkNm:"SK이노베이션", mkt:"KOSPI", price:128500, rate:3.4, trend:3.8, trdval:340,
+    ma:[128500,125000,121000,117000,112000], rsi:60, matched:["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER"] }
+];
+
+var indicatorLabels = {
+  GOLDEN_ARRAY: "정배열",
+  TREND_STRENGTH: "추세강도",
+  MONTH_UP: "당월상승",
+  VOLUME_FILTER: "거래대금",
+  RSI: "RSI",
+  MACD: "MACD",
+  PRICE_RANGE: "가격대"
+};
+
+var allIndicators = ["GOLDEN_ARRAY","TREND_STRENGTH","MONTH_UP","VOLUME_FILTER","RSI"];
+
+/* ============================================================
+   초기 렌더
+   ============================================================ */
+function renderGrid(stocks) {
+  var body = document.getElementById("grid-body");
+  body.innerHTML = stocks.map(function(s, i){
+    var matched = s.matched.map(function(id){
+      return '<span class="badge-match">'+ indicatorLabels[id] +'✓</span>';
+    }).join('');
+    var missing = allIndicators.filter(function(id){ return s.matched.indexOf(id)===-1; })
+      .map(function(id){ return '<span class="badge-miss">'+ indicatorLabels[id] +'</span>'; }).join('');
+
+    var rateClass = s.rate >= 0 ? 'text-up' : 'text-down';
+    return '<tr onclick="openDrawer('+ i +')">' +
+      '<td>'+ (i+1) +'</td>' +
+      '<td>'+ s.stkCd +'</td>' +
+      '<td><strong>'+ s.stkNm +'</strong></td>' +
+      '<td>'+ s.mkt +'</td>' +
+      '<td style="text-align:right;">'+ s.price.toLocaleString() +'</td>' +
+      '<td style="text-align:right;" class="'+ rateClass +'">'+ (s.rate>0?'+':'') + s.rate.toFixed(1) +'%</td>' +
+      '<td style="text-align:right;">'+ s.trend.toFixed(1) +'%</td>' +
+      '<td><div class="matched-badges">'+ matched + missing +'</div></td>' +
+      '<td><button class="pick-btn" onclick="event.stopPropagation();quickPick(this,'+ i +')">★ 등록</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+renderGrid(mockStocks);
+
+/* ============================================================
+   지표 카드 토글
+   ============================================================ */
+function toggleCard(headEl) {
+  var card = headEl.closest('.indicator-card');
+  var checkbox = headEl.querySelector('input[type="checkbox"]');
+  // 체크박스 직접 클릭이 아닌 경우 토글
+  if (event.target !== checkbox) {
+    checkbox.checked = !checkbox.checked;
+  }
+  card.classList.toggle('active', checkbox.checked);
+}
+
+function applyFilters() {
+  // 실제 구현에서는 ajaxRequest 호출
+  showToast('필터 적용 — 234건 매칭 (목업)');
+}
+
+/* ============================================================
+   슬라이드 상세
+   ============================================================ */
+var currentStockIdx = null;
+
+function openDrawer(idx) {
+  currentStockIdx = idx;
+  var s = mockStocks[idx];
+  document.getElementById('d-name').textContent = s.stkNm;
+  document.getElementById('d-code').textContent = s.stkCd + ' · ' + s.mkt;
+  document.getElementById('d-price').textContent = s.price.toLocaleString() + ' 원';
+  document.getElementById('d-monopen').textContent = Math.floor(s.price/(1+s.rate/100)).toLocaleString() + ' 원';
+  document.getElementById('d-chgrate').innerHTML = '<span class="' + (s.rate>=0?'text-up':'text-down') + '">' + (s.rate>0?'+':'') + s.rate.toFixed(2) + '%</span>';
+  document.getElementById('d-ma1').textContent = s.ma[0].toLocaleString() + ' / ' + s.ma[1].toLocaleString();
+  document.getElementById('d-ma2').textContent = s.ma[2].toLocaleString() + ' / ' + s.ma[3].toLocaleString();
+  document.getElementById('d-ma3').textContent = s.ma[4].toLocaleString();
+  document.getElementById('d-trend').innerHTML = s.trend.toFixed(2) + '% ' + (s.trend>=5?'🟢':s.trend>=2?'🟡':'⚪');
+  document.getElementById('d-trdval').textContent = s.trdval + ' 억원';
+  document.getElementById('d-rsi').innerHTML = s.rsi + ' ' + (s.rsi>=70?'🔴 과매수 근접':s.rsi<=30?'🔵 과매도':'⚪ 중립');
+
+  var matchHtml = s.matched.map(function(id){
+    var desc = {
+      GOLDEN_ARRAY: 'MA5 > MA20 > MA60 > MA120 > MA240',
+      TREND_STRENGTH: '추세강도 ' + s.trend.toFixed(1) + '% ≥ 2.0%',
+      MONTH_UP: '월 등락률 ' + s.rate.toFixed(1) + '% > 0%',
+      VOLUME_FILTER: '20일 평균 ' + s.trdval + '억 ≥ 50억',
+      RSI: 'RSI(14) ' + s.rsi + ' ≤ 70'
+    }[id];
+    return '<li><span class="check">✓</span> <strong>' + indicatorLabels[id] + '</strong>: ' + desc + '</li>';
+  }).join('');
+  document.getElementById('d-matches').innerHTML = matchHtml;
+
+  var btn = document.getElementById('pick-btn-big');
+  btn.classList.remove('done');
+  btn.textContent = '★ 관심종목에 추가';
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+
+  setTimeout(function(){ renderChart(s); }, 200);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+function renderChart(s) {
+  var basePrice = s.ma[4];
+  var data = [];
+  var ma5  = [];
+  var ma20 = [];
+  for (var i = 0; i < 60; i++) {
+    var noise = (Math.random()-0.5) * basePrice * 0.02;
+    var trend = basePrice * (1 + (i/60)*(s.rate/100)*3 + noise/basePrice);
+    data.push([Date.UTC(2026, 2, i+1), Math.round(trend)]);
+    ma5.push([Date.UTC(2026, 2, i+1), Math.round(trend*0.99)]);
+    ma20.push([Date.UTC(2026, 2, i+1), Math.round(trend*0.96)]);
+  }
+
+  Highcharts.chart('chart-container', {
+    chart: { height: 240, spacing: [10,10,10,10] },
+    title: { text: null },
+    legend: { enabled: true, itemStyle:{fontSize:'10px'} },
+    xAxis: { type: 'datetime', labels:{style:{fontSize:'10px'}} },
+    yAxis: { title: null, labels:{style:{fontSize:'10px'}} },
+    series: [
+      { name:'종가', data:data, color:'#374151', lineWidth:1.5 },
+      { name:'MA5',  data:ma5,  color:'#dc2626', lineWidth:1, dashStyle:'Dash' },
+      { name:'MA20', data:ma20, color:'#2563eb', lineWidth:1, dashStyle:'Dash' }
+    ],
+    credits: { enabled: false }
+  });
+}
+
+/* ============================================================
+   픽 등록
+   ============================================================ */
+function registerPick() {
+  var btn = document.getElementById('pick-btn-big');
+  if (btn.classList.contains('done')) return;
+  btn.classList.add('done');
+  btn.textContent = '✓ 픽 완료';
+  showToast('픽 등록 완료 — TB_S_RECO_PICK 저장됨');
+}
+
+function quickPick(btn, idx) {
+  btn.classList.add('done');
+  btn.textContent = '✓ 등록';
+  showToast(mockStocks[idx].stkNm + ' 픽 등록 완료');
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 1800);
+}
+</script>
+</body>
+</html>
