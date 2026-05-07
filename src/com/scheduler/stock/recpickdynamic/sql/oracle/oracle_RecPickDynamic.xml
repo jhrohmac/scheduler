@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.RecPickDynamic">
+
+    <!-- ===========================================================
+         1차 후보 조회 — 사전계산 지표 SQL 조각을 동적으로 결합
+         params:
+           baseDt        : YYYY-MM-DD (없으면 latest)
+           mktGroup      : 'KR' | 'US' | null(전체)
+           marketFilter  : 'ALL'|'KOSPI'|'KOSDAQ'|'NASDAQ'|'NYSE'|'KOSPI200'|'KOSDAQ150'|'DOW'|'SNP500'
+           stockType     : 'ALL'|'STOCK'|'ETF'|'ETN'|'ELW'
+           dynamicWhere  : 지표가 만든 SQL 조각 (이미 #{p_xxx} 바인딩 포함)
+           p_xxx         : 동적 바인딩 파라미터들
+           sortColumn    : 정렬 컬럼명
+           sortDir       : 'asc'|'desc'
+           limit         : 결과 최대 행수
+         =========================================================== -->
+    <select id="selectDynamicCandidates" parameterType="hashmap" resultType="recSignalDto">
+        SELECT * FROM (
+        SELECT TO_CHAR(R.BASE_DT, 'YYYY-MM-DD') AS baseDt,
+               R.STK_CD                        AS stkCd,
+               R.STK_NM                        AS stkNm,
+               R.MKT_CD                        AS mktCd,
+               M.MKT_CD                        AS listingMarket,
+               R.CUR_PRICE                     AS curPrice,
+               R.MON_OPEN_PRICE                AS monOpenPrice,
+               R.MA5                           AS ma5,
+               R.MA20                          AS ma20,
+               R.MA60                          AS ma60,
+               R.MA120                         AS ma120,
+               R.MA240                         AS ma240,
+               R.GOLDEN_YN                     AS goldenYn,
+               R.MON_UP_YN                     AS monUpYn,
+               R.MON_CHG_RATE                  AS monChgRate,
+               R.TREND_STRENGTH                AS trendStrength,
+               R.AVG_TRD_VAL_20                AS avgTrdVal20,
+               R.REC_YN                        AS recYn,
+               R.REC_GRADE                     AS recGrade,
+               R.REC_REASON                    AS recReason
+          FROM TB_REC_SIGNAL R
+          JOIN TB_STK_MASTER M
+            ON M.STK_CD = R.STK_CD
+         WHERE R.BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           <if test="mktGroup != null and mktGroup != ''">
+               AND R.MKT_CD = #{mktGroup,jdbcType=VARCHAR}
+           </if>
+           <if test="marketFilter != null and marketFilter != '' and marketFilter != 'ALL'">
+               <choose>
+                   <when test="marketFilter == 'KOSPI'">       AND M.MKT_CD = 'KOSPI'</when>
+                   <when test="marketFilter == 'KOSDAQ'">      AND M.MKT_CD = 'KOSDAQ'</when>
+                   <when test="marketFilter == 'NASDAQ'">      AND M.MKT_CD = 'NASDAQ'</when>
+                   <when test="marketFilter == 'NYSE'">        AND M.MKT_CD = 'NYSE'</when>
+                   <when test="marketFilter == 'KOSPI200'">    AND M.INDEX_CD = 'KOSPI200'</when>
+                   <when test="marketFilter == 'KOSDAQ150'">   AND M.INDEX_CD = 'KOSDAQ150'</when>
+                   <when test="marketFilter == 'DOW'">         AND M.INDEX_CD = 'DOW'</when>
+                   <when test="marketFilter == 'SNP500'">      AND M.INDEX_CD = 'SNP500'</when>
+                   <when test="marketFilter == 'NDX100'">      AND M.INDEX_CD = 'NDX100'</when>
+               </choose>
+           </if>
+           <if test="stockType != null and stockType != '' and stockType != 'ALL'">
+               AND M.STK_TYPE = #{stockType,jdbcType=VARCHAR}
+           </if>
+           <if test="useYn != null and useYn != ''">
+               AND M.USE_YN = #{useYn,jdbcType=VARCHAR}
+           </if>
+           <!-- 지표가 만든 동적 WHERE 조각 -->
+           <if test="dynamicWhere != null and dynamicWhere != ''">
+               AND ${dynamicWhere}
+           </if>
+         ORDER BY
+           <choose>
+               <when test="sortColumn == 'monChgRate'">    R.MON_CHG_RATE</when>
+               <when test="sortColumn == 'trendStrength'"> R.TREND_STRENGTH</when>
+               <when test="sortColumn == 'avgTrdVal20'">   R.AVG_TRD_VAL_20</when>
+               <when test="sortColumn == 'curPrice'">      R.CUR_PRICE</when>
+               <when test="sortColumn == 'stkNm'">         R.STK_NM</when>
+               <otherwise>R.TREND_STRENGTH</otherwise>
+           </choose>
+           <choose>
+               <when test="sortDir == 'asc'"> ASC NULLS LAST</when>
+               <otherwise> DESC NULLS LAST</otherwise>
+           </choose>
+        ) WHERE ROWNUM &lt;=
+        <choose>
+            <when test="limit != null"> #{limit,jdbcType=NUMERIC}</when>
+            <otherwise> 500</otherwise>
+        </choose>
+    </select>
+
+    <!-- 최신 BASE_DT (mktGroup별로 다를 수 있음) -->
+    <select id="selectLatestBaseDt" parameterType="hashmap" resultType="string">
+        SELECT TO_CHAR(MAX(BASE_DT), 'YYYY-MM-DD')
+          FROM TB_REC_SIGNAL
+         <where>
+             <if test="mktGroup != null and mktGroup != ''">
+                 MKT_CD = #{mktGroup,jdbcType=VARCHAR}
+             </if>
+         </where>
+    </select>
+
+    <!-- 일봉 일괄 조회 — IN 절을 한 번에 처리 -->
+    <select id="selectPriceListBatch" parameterType="hashmap" resultType="dlyPriceDto">
+        SELECT STK_CD                           AS stkCd,
+               TO_CHAR(TRADE_DT, 'YYYYMMDD')    AS tradeDt,
+               ADJ_OPEN_PRICE                   AS adjOpenPrice,
+               ADJ_HIGH_PRICE                   AS adjHighPrice,
+               ADJ_LOW_PRICE                    AS adjLowPrice,
+               ADJ_CLOSE_PRICE                  AS adjClosePrice,
+               VOLUME                           AS volume,
+               TRADE_VALUE                      AS tradeValue
+          FROM TB_STK_DLY_PRICE
+         WHERE TRADE_DT &gt;= TO_DATE(#{fromDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           AND TRADE_DT &lt;= TO_DATE(#{toDt,jdbcType=VARCHAR},   'YYYY-MM-DD')
+           AND STK_CD IN
+           <foreach collection="stkCdList" item="stkCd" open="(" separator="," close=")">
+               #{stkCd,jdbcType=VARCHAR}
+           </foreach>
+         ORDER BY STK_CD, TRADE_DT ASC
+    </select>
+
+    <!-- 종목 단건 상세 (슬라이드 패널용) -->
+    <select id="selectStockDetail" parameterType="hashmap" resultType="recSignalDto">
+        SELECT TO_CHAR(R.BASE_DT, 'YYYY-MM-DD') AS baseDt,
+               R.STK_CD                        AS stkCd,
+               R.STK_NM                        AS stkNm,
+               R.MKT_CD                        AS mktCd,
+               M.MKT_CD                        AS listingMarket,
+               R.CUR_PRICE                     AS curPrice,
+               R.MON_OPEN_PRICE                AS monOpenPrice,
+               R.MA5                           AS ma5,
+               R.MA20                          AS ma20,
+               R.MA60                          AS ma60,
+               R.MA120                         AS ma120,
+               R.MA240                         AS ma240,
+               R.GOLDEN_YN                     AS goldenYn,
+               R.MON_UP_YN                     AS monUpYn,
+               R.MON_CHG_RATE                  AS monChgRate,
+               R.TREND_STRENGTH                AS trendStrength,
+               R.AVG_TRD_VAL_20                AS avgTrdVal20,
+               R.REC_YN                        AS recYn,
+               R.REC_GRADE                     AS recGrade,
+               R.REC_REASON                    AS recReason
+          FROM TB_REC_SIGNAL R
+          JOIN TB_STK_MASTER M ON M.STK_CD = R.STK_CD
+         WHERE R.BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+           AND R.STK_CD = #{stkCd,jdbcType=VARCHAR}
+           AND R.MKT_CD = #{mktCd,jdbcType=VARCHAR}
+    </select>
+
+</mapper>

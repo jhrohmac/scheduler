@@ -140,4 +140,46 @@
 		<property name="sqlSessionTemplate" ref="sqlSessionTemplateSimple"></property>
 	</bean>
 
+	<!-- =========================================================
+	     동적 추천 종목 선별 (RecPickDynamic)
+	     ========================================================= -->
+	<bean id="recPickDynamicController" class="com.scheduler.stock.recpickdynamic.RecPickDynamicController">
+		<property name="recPickDynamicService" ref="recPickDynamicService"/>
+	</bean>
+
+	<bean id="recPickDynamicService" class="com.scheduler.stock.recpickdynamic.service.RecPickDynamicService">
+		<property name="recPickDynamicDao" ref="recPickDynamicDaoImpl"/>
+		<property name="indicatorRegistry" ref="indicatorRegistry"/>
+	</bean>
+
+	<bean id="recPickDynamicDaoImpl" class="com.scheduler.stock.recpickdynamic.dao.impl.RecPickDynamicDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"/>
+	</bean>
+
+	<!-- 지표 레지스트리 (모든 Indicator 빈을 자동 수집) -->
+	<bean id="indicatorRegistry" class="com.scheduler.stock.indicator.IndicatorRegistry">
+		<property name="indicators">
+			<list>
+				<ref bean="indicatorGoldenArray"/>
+				<ref bean="indicatorMonthUp"/>
+				<ref bean="indicatorTrendStrength"/>
+				<ref bean="indicatorVolumeFilter"/>
+				<ref bean="indicatorPriceRange"/>
+				<ref bean="indicatorRsi"/>
+				<ref bean="indicatorMacd"/>
+			</list>
+		</property>
+	</bean>
+
+	<!-- ─────────────────────────────────────────
+	     지표 구현체 (신규 지표 추가 시 여기 1줄 + 위 list에 1줄 추가)
+	     ───────────────────────────────────────── -->
+	<bean id="indicatorGoldenArray"   class="com.scheduler.stock.indicator.impl.GoldenArrayIndicator"/>
+	<bean id="indicatorMonthUp"       class="com.scheduler.stock.indicator.impl.MonthUpIndicator"/>
+	<bean id="indicatorTrendStrength" class="com.scheduler.stock.indicator.impl.TrendStrengthIndicator"/>
+	<bean id="indicatorVolumeFilter"  class="com.scheduler.stock.indicator.impl.VolumeFilterIndicator"/>
+	<bean id="indicatorPriceRange"    class="com.scheduler.stock.indicator.impl.PriceRangeIndicator"/>
+	<bean id="indicatorRsi"           class="com.scheduler.stock.indicator.impl.RsiIndicator"/>
+	<bean id="indicatorMacd"          class="com.scheduler.stock.indicator.impl.MacdIndicator"/>
+
 </beans>

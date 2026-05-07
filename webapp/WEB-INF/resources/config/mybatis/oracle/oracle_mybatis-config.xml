@@ -103,6 +103,9 @@
 		<mapper resource="com/scheduler/stock/sql/oracle/BatchExecItemLogMapper.xml"/>
 		<mapper resource="com/scheduler/stock/sql/oracle/StockBatchAdminMapper.xml"/>
 		<mapper resource="com/scheduler/stock/sql/oracle/RecPickMapper.xml"/>
+
+		<!-- Stock Rec Pick Dynamic (동적 추천 선별) -->
+		<mapper resource="com/scheduler/stock/recpickdynamic/sql/oracle/oracle_RecPickDynamic.xml"/>
 		
 		<!-- batch 
 		<mapper resource="com/scheduler/finance/sql/oracle/oracle_MacroDaily.xml"/>
