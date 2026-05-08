@@ -696,7 +696,11 @@
     }
 
     /* ── 차트 옵션 상태 (UI 토글) ─────────────────────── */
-    var DOUBLE_MODES = ['off', 'recent', 'all']; // 0=왼dot, 1=중dot, 2=오른dot
+    // doubleChartSync.js 의 nextDoubleChartMode 순서 그대로:
+    //   recent → all → off → recent → ...
+    var DOUBLE_MODE_NEXT = { recent: 'all', all: 'off', off: 'recent' };
+    // 모드 → 라벨 (doubleChartSync.js doubleChartModeLabel 동일)
+    var DOUBLE_MODE_LABEL = { recent: 'RE', all: 'ALL', off: 'OFF' };
 
     var chartOpts = {
         // 이미지의 색상과 일치 (검정/빨강/초록/파랑/마젠타)
@@ -720,15 +724,15 @@
     /** 월봉 경계 시간 캐시 (xAxis afterSetExtremes 에서 SVG path 재구성용) */
     var _monthBoundaryTimes = [];
 
-    /** 더블차트 버튼의 모드/dot/라벨 갱신 */
+    /** 더블차트 버튼의 모드/dot/라벨 갱신 (doubleChartSync.js applyMode 패턴) */
     function updateDoubleChartButton(mode) {
         var $btn = $("#rpdDoubleChartBtn");
         if (!$btn.length) return;
-        var labelMap = { off: "OFF", recent: "RECENT", all: "ALL" };
+        var label = DOUBLE_MODE_LABEL[mode] || "OFF";
         $btn.attr("data-double-mode", mode)
-            .attr("title", "더블차트 " + labelMap[mode]);
-        $btn.find(".double-chart-btn-mode").text(labelMap[mode]);
-        // dot — kisFinance 매핑: recent=1번째(왼), all=2번째(중), off=3번째(오)
+            .attr("title", "더블차트 " + label);
+        $btn.find(".double-chart-btn-mode").text(label);
+        // dot 매핑 (kisFinance 패턴): recent=1번째(왼), all=2번째(중), off=3번째(오)
         var activeIdx = mode === 'recent' ? 0 : (mode === 'all' ? 1 : 2);
         $btn.find(".double-chart-dot").each(function (i) {
             $(this).toggleClass("is-active", i === activeIdx);
@@ -1279,12 +1283,11 @@
             chartOpts.showCandle = $(this).prop("checked");
             if (_chartStock) renderChart(_chartStock, _chartPriceList);
         });
-        // 더블차트 3-dot 버튼 — 클릭 시 모드 순환 (off → recent → all → off ...)
+        // 더블차트 3-dot 버튼 — doubleChartSync.js 와 동일 순환:
+        //   recent → all → off → recent → ...
         $(document).on("click", "#rpdDoubleChartBtn", function () {
             var cur = chartOpts.doubleChartMode || 'off';
-            var idx = DOUBLE_MODES.indexOf(cur);
-            if (idx < 0) idx = 0;
-            var next = DOUBLE_MODES[(idx + 1) % DOUBLE_MODES.length];
+            var next = DOUBLE_MODE_NEXT[cur] || 'recent';
             chartOpts.doubleChartMode = next;
             updateDoubleChartButton(next);
             if (_chartStock) renderChart(_chartStock, _chartPriceList);
