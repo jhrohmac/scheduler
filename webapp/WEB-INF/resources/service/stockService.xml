@@ -150,6 +150,7 @@
 	<bean id="recPickDynamicService" class="com.scheduler.stock.recpickdynamic.service.RecPickDynamicService">
 		<property name="recPickDynamicDao" ref="recPickDynamicDaoImpl"/>
 		<property name="indicatorRegistry" ref="indicatorRegistry"/>
+		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"/>
 	</bean>
 
 	<bean id="recPickDynamicDaoImpl" class="com.scheduler.stock.recpickdynamic.dao.impl.RecPickDynamicDaoImpl">

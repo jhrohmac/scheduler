@@ -20,6 +20,7 @@ import com.scheduler.stock.indicator.SqlFragment;
 import com.scheduler.stock.recpickdynamic.dao.RecPickDynamicDao;
 import com.scheduler.stock.recpickdynamic.vo.FilterRequestVo;
 import com.scheduler.stock.recpickdynamic.vo.FilterRequestVo.IndicatorRequest;
+import com.scheduler.stock.service.KisDlyPriceSyncService;
 
 /**
  * 동적 추천 종목 선별 서비스.
@@ -31,9 +32,11 @@ public class RecPickDynamicService {
 
     private RecPickDynamicDao recPickDynamicDao;
     private IndicatorRegistry indicatorRegistry;
+    private KisDlyPriceSyncService kisDlyPriceSyncService;
 
     public void setRecPickDynamicDao(RecPickDynamicDao dao) { this.recPickDynamicDao = dao; }
     public void setIndicatorRegistry(IndicatorRegistry r) { this.indicatorRegistry = r; }
+    public void setKisDlyPriceSyncService(KisDlyPriceSyncService s) { this.kisDlyPriceSyncService = s; }
 
     public IndicatorRegistry getIndicatorRegistry() { return indicatorRegistry; }
 
@@ -181,10 +184,32 @@ public class RecPickDynamicService {
         try {
             priceList = recPickDynamicDao.selectPriceListBatch(priceMap);
         } catch (Exception ex) {
-            System.err.println("[RecPickDynamicService] 상세 일봉 조회 실패: " + ex.getMessage());
+            System.err.println("[RecPickDynamicService] 상세 일봉 DB 조회 실패: " + ex.getMessage());
             priceList = new ArrayList<DlyPriceDto>();
         }
         if (priceList == null) priceList = new ArrayList<DlyPriceDto>();
+
+        // DB가 비었으면 KIS API 로 fallback (단건 조회 - 차트용 240일치)
+        if (priceList.isEmpty() && kisDlyPriceSyncService != null && detail != null) {
+            try {
+                String marketGroup = detail.getMktCd();   // "KR" 또는 "US"
+                String listingMkt  = detail.getListingMarket(); // KOSPI/KOSDAQ/NASDAQ/NYSE
+                priceList = kisDlyPriceSyncService.fetchAdjustedDailyPrices(
+                    stkCd,
+                    listingMkt != null ? listingMkt : marketGroup,
+                    marketGroup,
+                    baseDt,
+                    240,
+                    0L
+                );
+                if (priceList == null) priceList = new ArrayList<DlyPriceDto>();
+                System.out.println("[RecPickDynamicService] KIS API fallback OK: stkCd=" + stkCd
+                    + " size=" + priceList.size());
+            } catch (Exception ex) {
+                System.err.println("[RecPickDynamicService] KIS API fallback 실패: " + ex.getMessage());
+                priceList = new ArrayList<DlyPriceDto>();
+            }
+        }
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("detail", detail == null ? null : toRowMap(detail));
