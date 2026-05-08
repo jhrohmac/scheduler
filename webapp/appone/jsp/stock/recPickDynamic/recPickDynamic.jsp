@@ -170,13 +170,6 @@
 
 </div>
 
-<!-- Highcharts (없으면 로드) -->
-<script>
-if (typeof Highcharts === 'undefined') {
-    document.write('<script src="https://code.highcharts.com/highcharts.js"><\/script>');
-}
-</script>
-
 <script>
 window.recPickDynamicConfig = {
     indicatorMetaUrl: "<c:url value='/stock/recPickDynamic/indicatorMeta.do' />",
@@ -184,17 +177,57 @@ window.recPickDynamicConfig = {
     detailUrl:        "<c:url value='/stock/recPickDynamic/detail.do' />",
     saveToWatchlistUrl: "<c:url value='/stock/recPick/saveToWatchlist.do' />"
 };
+
+/* ────────────────────────────────────────────────────────────
+ * 의존성 부트스트래퍼
+ * - 메인 layout 통한 ajax 임베드 진입: jQuery 등 이미 로드됨 → skip
+ * - 직접 URL 접근: jQuery / Highcharts 가 없으면 자체 로드 후 컨트롤러 시작
+ * ──────────────────────────────────────────────────────────── */
+(function () {
+    var ctxPath = "${pageContext.request.contextPath}";
+    var deps = [];
+    if (typeof window.jQuery === "undefined") {
+        deps.push("https://code.jquery.com/jquery-3.6.0.min.js");
+    }
+    if (typeof window.Highcharts === "undefined") {
+        deps.push("https://code.highcharts.com/highcharts.js");
+    }
+    var modules = [
+        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260507-2",
+        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260507-2"
+    ].map(function (p) { return ctxPath + p; });
+
+    function loadSequential(urls, done) {
+        var i = 0;
+        function next() {
+            if (i >= urls.length) { done(); return; }
+            var s = document.createElement("script");
+            s.src = urls[i++];
+            s.async = false;
+            s.onload = next;
+            s.onerror = function () {
+                console.error("[recPickDynamic] script load failed:", s.src);
+                next();
+            };
+            document.head.appendChild(s);
+        }
+        next();
+    }
+
+    // 외부 deps → 내부 모듈 → init
+    loadSequential(deps, function () {
+        loadSequential(modules, function () {
+            if (window.recPickDynamicBootstrap) {
+                window.recPickDynamicBootstrap();
+            }
+        });
+    });
+})();
 </script>
-
-<!-- 지표 모듈 (각 모듈은 IndicatorRegistry 에 자동 등록됨) -->
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260507-1"></script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260507-1"></script>
-
-<!-- 메인 컨트롤러 -->
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260507-1"></script>

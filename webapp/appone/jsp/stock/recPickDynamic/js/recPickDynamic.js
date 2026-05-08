@@ -697,10 +697,19 @@
         toastTimer = setTimeout(function () { $t.removeClass("show"); }, 2200);
     }
 
-    /* ── 시작 ────────────────────────────────────────── */
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", init);
-    } else {
-        init();
-    }
+    /* ── 시작 (외부 부트스트래퍼가 호출) ────────────────────
+     * JSP 의 의존성 부트스트래퍼가 jQuery/Highcharts/지표모듈 로드 완료 후
+     * window.recPickDynamicBootstrap() 을 호출한다.
+     * ──────────────────────────────────────────────────── */
+    window.recPickDynamicBootstrap = function () {
+        if (typeof window.jQuery === "undefined") {
+            console.error("[recPickDynamic] jQuery not loaded");
+            return;
+        }
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", init);
+        } else {
+            init();
+        }
+    };
 })();
