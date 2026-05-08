@@ -724,6 +724,30 @@
     /** 월봉 경계 시간 캐시 (xAxis afterSetExtremes 에서 SVG path 재구성용) */
     var _monthBoundaryTimes = [];
 
+    /** 월봉 박스 폭 재계산 — 무한루프 방지 flag 적용 */
+    var _applyingMonthWidth = false;
+    function applyMonthOverlayWidth(chart) {
+        if (_applyingMonthWidth) return;
+        if (!chart || !chart.xAxis || !chart.xAxis[0]) return;
+        if (chartOpts.doubleChartMode === 'off') return;
+        if (typeof DoubleMonthChartScript === "undefined") return;
+        if (!_monthBoundaryTimes || _monthBoundaryTimes.length < 2) return;
+        _applyingMonthWidth = true;
+        try {
+            DoubleMonthChartScript.updateMonthOverlayPointWidth(
+                chart,
+                _monthBoundaryTimes,
+                chart.xAxis[0],
+                { doubleChartEnabled: true },
+                "D"
+            );
+        } catch (e) {
+            console.warn("[recPickDynamic] applyMonthOverlayWidth:", e);
+        } finally {
+            _applyingMonthWidth = false;
+        }
+    }
+
     /** 더블차트 버튼의 모드/dot/라벨 갱신 (doubleChartSync.js applyMode 패턴) */
     function updateDoubleChartButton(mode) {
         var $btn = $("#rpdDoubleChartBtn");
@@ -951,43 +975,14 @@
                         if (pts.length) {
                             updateChartInfoBar(pts[pts.length - 1].options || pts[pts.length - 1]);
                         }
-                        // 2) 월봉 박스 width — 초기 렌더 직후 재계산
+                        // 2) 월봉 박스 width — 초기 렌더 직후 1회만 재계산
                         var self = this;
-                        setTimeout(function () {
-                            if (chartOpts.doubleChartMode !== 'off'
-                                    && typeof DoubleMonthChartScript !== "undefined"
-                                    && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
-                                try {
-                                    DoubleMonthChartScript.updateMonthOverlayPointWidth(
-                                        self,
-                                        _monthBoundaryTimes,
-                                        self.xAxis[0],
-                                        { doubleChartEnabled: true },
-                                        "D"
-                                    );
-                                } catch (e) {}
-                            }
-                        }, 0);
-                    },
-                    redraw: function () {
-                        // 3) chart redraw 시 (시리즈 토글 등)에도 박스 width 재계산
-                        if (chartOpts.doubleChartMode !== 'off'
-                                && typeof DoubleMonthChartScript !== "undefined"
-                                && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
-                            var self = this;
-                            setTimeout(function () {
-                                try {
-                                    DoubleMonthChartScript.updateMonthOverlayPointWidth(
-                                        self,
-                                        _monthBoundaryTimes,
-                                        self.xAxis[0],
-                                        { doubleChartEnabled: true },
-                                        "D"
-                                    );
-                                } catch (e) {}
-                            }, 0);
-                        }
+                        setTimeout(function () { applyMonthOverlayWidth(self); }, 0);
                     }
+                    // ※ redraw 이벤트는 의도적으로 제거 — updateMonthOverlayPointWidth 가
+                    //    SVG attr 를 변경하면 redraw 트리거 → 무한 루프/박스 잔상 위험.
+                    //    줌/스크롤은 xAxis.events.afterSetExtremes 에서 처리.
+                    //    시리즈 토글 시는 renderChart() 가 차트를 새로 만들어 load 이벤트로 재호출됨.
                 }
             },
             title: { text: null },
@@ -1012,22 +1007,8 @@
                 crosshair: { width: 1, color: "black", dashStyle: "Dash" },
                 events: {
                     afterSetExtremes: function () {
-                        // 줌/스크롤 변경 시 월봉 박스 폭을 가시 영역에 맞게 재계산 (kisFinance 패턴)
-                        if (chartOpts.doubleChartMode !== 'off'
-                                && typeof DoubleMonthChartScript !== "undefined"
-                                && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
-                            try {
-                                DoubleMonthChartScript.updateMonthOverlayPointWidth(
-                                    this.chart,
-                                    _monthBoundaryTimes,
-                                    this,
-                                    { doubleChartEnabled: true },
-                                    "D"
-                                );
-                            } catch (e) {
-                                console.warn("[recPickDynamic] updateMonthOverlayPointWidth:", e);
-                            }
-                        }
+                        // 줌/스크롤 변경 시 월봉 박스 폭을 가시 영역에 맞게 재계산
+                        applyMonthOverlayWidth(this.chart);
                     }
                 }
             },
