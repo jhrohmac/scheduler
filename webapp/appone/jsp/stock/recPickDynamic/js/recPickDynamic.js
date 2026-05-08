@@ -85,7 +85,8 @@
                 method: "GET",
                 dataType: "json",
                 success: function (resp) {
-                    var list = (resp && resp.result_vo && resp.result_vo.data) || [];
+                    // ResponseHandler 응답은 평탄(flat) 구조: resp.data 직접 접근
+                    var list = (resp && resp.data) || [];
                     state.indicatorsMeta = registry ? registry.merge(list) : list;
                     resolve();
                 },
@@ -294,13 +295,12 @@
             dataType: "json",
             data: JSON.stringify(payload),
             success: function (resp) {
-                var rv = resp && resp.result_vo;
-                if (!rv) {
+                if (!resp) {
                     showToast("응답 형식 오류", true);
                     return;
                 }
-                var data = rv.data || [];
-                var meta = rv.singleData || {};
+                var data = resp.data || [];
+                var meta = resp.singleData || {};
                 state.currentStocks = data;
                 state.baseDt = meta.baseDt;
                 renderSummary(meta);
@@ -479,9 +479,8 @@
             dataType: "json",
             data: { baseDt: stock.baseDt, mktCd: stock.mktCd, stkCd: stock.stkCd },
             success: function (resp) {
-                var rv = resp && resp.result_vo;
-                var detail = rv && rv.singleData && rv.singleData.detail;
-                var priceList = (rv && rv.singleData && rv.singleData.priceList) || [];
+                var meta = resp && resp.singleData;
+                var priceList = (meta && meta.priceList) || [];
                 renderChart(stock, priceList);
                 renderRsi(priceList);
             },
@@ -599,7 +598,14 @@
             dataType: "json",
             data: { baseDt: stock.baseDt, mktCd: stock.mktCd, stkCd: stock.stkCd },
             success: function (resp) {
-                if (resp && resp.result_code === "S001") onOk();
+                // ResponseHandler 의 성공 코드는 result_code 또는 system_code 로 내려옴
+                var ok = resp && (
+                    resp.result_code === "S001" ||
+                    resp.result_code === "0000" ||
+                    resp.system_code === "0000" ||
+                    !resp.result_code   // 빈 문자열인 경우도 성공으로 간주
+                );
+                if (ok) onOk();
                 else onErr(resp && resp.result_msg ? resp.result_msg : "알 수 없는 오류");
             },
             error: function (xhr, st, err) { onErr(err); }
