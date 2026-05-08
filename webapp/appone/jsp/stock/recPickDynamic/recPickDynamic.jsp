@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-4">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-5">
 
 <div class="rpd-app" id="rpdApp">
 
@@ -137,26 +137,101 @@
         <div class="rpd-drawer-body" id="rpdDrawerBody">
 
             <div class="rpd-drawer-section">
-                <h6>📈 일봉 차트 + MA <button type="button" id="rpdBtnRefreshChart" class="rpd-chart-refresh-btn" title="실시간 가격 새로고침">🔄</button></h6>
-
-                <!-- 차트 옵션 토글 -->
-                <div class="rpd-chart-controls">
-                    <div class="rpd-chart-controls-row">
-                        <span class="rpd-chart-ctrl-label">MA</span>
-                        <label class="rpd-chip-toggle"><input type="checkbox" data-ma="5"   checked> MA5</label>
-                        <label class="rpd-chip-toggle"><input type="checkbox" data-ma="20"  checked> MA20</label>
-                        <label class="rpd-chip-toggle"><input type="checkbox" data-ma="60"  checked> MA60</label>
-                        <label class="rpd-chip-toggle"><input type="checkbox" data-ma="120"> MA120</label>
-                        <label class="rpd-chip-toggle"><input type="checkbox" data-ma="240"> MA240</label>
-                    </div>
-                    <div class="rpd-chart-controls-row">
-                        <span class="rpd-chart-ctrl-label">표시</span>
-                        <label class="rpd-chip-toggle"><input type="checkbox" id="rpdToggleVolume" checked> 거래량</label>
-                        <label class="rpd-chip-toggle"><input type="checkbox" id="rpdToggleCandle"> 캔들(OHLC)</label>
-                    </div>
-                </div>
+                <h6>
+                    📈 일봉 차트
+                    <button type="button" id="rpdBtnRefreshChart" class="rpd-chart-refresh-btn" title="실시간 가격 새로고침">🔄</button>
+                    <!-- 더블차트 3-dot 토글 -->
+                    <button type="button"
+                            class="zoom-step-btn double-chart-btn is-active"
+                            id="rpdDoubleChartBtn"
+                            data-zoom-action="double-chart"
+                            data-double-mode="all"
+                            title="더블차트 ALL"
+                            style="float:right;">
+                        <span class="double-chart-btn-label">더블차트</span>
+                        <span class="double-chart-btn-mode">ALL</span>
+                        <span class="double-chart-dots" aria-hidden="true">
+                            <span class="double-chart-dot"></span>
+                            <span class="double-chart-dot is-active"></span>
+                            <span class="double-chart-dot"></span>
+                        </span>
+                    </button>
+                </h6>
 
                 <div id="rpdChartContainer" class="rpd-chart"></div>
+
+                <!-- 이동평균선 패널 -->
+                <div class="rpd-ma-panel">
+                    <div class="rpd-ma-panel-header">
+                        <span class="rpd-ma-panel-title">이동평균선</span>
+                    </div>
+                    <div id="rpdMaRows">
+                        <div class="rpd-ma-row" data-period="5">
+                            <input type="checkbox" checked>
+                            <span class="rpd-ma-row-num">1번</span>
+                            <input type="number" value="5" min="1" max="500" class="rpd-ma-period">
+                            <span class="rpd-ma-color-dot" style="background:#000000;"></span>
+                        </div>
+                        <div class="rpd-ma-row" data-period="20">
+                            <input type="checkbox" checked>
+                            <span class="rpd-ma-row-num">2번</span>
+                            <input type="number" value="20" min="1" max="500" class="rpd-ma-period">
+                            <span class="rpd-ma-color-dot" style="background:#dc2626;"></span>
+                        </div>
+                        <div class="rpd-ma-row" data-period="60">
+                            <input type="checkbox" checked>
+                            <span class="rpd-ma-row-num">3번</span>
+                            <input type="number" value="60" min="1" max="500" class="rpd-ma-period">
+                            <span class="rpd-ma-color-dot" style="background:#16a34a;"></span>
+                        </div>
+                        <div class="rpd-ma-row" data-period="120">
+                            <input type="checkbox" checked>
+                            <span class="rpd-ma-row-num">4번</span>
+                            <input type="number" value="120" min="1" max="500" class="rpd-ma-period">
+                            <span class="rpd-ma-color-dot" style="background:#3b82f6;"></span>
+                        </div>
+                        <div class="rpd-ma-row" data-period="240">
+                            <input type="checkbox" checked>
+                            <span class="rpd-ma-row-num">5번</span>
+                            <input type="number" value="240" min="1" max="500" class="rpd-ma-period">
+                            <span class="rpd-ma-color-dot" style="background:#ec4899;"></span>
+                        </div>
+                    </div>
+
+                    <!-- 전고/전저점 + 거래량 토글 -->
+                    <div class="rpd-chart-section">
+                        <div class="rpd-chart-section-row">
+                            <div>
+                                <span class="rpd-chart-section-label">전고 / 전저점</span>
+                                <span class="rpd-chart-section-desc">화면 범위의 최고가 · 최저가 수평선</span>
+                            </div>
+                            <label class="rpd-switch">
+                                <input type="checkbox" id="rpdToggleHighLow" checked>
+                                <span class="rpd-switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="rpd-chart-section-row">
+                            <div>
+                                <span class="rpd-chart-section-label">거래량</span>
+                                <span class="rpd-chart-section-desc">하단 거래량 바 차트 표시</span>
+                            </div>
+                            <label class="rpd-switch">
+                                <input type="checkbox" id="rpdToggleVolume" checked>
+                                <span class="rpd-switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="rpd-chart-section-row">
+                            <div>
+                                <span class="rpd-chart-section-label">캔들(OHLC)</span>
+                                <span class="rpd-chart-section-desc">시고저종 봉차트 (Off=종가 라인)</span>
+                            </div>
+                            <label class="rpd-switch">
+                                <input type="checkbox" id="rpdToggleCandle" checked>
+                                <span class="rpd-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="rpd-drawer-section">
@@ -222,15 +297,15 @@ window.recPickDynamicConfig = {
         deps.push("https://code.highcharts.com/stock/modules/stock.js");
     }
     var modules = [
-        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-4",
-        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-4"
+        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-5",
+        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-5"
     ].map(function (p) { return ctxPath + p; });
 
     function loadSequential(urls, done) {

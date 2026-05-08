@@ -632,23 +632,72 @@
     }
 
     /* ── 차트 옵션 상태 (UI 토글) ─────────────────────── */
+    var DOUBLE_MODES = ['off', 'recent', 'all']; // 0=왼dot, 1=중dot, 2=오른dot
+
     var chartOpts = {
-        ma:        { 5: true, 20: true, 60: true, 120: false, 240: false },
+        // 이미지의 색상과 일치 (검정/빨강/초록/파랑/마젠타)
+        maList: [
+            { period:   5, color: '#000000', enabled: true,  lineWidth: 1.5 },
+            { period:  20, color: '#dc2626', enabled: true,  lineWidth: 1.5 },
+            { period:  60, color: '#16a34a', enabled: true,  lineWidth: 1.5 },
+            { period: 120, color: '#3b82f6', enabled: true,  lineWidth: 1.5 },
+            { period: 240, color: '#ec4899', enabled: true,  lineWidth: 1.5 }
+        ],
         showVolume: true,
-        showCandle: false
+        showCandle: true,
+        showHighLow: true,
+        doubleChartMode: 'all'   // 'off' | 'recent' | 'all'
     };
 
     /** 현재 priceList 캐시 (토글 변경 시 재렌더용) */
     var _chartPriceList = [];
     var _chartStock = null;
 
-    var MA_COLORS = {
-        5:   '#dc2626',
-        20:  '#2563eb',
-        60:  '#059669',
-        120: '#9333ea',
-        240: '#ea580c'
-    };
+    /** 일봉 → 월봉 OHLC 그룹핑 */
+    function groupByMonth(priceList) {
+        var byMonth = {};
+        var keys = [];
+        priceList.forEach(function (p) {
+            if (!p.tradeDt || p.close == null) return;
+            var ts = parseDateUtc(p.tradeDt);
+            if (ts == null) return;
+            var d = new Date(ts);
+            var key = d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1);
+            if (!byMonth[key]) {
+                byMonth[key] = { ts: Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1),
+                                 open: p.open != null ? p.open : p.close,
+                                 high: p.high != null ? p.high : p.close,
+                                 low:  p.low  != null ? p.low  : p.close,
+                                 close: p.close };
+                keys.push(key);
+            } else {
+                var m = byMonth[key];
+                if (p.high != null && p.high > m.high) m.high = p.high;
+                if (p.low  != null && p.low  < m.low)  m.low  = p.low;
+                m.close = p.close; // 마지막 종가
+            }
+        });
+        return keys.map(function (k) {
+            var m = byMonth[k];
+            return [m.ts, m.open, m.high, m.low, m.close];
+        });
+    }
+
+    /** 더블차트 버튼의 모드/dot/라벨 갱신 */
+    function updateDoubleChartButton(mode) {
+        var $btn = $("#rpdDoubleChartBtn");
+        if (!$btn.length) return;
+        var labelMap = { off: "OFF", recent: "RECENT", all: "ALL" };
+        $btn.attr("data-double-mode", mode)
+            .attr("title", "더블차트 " + labelMap[mode]);
+        $btn.find(".double-chart-btn-mode").text(labelMap[mode]);
+        // dot — kisFinance 매핑: recent=1번째(왼), all=2번째(중), off=3번째(오)
+        var activeIdx = mode === 'recent' ? 0 : (mode === 'all' ? 1 : 2);
+        $btn.find(".double-chart-dot").each(function (i) {
+            $(this).toggleClass("is-active", i === activeIdx);
+        });
+        $btn.toggleClass("is-active", mode !== 'off');
+    }
 
     function renderChart(stock, priceList) {
         if (typeof Highcharts === "undefined") {
@@ -660,11 +709,9 @@
 
         // OHLC + 종가 + 거래량 시계열 빌드
         var closeData = [], ohlcData = [], volumeData = [];
-        var closes = [];
         priceList.forEach(function (p) {
             if (!p.tradeDt || p.close == null) return;
             var ts = parseDateUtc(p.tradeDt);
-            closes.push(p.close);
             closeData.push([ts, p.close]);
             if (p.open != null && p.high != null && p.low != null) {
                 ohlcData.push([ts, p.open, p.high, p.low, p.close]);
@@ -676,70 +723,147 @@
 
         // MA 시리즈 동적 빌드
         var maSeries = [];
-        [5, 20, 60, 120, 240].forEach(function (period) {
-            if (!chartOpts.ma[period]) return;
+        chartOpts.maList.forEach(function (cfg) {
+            if (!cfg.enabled) return;
             var maData = [];
             var arr = [];
             priceList.forEach(function (p) {
                 if (!p.tradeDt || p.close == null) return;
                 arr.push(p.close);
                 var ts = parseDateUtc(p.tradeDt);
-                maData.push([ts, sma(arr, period)]);
+                maData.push([ts, sma(arr, cfg.period)]);
             });
             maSeries.push({
-                name: 'MA' + period, type: 'line', data: maData,
-                color: MA_COLORS[period], lineWidth: 1,
-                dashStyle: period >= 120 ? 'ShortDash' : 'Dash',
-                yAxis: 0, marker: { enabled: false }
+                name: 'MA' + cfg.period, type: 'line', data: maData,
+                color: cfg.color, lineWidth: cfg.lineWidth || 1.5,
+                yAxis: 0, marker: { enabled: false }, zIndex: 5,
+                dataGrouping: { enabled: false }
             });
         });
 
         // 메인 시리즈 (캔들 또는 종가 라인)
         var mainSeries = chartOpts.showCandle && ohlcData.length > 0 ? {
             type: 'candlestick',
-            name: 'OHLC',
+            name: '가격',
+            id: 'price',
             data: ohlcData,
             color: '#2563eb', upColor: '#dc2626',
             lineColor: '#2563eb', upLineColor: '#dc2626',
-            yAxis: 0
+            yAxis: 0, zIndex: 3,
+            dataGrouping: { enabled: false }
         } : {
             type: 'line',
             name: '종가',
+            id: 'price',
             data: closeData,
             color: '#374151', lineWidth: 1.5,
-            yAxis: 0, marker: { enabled: false }
+            yAxis: 0, marker: { enabled: false }, zIndex: 3,
+            dataGrouping: { enabled: false }
         };
 
-        var allSeries = [mainSeries].concat(maSeries);
+        var allSeries = [mainSeries];
+
+        // 더블차트 — 월봉 OHLC overlay
+        if (chartOpts.doubleChartMode !== 'off' && ohlcData.length > 0) {
+            var monthOhlc = groupByMonth(priceList);
+            if (chartOpts.doubleChartMode === 'recent' && monthOhlc.length > 0) {
+                monthOhlc = [monthOhlc[monthOhlc.length - 1]];
+            }
+            if (monthOhlc.length > 0) {
+                allSeries.push({
+                    type: 'candlestick',
+                    name: '월봉',
+                    id: 'monthOverlay',
+                    data: monthOhlc,
+                    color: 'rgba(37,99,235,0.18)',
+                    upColor: 'rgba(220,38,38,0.18)',
+                    lineColor: 'rgba(37,99,235,0.4)',
+                    upLineColor: 'rgba(220,38,38,0.4)',
+                    yAxis: 0, zIndex: 1,
+                    pointWidth: 32,
+                    dataGrouping: { enabled: false },
+                    enableMouseTracking: false
+                });
+            }
+        }
+
+        allSeries = allSeries.concat(maSeries);
+
         if (chartOpts.showVolume) {
             allSeries.push({
                 type: 'column', name: '거래량', data: volumeData,
-                color: '#94a3b8', yAxis: 1
+                color: '#94a3b8', yAxis: 1, zIndex: 2,
+                dataGrouping: { enabled: false }
             });
         }
 
-        // yAxis 구성 — 거래량 표시 시 더블차트 (가격 70% + 거래량 30%)
+        // 전고/전저점 수평선 — yAxis plotLines
+        var plotLines = [];
+        if (chartOpts.showHighLow && closeData.length > 0) {
+            var maxV = -Infinity, minV = Infinity, maxRow = null, minRow = null;
+            ohlcData.forEach(function (r) {
+                if (r[2] > maxV) { maxV = r[2]; maxRow = r; }
+                if (r[3] < minV) { minV = r[3]; minRow = r; }
+            });
+            if (maxRow) {
+                plotLines.push({
+                    value: maxV, color: '#dc2626', dashStyle: 'Dash', width: 1, zIndex: 4,
+                    label: { text: '최고 ' + Math.round(maxV).toLocaleString(),
+                             align: 'right', x: -10, y: -4,
+                             style: { color: '#dc2626', fontSize: '10px', fontWeight: 'bold' } }
+                });
+            }
+            if (minRow) {
+                plotLines.push({
+                    value: minV, color: '#2563eb', dashStyle: 'Dash', width: 1, zIndex: 4,
+                    label: { text: '최저 ' + Math.round(minV).toLocaleString(),
+                             align: 'right', x: -10, y: 12,
+                             style: { color: '#2563eb', fontSize: '10px', fontWeight: 'bold' } }
+                });
+            }
+        }
+
+        // yAxis 구성
         var yAxisCfg;
         if (chartOpts.showVolume) {
             yAxisCfg = [
                 { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
-                  height: '70%', resize: { enabled: true }, lineWidth: 1, title: { text: null } },
-                { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
+                  height: '70%', resize: { enabled: true }, lineWidth: 1, title: { text: null },
+                  plotLines: plotLines, crosshair: true },
+                { labels: { align: 'right', x: -3, style:{fontSize:'9px'},
+                            formatter: function () {
+                                if (this.value >= 1e6) return Math.round(this.value/1e4) + '만';
+                                if (this.value >= 1000) return (this.value/1000).toFixed(0) + 'K';
+                                return this.value;
+                            } },
                   top: '72%', height: '28%', offset: 0, lineWidth: 1, title: { text: null } }
             ];
         } else {
             yAxisCfg = { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
-                         lineWidth: 1, title: { text: null } };
+                         lineWidth: 1, title: { text: null }, plotLines: plotLines, crosshair: true };
         }
 
-        // Highcharts Stock 사용 (rangeSelector + navigator)
+        // Highcharts Stock (rangeSelector + navigator + lastPrice 자동)
         var useStock = typeof Highcharts.stockChart === "function";
         var ChartCtor = useStock ? Highcharts.stockChart : Highcharts.chart;
 
+        // 종가 시리즈에 lastPrice 라벨 추가 (Highcharts Stock)
+        if (useStock) {
+            mainSeries.lastPrice = { enabled: false };
+            mainSeries.lastVisiblePrice = {
+                enabled: true,
+                label: {
+                    enabled: true,
+                    backgroundColor: '#dc2626',
+                    style: { color: '#fff', fontWeight: 'bold' }
+                }
+            };
+        }
+
         ChartCtor('rpdChartContainer', {
-            chart: { spacing: [8, 8, 8, 8] },
+            chart: { spacing: [10, 10, 8, 8] },
             title: { text: null },
-            legend: { enabled: true, itemStyle: { fontSize: '10px' } },
+            legend: { enabled: false }, // 이미지에서는 범례 없음
             rangeSelector: useStock ? {
                 buttons: [
                     { type: 'month', count: 1, text: '1M' },
@@ -751,13 +875,19 @@
                 selected: 2,
                 inputEnabled: false
             } : undefined,
-            navigator: useStock ? { enabled: true, height: 30 } : undefined,
+            navigator: useStock ? { enabled: false } : undefined, // 이미지에 navigator 없음
             scrollbar: useStock ? { enabled: false } : undefined,
-            xAxis: { type: 'datetime', labels: { style: { fontSize: '10px' } } },
+            xAxis: {
+                type: 'datetime',
+                labels: { style: { fontSize: '10px' } },
+                crosshair: true
+            },
             yAxis: yAxisCfg,
-            tooltip: { split: useStock, shared: !useStock, valueDecimals: 0 },
+            tooltip: { split: useStock, valueDecimals: 0 },
             plotOptions: {
-                series: { dataGrouping: { enabled: false } }
+                series: { dataGrouping: { enabled: false } },
+                candlestick: { color: '#2563eb', upColor: '#dc2626',
+                               lineColor: '#2563eb', upLineColor: '#dc2626' }
             },
             credits: { enabled: false },
             series: allSeries
@@ -869,10 +999,32 @@
             alert("신규 지표 추가 절차:\n\n1. src/com/scheduler/stock/indicator/impl/ 에 클래스 1개 추가\n2. stockService.xml 의 indicatorRegistry list 에 ref 추가\n3. webapp/.../stock/js/indicators/ 에 JS 모듈 1개 추가\n\n→ 기존 코드 0줄 수정");
         });
 
-        // 차트 옵션 토글 — MA 5/20/60/120/240
-        $(document).on("change", ".rpd-chart-controls input[data-ma]", function () {
-            var period = parseInt($(this).data("ma"), 10);
-            chartOpts.ma[period] = $(this).prop("checked");
+        // 이동평균선 토글 — checkbox 변경 시
+        $(document).on("change", ".rpd-ma-row input[type='checkbox']", function () {
+            var $row = $(this).closest(".rpd-ma-row");
+            var period = parseInt($row.data("period"), 10);
+            var cfg = chartOpts.maList.find(function (m) { return m.period === period; });
+            if (cfg) {
+                cfg.enabled = $(this).prop("checked");
+                if (_chartStock) renderChart(_chartStock, _chartPriceList);
+            }
+        });
+        // 이동평균선 기간 변경
+        $(document).on("change", ".rpd-ma-row .rpd-ma-period", function () {
+            var $row = $(this).closest(".rpd-ma-row");
+            var oldPeriod = parseInt($row.data("period"), 10);
+            var newPeriod = parseInt($(this).val(), 10);
+            if (!newPeriod || newPeriod < 1) return;
+            var cfg = chartOpts.maList.find(function (m) { return m.period === oldPeriod; });
+            if (cfg) {
+                cfg.period = newPeriod;
+                $row.attr("data-period", newPeriod).data("period", newPeriod);
+                if (_chartStock) renderChart(_chartStock, _chartPriceList);
+            }
+        });
+        // 전고/전저점 토글
+        $(document).on("change", "#rpdToggleHighLow", function () {
+            chartOpts.showHighLow = $(this).prop("checked");
             if (_chartStock) renderChart(_chartStock, _chartPriceList);
         });
         // 거래량 / 캔들 토글
@@ -882,6 +1034,16 @@
         });
         $(document).on("change", "#rpdToggleCandle", function () {
             chartOpts.showCandle = $(this).prop("checked");
+            if (_chartStock) renderChart(_chartStock, _chartPriceList);
+        });
+        // 더블차트 3-dot 버튼 — 클릭 시 모드 순환 (off → recent → all → off ...)
+        $(document).on("click", "#rpdDoubleChartBtn", function () {
+            var cur = chartOpts.doubleChartMode || 'off';
+            var idx = DOUBLE_MODES.indexOf(cur);
+            if (idx < 0) idx = 0;
+            var next = DOUBLE_MODES[(idx + 1) % DOUBLE_MODES.length];
+            chartOpts.doubleChartMode = next;
+            updateDoubleChartButton(next);
             if (_chartStock) renderChart(_chartStock, _chartPriceList);
         });
         // 차트 새로고침 — KIS API 다시 호출
