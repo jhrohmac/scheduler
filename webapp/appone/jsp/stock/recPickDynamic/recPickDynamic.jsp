@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-6">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-7">
 
 <div class="rpd-app" id="rpdApp">
 
@@ -313,15 +313,15 @@ window.recPickDynamicConfig = {
         deps.push("https://code.highcharts.com/stock/modules/stock.js");
     }
     var modules = [
-        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-6",
-        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-6"
+        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-7",
+        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-7"
     ].map(function (p) { return ctxPath + p; });
 
     function loadSequential(urls, done) {

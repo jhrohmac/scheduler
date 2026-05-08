@@ -824,6 +824,7 @@
         }
 
         // yAxis 구성 — 가격축은 천단위 콤마 포맷
+        // crosshair 제거 (사용자 요청: 라인 트래킹 비활성화)
         var priceLabelFormatter = function () {
             return Number(this.value).toLocaleString();
         };
@@ -833,7 +834,7 @@
                 { labels: { align: 'right', x: -3, style:{fontSize:'10px'},
                             formatter: priceLabelFormatter },
                   height: '70%', resize: { enabled: true }, lineWidth: 1, title: { text: null },
-                  plotLines: plotLines, crosshair: true },
+                  plotLines: plotLines, crosshair: false },
                 { labels: { align: 'right', x: -3, style:{fontSize:'9px'},
                             formatter: function () {
                                 if (this.value >= 1e8) return Math.round(this.value/1e8) + '억';
@@ -845,7 +846,7 @@
         } else {
             yAxisCfg = { labels: { align: 'right', x: -3, style:{fontSize:'10px'},
                                    formatter: priceLabelFormatter },
-                         lineWidth: 1, title: { text: null }, plotLines: plotLines, crosshair: true };
+                         lineWidth: 1, title: { text: null }, plotLines: plotLines, crosshair: false };
         }
 
         // Highcharts Stock (rangeSelector + navigator + lastPrice 자동)
@@ -899,12 +900,7 @@
             xAxis: {
                 type: 'datetime',
                 labels: { style: { fontSize: '10px' } },
-                crosshair: true,
-                events: {
-                    setExtremes: function () {
-                        // 줌 변경 시도 (rangeSelector) — 정보바는 그대로
-                    }
-                }
+                crosshair: false   // 라인 트래킹 비활성화 (사용자 요청)
             },
             yAxis: yAxisCfg,
             // 사용자 요청: 차트 hover 툴팁(큰 박스) 제거 → 차트 위 정보바로 대체
@@ -912,17 +908,23 @@
             plotOptions: {
                 series: {
                     dataGrouping: { enabled: false },
+                    // hover 시 강조 점 비활성화 (라인 트래킹 제거)
+                    states: { hover: { enabled: false, halo: { size: 0 } },
+                              inactive: { opacity: 1 } },
+                    marker: { enabled: false, states: { hover: { enabled: false } } },
                     point: {
                         events: {
                             mouseOver: function () {
-                                // hover 시 그 지점의 OHLC 를 정보바에 반영
+                                // hover 시 그 지점의 OHLC 를 정보바에만 반영 (시각적 강조 X)
                                 updateChartInfoBar(this);
                             }
                         }
                     }
                 },
                 candlestick: { color: '#2563eb', upColor: '#dc2626',
-                               lineColor: '#2563eb', upLineColor: '#dc2626' }
+                               lineColor: '#2563eb', upLineColor: '#dc2626',
+                               states: { hover: { enabled: false } } },
+                line: { states: { hover: { lineWidthPlus: 0 } } }
             },
             credits: { enabled: false },
             series: allSeries
