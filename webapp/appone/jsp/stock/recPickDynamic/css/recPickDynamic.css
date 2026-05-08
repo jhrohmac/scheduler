@@ -403,6 +403,60 @@ table.rpd-grid .rpd-col-action { width: 90px; text-align: center; }
 .rpd-chart-section-desc {
     display: block; font-size: 10.5px; color: var(--rpd-text-muted); margin-top: 2px;
 }
+/* ── 차트 위 OHLC + MA 정보바 (이미지 #3) ── */
+.rpd-chart-info-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    padding: 6px 10px; margin-bottom: 6px;
+    background: #f8fafc; border: 1px solid var(--rpd-border); border-radius: 6px;
+    font-size: 11.5px;
+}
+.rpd-info-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rpd-info-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rpd-info-date {
+    font-weight: 600; color: #475569; padding-right: 6px;
+    border-right: 1px solid var(--rpd-border);
+}
+.rpd-info-ohlc { color: var(--rpd-text-muted); }
+.rpd-info-ohlc b { color: #1f2937; font-weight: 600; }
+.rpd-info-ma {
+    font-weight: 700; font-size: 12px;
+    padding: 2px 6px; border-radius: 3px;
+    background: #fff;
+    border: 1px solid currentColor;
+    line-height: 1;
+}
+.rpd-info-ma small { font-size: 10px; font-weight: 500; opacity: 0.85; margin-left: 3px; }
+
+/* ── 아코디언 (차트 옵션 접힘/펼침) ── */
+.rpd-accordion {
+    background: #fff; border: 1px solid var(--rpd-border); border-radius: 6px;
+    margin-top: 8px; overflow: hidden;
+}
+.rpd-accordion-header {
+    width: 100%;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border: 0; background: #f8fafc;
+    cursor: pointer; font-size: 12px; font-weight: 600; color: #475569;
+    text-align: left;
+    transition: background 0.15s;
+}
+.rpd-accordion-header:hover { background: #f1f5f9; }
+.rpd-accordion-header.is-open { background: var(--rpd-olive-soft); color: var(--rpd-olive); }
+.rpd-accordion-icon {
+    display: inline-block; transition: transform 0.2s; font-size: 9px;
+}
+.rpd-accordion-header.is-open .rpd-accordion-icon { transform: rotate(90deg); }
+.rpd-accordion-hint {
+    margin-left: auto; font-size: 10.5px; font-weight: 400;
+    color: var(--rpd-text-muted);
+}
+.rpd-accordion-body { padding: 10px; }
+/* 아코디언 안의 ma-panel 은 boxing 제거 */
+.rpd-accordion-body .rpd-ma-panel {
+    border: 0; padding: 0; margin: 0;
+}
+
 /* iOS 스위치 */
 .rpd-switch {
     position: relative; display: inline-block; width: 36px; height: 20px;
