@@ -46,6 +46,7 @@
 		
 		<!-- Stock Rec Signal -->
 		<typeAlias alias="recSignalDto"			type="com.scheduler.stock.dto.RecSignalDto"/>
+		<typeAlias alias="userFilterPresetVo"	type="com.scheduler.stock.recpickdynamic.vo.UserFilterPresetVo"/>
 		<typeAlias alias="stkMasterDto"			type="com.scheduler.stock.dto.StkMasterDto"/>
 		<typeAlias alias="dlyPriceDto"			type="com.scheduler.stock.dto.DlyPriceDto"/>
 		<typeAlias alias="maResultDto"			type="com.scheduler.stock.dto.MaResultDto"/>
@@ -106,6 +107,7 @@
 
 		<!-- Stock Rec Pick Dynamic (동적 추천 선별) -->
 		<mapper resource="com/scheduler/stock/recpickdynamic/sql/oracle/oracle_RecPickDynamic.xml"/>
+		<mapper resource="com/scheduler/stock/recpickdynamic/sql/oracle/oracle_UserFilterPreset.xml"/>
 		
 		<!-- batch 
 		<mapper resource="com/scheduler/finance/sql/oracle/oracle_MacroDaily.xml"/>

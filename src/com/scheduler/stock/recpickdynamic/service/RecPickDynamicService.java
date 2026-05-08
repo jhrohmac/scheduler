@@ -18,8 +18,10 @@ import com.scheduler.stock.indicator.IndicatorContext;
 import com.scheduler.stock.indicator.IndicatorRegistry;
 import com.scheduler.stock.indicator.SqlFragment;
 import com.scheduler.stock.recpickdynamic.dao.RecPickDynamicDao;
+import com.scheduler.stock.recpickdynamic.dao.UserFilterPresetDao;
 import com.scheduler.stock.recpickdynamic.vo.FilterRequestVo;
 import com.scheduler.stock.recpickdynamic.vo.FilterRequestVo.IndicatorRequest;
+import com.scheduler.stock.recpickdynamic.vo.UserFilterPresetVo;
 import com.scheduler.stock.service.KisDlyPriceSyncService;
 
 /**
@@ -33,10 +35,12 @@ public class RecPickDynamicService {
     private RecPickDynamicDao recPickDynamicDao;
     private IndicatorRegistry indicatorRegistry;
     private KisDlyPriceSyncService kisDlyPriceSyncService;
+    private UserFilterPresetDao userFilterPresetDao;
 
     public void setRecPickDynamicDao(RecPickDynamicDao dao) { this.recPickDynamicDao = dao; }
     public void setIndicatorRegistry(IndicatorRegistry r) { this.indicatorRegistry = r; }
     public void setKisDlyPriceSyncService(KisDlyPriceSyncService s) { this.kisDlyPriceSyncService = s; }
+    public void setUserFilterPresetDao(UserFilterPresetDao d) { this.userFilterPresetDao = d; }
 
     public IndicatorRegistry getIndicatorRegistry() { return indicatorRegistry; }
 
@@ -234,6 +238,49 @@ public class RecPickDynamicService {
     /** UI 패널용 지표 메타데이터 (화면 진입 시 1회 호출) */
     public List<Map<String, Object>> getIndicatorMetadata() {
         return indicatorRegistry.getMetadataList();
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // 사용자 프리셋 — TB_USER_FILTER_PRESET
+    // ────────────────────────────────────────────────────────────
+
+    private static final String PRESET_TYPE = "REC_PICK_DYNAMIC";
+
+    public UserFilterPresetVo loadUserPreset(String userId) throws Exception {
+        if (isBlank(userId)) return null;
+        HashMap<String, Object> map = new HashMap<String, Object>();
+        map.put("userId", userId);
+        map.put("presetType", PRESET_TYPE);
+        try {
+            return userFilterPresetDao.selectPreset(map);
+        } catch (Exception e) {
+            // TB_USER_FILTER_PRESET 미생성 등 — 화면 진입은 정상 진행되도록 graceful
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            if (msg.contains("ORA-00942") || msg.contains("does not exist")) {
+                System.err.println("[RecPickDynamicService] TB_USER_FILTER_PRESET 테이블 미생성 — DDL 실행 필요: db/DDL_TB_USER_FILTER_PRESET.sql");
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    public int saveUserPreset(String userId, String filterJson) throws Exception {
+        if (isBlank(userId) || isBlank(filterJson)) {
+            throw new IllegalArgumentException("userId / filterJson 필수");
+        }
+        HashMap<String, Object> map = new HashMap<String, Object>();
+        map.put("userId", userId);
+        map.put("presetType", PRESET_TYPE);
+        map.put("filterJson", filterJson);
+        return userFilterPresetDao.mergePreset(map);
+    }
+
+    public int deleteUserPreset(String userId) throws Exception {
+        if (isBlank(userId)) return 0;
+        HashMap<String, Object> map = new HashMap<String, Object>();
+        map.put("userId", userId);
+        map.put("presetType", PRESET_TYPE);
+        return userFilterPresetDao.deletePreset(map);
     }
 
     // ────────────────────────────────────────────────────────────

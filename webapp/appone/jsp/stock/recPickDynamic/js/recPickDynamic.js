@@ -68,25 +68,22 @@
     function init() {
         bindMarketGroupTabs();
         bindFilterButtons();
-        loadIndicatorMeta()
+        // 1) 지표 메타와 사용자 프리셋을 병렬로 로드
+        Promise.all([loadIndicatorMeta(), loadPresetFromServer()])
             .then(function () {
-                // 1) 저장된 프리셋이 있으면 state 에 적용 (시장/지수/유형/지표 활성여부)
+                // 2) 저장된 프리셋이 있으면 state 에 적용
                 restorePresetIntoState();
-                // 2) 시장 칩, 지표 패널 렌더 (state 기준으로 카드/파라미터 초기값 반영)
+                // 3) 시장 칩, 지표 패널 렌더
                 renderMarketChips();
                 renderIndicatorPanel();
                 applyDefaults();
-                // 3) 지표 패널 렌더 후, 저장된 파라미터값을 input 에 주입
+                // 4) 지표 패널 렌더 후, 저장된 파라미터값을 input 에 주입
                 applySavedParamsToInputs();
                 applyFilters();
             });
     }
 
-    /* ── 사용자별 프리셋 저장/복원 (localStorage) ─────────────────── */
-    function presetKey() {
-        var uid = (config.userId || "anonymous");
-        return "rpd.preset." + uid;
-    }
+    /* ── 사용자별 프리셋 저장/복원 (DB - TB_USER_FILTER_PRESET) ─────────────────── */
 
     /** 현재 화면 상태를 객체로 직렬화 */
     function buildPresetSnapshot() {
@@ -102,33 +99,58 @@
         };
     }
 
+    /** DB 에 저장 (적용 시점에 호출, fire-and-forget) */
     function savePreset() {
         try {
             var snap = buildPresetSnapshot();
             snap._savedAt = new Date().toISOString();
-            localStorage.setItem(presetKey(), JSON.stringify(snap));
+            $.ajax({
+                url: config.presetSaveUrl,
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(snap),
+                error: function (xhr, status, err) {
+                    console.warn("[recPickDynamic] preset save failed:", err);
+                }
+            });
         } catch (e) {
-            // localStorage 사용 불가 환경 (privacy mode 등)
-            console.warn("[recPickDynamic] preset save failed:", e);
+            console.warn("[recPickDynamic] preset save build failed:", e);
         }
     }
 
-    function loadPreset() {
-        try {
-            var raw = localStorage.getItem(presetKey());
-            return raw ? JSON.parse(raw) : null;
-        } catch (e) {
-            return null;
-        }
+    /** DB 에서 비동기 로드 (init 단계에서 1회 호출) */
+    function loadPresetFromServer() {
+        return new Promise(function (resolve) {
+            $.ajax({
+                url: config.presetLoadUrl,
+                method: "GET",
+                dataType: "json",
+                success: function (resp) {
+                    var meta = resp && resp.singleData;
+                    if (meta && meta.hasPreset && meta.filterJson) {
+                        try {
+                            _restoredPreset = JSON.parse(meta.filterJson);
+                        } catch (e) {
+                            console.warn("[recPickDynamic] preset parse failed:", e);
+                            _restoredPreset = null;
+                        }
+                    }
+                    resolve();
+                },
+                error: function () {
+                    // 프리셋 조회 실패해도 화면은 정상 표시
+                    resolve();
+                }
+            });
+        });
     }
 
     var _restoredPreset = null;
 
     /** state 기본값을 저장된 프리셋으로 덮어쓰기 (지표 카드 렌더 전에 호출) */
     function restorePresetIntoState() {
-        var p = loadPreset();
+        var p = _restoredPreset;
         if (!p) return;
-        _restoredPreset = p;
         if (p.mktGroup)    state.mktGroup    = p.mktGroup;
         if (p.market)      state.market      = p.market;
         if (p.indexFilter) state.indexFilter = p.indexFilter;
@@ -889,7 +911,12 @@
         state.stockType = "ALL";
         state.sortColumn = "trendStrength";
         $("#rpdSortSelect").val("trendStrength");
-        try { localStorage.removeItem(presetKey()); } catch (e) {}
+        // 서버 프리셋 삭제 (fire-and-forget)
+        $.ajax({
+            url: config.presetDeleteUrl,
+            method: "POST",
+            error: function () {} // 실패해도 화면 초기화는 진행
+        });
         _restoredPreset = null;
         renderMarketChips();
         renderIndicatorPanel();

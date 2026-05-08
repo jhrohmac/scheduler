@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.scheduler.stock.sql.UserFilterPreset">
+
+    <!-- 단건 조회 -->
+    <select id="selectPreset" parameterType="hashmap" resultType="userFilterPresetVo">
+        SELECT USER_ID                            AS userId,
+               PRESET_TYPE                        AS presetType,
+               FILTER_JSON                        AS filterJson,
+               TO_CHAR(REG_DT, 'YYYY-MM-DD HH24:MI:SS')  AS regDt,
+               TO_CHAR(UPD_DT, 'YYYY-MM-DD HH24:MI:SS')  AS updDt
+          FROM TB_USER_FILTER_PRESET
+         WHERE USER_ID     = #{userId,jdbcType=VARCHAR}
+           AND PRESET_TYPE = #{presetType,jdbcType=VARCHAR}
+    </select>
+
+    <!-- MERGE (UPSERT) -->
+    <update id="mergePreset" parameterType="hashmap">
+        MERGE INTO TB_USER_FILTER_PRESET T
+        USING (
+            SELECT #{userId,jdbcType=VARCHAR}     AS USER_ID,
+                   #{presetType,jdbcType=VARCHAR} AS PRESET_TYPE,
+                   #{filterJson,jdbcType=CLOB}    AS FILTER_JSON
+              FROM DUAL
+        ) S
+        ON (T.USER_ID = S.USER_ID AND T.PRESET_TYPE = S.PRESET_TYPE)
+        WHEN MATCHED THEN
+            UPDATE SET T.FILTER_JSON = S.FILTER_JSON,
+                       T.UPD_DT      = SYSDATE
+        WHEN NOT MATCHED THEN
+            INSERT (USER_ID, PRESET_TYPE, FILTER_JSON, REG_DT, UPD_DT)
+            VALUES (S.USER_ID, S.PRESET_TYPE, S.FILTER_JSON, SYSDATE, SYSDATE)
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="deletePreset" parameterType="hashmap">
+        DELETE FROM TB_USER_FILTER_PRESET
+         WHERE USER_ID     = #{userId,jdbcType=VARCHAR}
+           AND PRESET_TYPE = #{presetType,jdbcType=VARCHAR}
+    </delete>
+
+</mapper>

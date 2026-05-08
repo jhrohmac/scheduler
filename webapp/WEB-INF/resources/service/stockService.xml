@@ -151,9 +151,14 @@
 		<property name="recPickDynamicDao" ref="recPickDynamicDaoImpl"/>
 		<property name="indicatorRegistry" ref="indicatorRegistry"/>
 		<property name="kisDlyPriceSyncService" ref="kisDlyPriceSyncService"/>
+		<property name="userFilterPresetDao" ref="userFilterPresetDaoImpl"/>
 	</bean>
 
 	<bean id="recPickDynamicDaoImpl" class="com.scheduler.stock.recpickdynamic.dao.impl.RecPickDynamicDaoImpl">
+		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"/>
+	</bean>
+
+	<bean id="userFilterPresetDaoImpl" class="com.scheduler.stock.recpickdynamic.dao.impl.UserFilterPresetDaoImpl">
 		<property name="sqlSessionTemplate" ref="sqlSessionTemplate"/>
 	</bean>
 

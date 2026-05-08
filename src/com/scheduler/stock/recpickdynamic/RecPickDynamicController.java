@@ -115,6 +115,95 @@ public class RecPickDynamicController {
     }
 
     // ────────────────────────────────────────────────────
+    // 사용자 프리셋 — TB_USER_FILTER_PRESET
+    // ────────────────────────────────────────────────────
+
+    /** 프리셋 조회 (페이지 진입 시 1회 호출) */
+    @RequestMapping("/stock/recPickDynamic/preset/load.do")
+    public void loadPreset(HttpServletRequest req, HttpServletResponse res) {
+        try {
+            String userId = currentUserId(req);
+            com.scheduler.stock.recpickdynamic.vo.UserFilterPresetVo vo =
+                recPickDynamicService.loadUserPreset(userId);
+
+            HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("userId", userId);
+            data.put("hasPreset", vo != null);
+            if (vo != null) {
+                // filterJson 은 JSON 문자열 → JS에서 JSON.parse
+                data.put("filterJson", vo.getFilterJson());
+                data.put("updDt", vo.getUpdDt());
+            }
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setSingleData(data);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    /** 프리셋 저장 (적용 시점에 호출) */
+    @RequestMapping("/stock/recPickDynamic/preset/save.do")
+    public void savePreset(HttpServletRequest req, HttpServletResponse res) {
+        try {
+            String userId = currentUserId(req);
+            String filterJson = readBodyAsString(req);
+            if (filterJson == null || filterJson.trim().isEmpty()) {
+                HashMap<String, String> p = RequestHandler.extractParameters(req);
+                filterJson = p.get("filterJson");
+            }
+            int updated = recPickDynamicService.saveUserPreset(userId, filterJson);
+
+            HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("userId", userId);
+            data.put("updated", updated);
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setSingleData(data);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    /** 프리셋 삭제 (초기화 시점에 호출) */
+    @RequestMapping("/stock/recPickDynamic/preset/delete.do")
+    public void deletePreset(HttpServletRequest req, HttpServletResponse res) {
+        try {
+            String userId = currentUserId(req);
+            int deleted = recPickDynamicService.deleteUserPreset(userId);
+
+            HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("userId", userId);
+            data.put("deleted", deleted);
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setSingleData(data);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    private String currentUserId(HttpServletRequest req) {
+        UserSession us = (UserSession) req.getSession().getAttribute(UserSession.KEY);
+        return us != null && us.user_id != null ? us.user_id : "anonymous";
+    }
+
+    private String readBodyAsString(HttpServletRequest req) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            java.io.BufferedReader reader = req.getReader();
+            while ((line = reader.readLine()) != null) sb.append(line);
+            return sb.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ────────────────────────────────────────────────────
     // request 파서 — JSON 본문 또는 form param 양쪽 지원
     // ────────────────────────────────────────────────────
     private FilterRequestVo parseFilterRequest(HttpServletRequest req) throws Exception {
