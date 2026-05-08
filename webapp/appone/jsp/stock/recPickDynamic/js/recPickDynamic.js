@@ -741,14 +741,14 @@
             });
         });
 
-        // 메인 시리즈 (캔들 또는 종가 라인)
+        // 메인 시리즈 (캔들 또는 종가 라인) — kisFinance 색상 (red↑ / #3496ff↓)
         var mainSeries = chartOpts.showCandle && ohlcData.length > 0 ? {
             type: 'candlestick',
             name: '가격',
             id: 'price',
             data: ohlcData,
-            color: '#2563eb', upColor: '#dc2626',
-            lineColor: '#2563eb', upLineColor: '#dc2626',
+            color: '#3496ff', upColor: 'red',
+            lineColor: '#3496ff', upLineColor: 'red',
             yAxis: 0, zIndex: 3,
             dataGrouping: { enabled: false }
         } : {
@@ -770,17 +770,20 @@
                 monthOhlc = [monthOhlc[monthOhlc.length - 1]];
             }
             if (monthOhlc.length > 0) {
+                // kisFinance 월봉 색상 — 분홍↑ / 하늘↓ 반투명
                 allSeries.push({
                     type: 'candlestick',
                     name: '월봉',
                     id: 'monthOverlay',
+                    linkedTo: 'price',
                     data: monthOhlc,
-                    color: 'rgba(37,99,235,0.18)',
-                    upColor: 'rgba(220,38,38,0.18)',
-                    lineColor: 'rgba(37,99,235,0.4)',
-                    upLineColor: 'rgba(220,38,38,0.4)',
+                    color:        '#3498db6e',  // 하락 (반투명 하늘)
+                    lineColor:    '#3498db6e',
+                    upColor:      '#e83e8c6e',  // 상승 (반투명 분홍)
+                    upLineColor:  '#e83e8c6e',
                     yAxis: 0, zIndex: 1,
-                    pointWidth: 32,
+                    pointWidth: 38,
+                    lineWidth: 2,
                     dataGrouping: { enabled: false },
                     enableMouseTracking: false
                 });
@@ -823,10 +826,24 @@
             }
         }
 
-        // yAxis 구성 — 가격축은 천단위 콤마 포맷
-        // crosshair 제거 (사용자 요청: 라인 트래킹 비활성화)
+        // yAxis 구성 — 가격축은 천단위 콤마 포맷 + crosshair 라벨 (kisFinance 패턴)
         var priceLabelFormatter = function () {
             return Number(this.value).toLocaleString();
+        };
+        // 가격축 crosshair (수평 점선 + "99,xxx" 라벨 박스)
+        var priceCrosshair = {
+            width: 1,
+            color: "rgba(0,0,0,0.35)",
+            dashStyle: "Dash",
+            snap: false,
+            label: {
+                enabled: true,
+                format: "{value:,.0f}",
+                padding: 4,
+                backgroundColor: "rgba(255,255,255,0.92)",
+                borderColor: "rgba(0,0,0,0.25)",
+                style: { color: "#000", fontWeight: "700", fontSize: "10px" }
+            }
         };
         var yAxisCfg;
         if (chartOpts.showVolume) {
@@ -834,7 +851,7 @@
                 { labels: { align: 'right', x: -3, style:{fontSize:'10px'},
                             formatter: priceLabelFormatter },
                   height: '70%', resize: { enabled: true }, lineWidth: 1, title: { text: null },
-                  plotLines: plotLines, crosshair: false },
+                  plotLines: plotLines, crosshair: priceCrosshair },
                 { labels: { align: 'right', x: -3, style:{fontSize:'9px'},
                             formatter: function () {
                                 if (this.value >= 1e8) return Math.round(this.value/1e8) + '억';
@@ -846,7 +863,7 @@
         } else {
             yAxisCfg = { labels: { align: 'right', x: -3, style:{fontSize:'10px'},
                                    formatter: priceLabelFormatter },
-                         lineWidth: 1, title: { text: null }, plotLines: plotLines, crosshair: false };
+                         lineWidth: 1, title: { text: null }, plotLines: plotLines, crosshair: priceCrosshair };
         }
 
         // Highcharts Stock (rangeSelector + navigator + lastPrice 자동)
@@ -900,7 +917,8 @@
             xAxis: {
                 type: 'datetime',
                 labels: { style: { fontSize: '10px' } },
-                crosshair: false   // 라인 트래킹 비활성화 (사용자 요청)
+                // kisFinance 패턴 — 검정 점선 crosshair (마우스 위치 수직선)
+                crosshair: { width: 1, color: "black", dashStyle: "Dash" }
             },
             yAxis: yAxisCfg,
             // 사용자 요청: 차트 hover 툴팁(큰 박스) 제거 → 차트 위 정보바로 대체
@@ -908,23 +926,24 @@
             plotOptions: {
                 series: {
                     dataGrouping: { enabled: false },
-                    // hover 시 강조 점 비활성화 (라인 트래킹 제거)
-                    states: { hover: { enabled: false, halo: { size: 0 } },
-                              inactive: { opacity: 1 } },
-                    marker: { enabled: false, states: { hover: { enabled: false } } },
+                    // kisFinance 패턴: 다른 시리즈 hover 시 dim 효과만 끄고 crosshair는 유지
+                    states: { inactive: { enabled: false } },
                     point: {
                         events: {
                             mouseOver: function () {
-                                // hover 시 그 지점의 OHLC 를 정보바에만 반영 (시각적 강조 X)
+                                // hover 시 그 지점의 OHLC 를 정보바에 반영
                                 updateChartInfoBar(this);
                             }
                         }
                     }
                 },
-                candlestick: { color: '#2563eb', upColor: '#dc2626',
-                               lineColor: '#2563eb', upLineColor: '#dc2626',
-                               states: { hover: { enabled: false } } },
-                line: { states: { hover: { lineWidthPlus: 0 } } }
+                candlestick: {
+                    color: '#3496ff', upColor: 'red',
+                    lineColor: '#3496ff', upLineColor: 'red',
+                    dataGrouping: { enabled: false }
+                },
+                column: { dataGrouping: { enabled: false } },
+                line: { dataGrouping: { enabled: false } }
             },
             credits: { enabled: false },
             series: allSeries
