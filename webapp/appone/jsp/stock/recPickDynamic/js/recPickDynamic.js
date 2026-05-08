@@ -745,6 +745,9 @@
         _chartPriceList = priceList || [];
 
         // OHLC + 종가 + 거래량 시계열 빌드
+        // 거래량 색상: 상승일=빨강, 하락일=파랑 (캔들 색상과 동일 톤)
+        var VOL_UP_COLOR   = "rgba(255, 99, 99, 0.85)";   // 상승 — 옅은 빨강
+        var VOL_DOWN_COLOR = "rgba(99, 174, 255, 0.85)";  // 하락 — 옅은 파랑
         var closeData = [], ohlcData = [], volumeData = [];
         priceList.forEach(function (p) {
             if (!p.tradeDt || p.close == null) return;
@@ -754,7 +757,13 @@
                 ohlcData.push([ts, p.open, p.high, p.low, p.close]);
             }
             if (p.volume != null) {
-                volumeData.push([ts, Number(p.volume)]);
+                // open 이 없으면 close 만으로 판단 불가 → 기본 회색
+                var isUp = (p.open != null) ? (p.close >= p.open) : true;
+                volumeData.push({
+                    x: ts,
+                    y: Number(p.volume),
+                    color: isUp ? VOL_UP_COLOR : VOL_DOWN_COLOR
+                });
             }
         });
 
@@ -833,10 +842,12 @@
         allSeries = allSeries.concat(maSeries);
 
         if (chartOpts.showVolume) {
+            // 각 point 가 자체 color 를 가지고 있어 series.color 는 fallback 만 지정
             allSeries.push({
-                type: 'column', name: '거래량', data: volumeData,
+                type: 'column', name: '거래량', id: 'volume', data: volumeData,
                 color: '#94a3b8', yAxis: 1, zIndex: 2,
-                dataGrouping: { enabled: false }
+                dataGrouping: { enabled: false },
+                borderWidth: 0
             });
         }
 
