@@ -43,7 +43,22 @@
           FROM TB_REC_SIGNAL R
           JOIN TB_STK_MASTER M
             ON M.STK_CD = R.STK_CD
-         WHERE R.BASE_DT = TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+          JOIN (
+              <!-- 종목별 최신 BASE_DT (배치 누락된 종목도 포함) -->
+              SELECT STK_CD, MKT_CD, MAX(BASE_DT) AS LATEST_DT
+                FROM TB_REC_SIGNAL
+               <where>
+                   <if test="mktGroup != null and mktGroup != ''">
+                       MKT_CD = #{mktGroup,jdbcType=VARCHAR}
+                   </if>
+                   <if test="baseDt != null and baseDt != ''">
+                       AND BASE_DT &lt;= TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD')
+                   </if>
+               </where>
+               GROUP BY STK_CD, MKT_CD
+          ) L
+            ON L.STK_CD = R.STK_CD AND L.MKT_CD = R.MKT_CD AND L.LATEST_DT = R.BASE_DT
+         WHERE 1 = 1
            <if test="mktGroup != null and mktGroup != ''">
                AND R.MKT_CD = #{mktGroup,jdbcType=VARCHAR}
            </if>

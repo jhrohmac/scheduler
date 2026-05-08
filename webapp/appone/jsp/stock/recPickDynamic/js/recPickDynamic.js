@@ -70,11 +70,113 @@
         bindFilterButtons();
         loadIndicatorMeta()
             .then(function () {
+                // 1) 저장된 프리셋이 있으면 state 에 적용 (시장/지수/유형/지표 활성여부)
+                restorePresetIntoState();
+                // 2) 시장 칩, 지표 패널 렌더 (state 기준으로 카드/파라미터 초기값 반영)
                 renderMarketChips();
                 renderIndicatorPanel();
                 applyDefaults();
+                // 3) 지표 패널 렌더 후, 저장된 파라미터값을 input 에 주입
+                applySavedParamsToInputs();
                 applyFilters();
             });
+    }
+
+    /* ── 사용자별 프리셋 저장/복원 (localStorage) ─────────────────── */
+    function presetKey() {
+        var uid = (config.userId || "anonymous");
+        return "rpd.preset." + uid;
+    }
+
+    /** 현재 화면 상태를 객체로 직렬화 */
+    function buildPresetSnapshot() {
+        var indicators = collectActiveIndicators();
+        return {
+            mktGroup: state.mktGroup,
+            market: state.market,
+            indexFilter: state.indexFilter,
+            stockType: state.stockType,
+            sortColumn: state.sortColumn,
+            sortDir: state.sortDir,
+            indicators: indicators
+        };
+    }
+
+    function savePreset() {
+        try {
+            var snap = buildPresetSnapshot();
+            snap._savedAt = new Date().toISOString();
+            localStorage.setItem(presetKey(), JSON.stringify(snap));
+        } catch (e) {
+            // localStorage 사용 불가 환경 (privacy mode 등)
+            console.warn("[recPickDynamic] preset save failed:", e);
+        }
+    }
+
+    function loadPreset() {
+        try {
+            var raw = localStorage.getItem(presetKey());
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    var _restoredPreset = null;
+
+    /** state 기본값을 저장된 프리셋으로 덮어쓰기 (지표 카드 렌더 전에 호출) */
+    function restorePresetIntoState() {
+        var p = loadPreset();
+        if (!p) return;
+        _restoredPreset = p;
+        if (p.mktGroup)    state.mktGroup    = p.mktGroup;
+        if (p.market)      state.market      = p.market;
+        if (p.indexFilter) state.indexFilter = p.indexFilter;
+        if (p.stockType)   state.stockType   = p.stockType;
+        if (p.sortColumn)  state.sortColumn  = p.sortColumn;
+        if (p.sortDir)     state.sortDir     = p.sortDir;
+        // 시장 그룹 탭 활성 표시 동기화
+        $("#rpdMarketGroupTabs .rpd-tab").removeClass("active");
+        $("#rpdMarketGroupTabs .rpd-tab[data-mkt-group='" + state.mktGroup + "']").addClass("active");
+        // 정렬 select 동기화
+        $("#rpdSortSelect").val(state.sortColumn);
+    }
+
+    /** 지표 카드 렌더 후, 저장된 활성 지표 + 파라미터값을 input 에 주입 */
+    function applySavedParamsToInputs() {
+        if (!_restoredPreset || !_restoredPreset.indicators) return;
+        var savedById = {};
+        _restoredPreset.indicators.forEach(function (ind) {
+            savedById[ind.id] = ind.params || {};
+        });
+        // 1) 활성/비활성 토글 — 저장된 목록에 있는 지표만 active
+        $(".rpd-indicator-card").each(function () {
+            var id = $(this).data("id");
+            var $cb = $(this).find('input[type="checkbox"]');
+            var isOn = !!savedById[id];
+            $cb.prop("checked", isOn);
+            $(this).toggleClass("active", isOn);
+        });
+        // 2) 활성화된 카드의 파라미터값 채우기
+        Object.keys(savedById).forEach(function (id) {
+            var $card = $('.rpd-indicator-card[data-id="' + id + '"]');
+            if (!$card.length) return;
+            var params = savedById[id];
+            $card.find(".rpd-param-row").each(function () {
+                var key = $(this).data("paramKey");
+                var $input = $(this).data("input");
+                if (!$input || !key || params[key] == null) return;
+                $input.val(params[key]);
+                // range 타입은 value-display 텍스트도 갱신
+                if ($input.attr("type") === "range") {
+                    var $vd = $(this).find(".value-display");
+                    if ($vd.length) {
+                        var unit = $(this).find(".unit").text() || "";
+                        $vd.text(params[key] + (unit ? "" : ""));
+                    }
+                }
+            });
+        });
     }
 
     /* ── 백엔드 지표 메타데이터 로드 ──────────────────── */
@@ -285,7 +387,10 @@
             limit: 200
         };
 
-        $("#rpdGridBody").html('<tr><td colspan="11" class="rpd-empty-row">조회 중...</td></tr>');
+        // 적용 시점에 사용자 프리셋 자동 저장
+        savePreset();
+
+        $("#rpdGridBody").html('<tr><td colspan="12" class="rpd-empty-row">조회 중...</td></tr>');
         $("#rpdBtnApply").prop("disabled", true).text("⏳ 조회 중");
 
         $.ajax({
@@ -307,7 +412,7 @@
                 renderGrid(data);
             },
             error: function (xhr, status, err) {
-                $("#rpdGridBody").html('<tr><td colspan="11" class="rpd-empty-row">조회 실패: ' + escapeHtml(err) + '</td></tr>');
+                $("#rpdGridBody").html('<tr><td colspan="12" class="rpd-empty-row">조회 실패: ' + escapeHtml(err) + '</td></tr>');
                 showToast("조회 실패: " + err, true);
             },
             complete: function () {
@@ -346,7 +451,12 @@
 
     /* ── 요약 바 ─────────────────────────────────────── */
     function renderSummary(meta) {
-        $("#rpdBaseDt").text(meta.baseDt || "—");
+        var dt = meta.baseDt || "—";
+        if (meta.staleCount && meta.staleCount > 0) {
+            $("#rpdBaseDt").html(dt + ' <span style="color:#dc2626;font-size:10.5px;font-weight:normal;">⚠ 누락 ' + meta.staleCount + '건</span>');
+        } else {
+            $("#rpdBaseDt").text(dt);
+        }
         $("#rpdCntTotal").text(meta.totalCount || 0);
         $("#rpdCntIndicators").text(meta.indicatorCount || 0);
         var gc = meta.gradeCount || {};
@@ -360,7 +470,7 @@
         var $body = $("#rpdGridBody");
         $body.empty();
         if (!data || data.length === 0) {
-            $body.html('<tr><td colspan="11" class="rpd-empty-row">매칭된 종목이 없습니다.</td></tr>');
+            $body.html('<tr><td colspan="12" class="rpd-empty-row">매칭된 종목이 없습니다.</td></tr>');
             return;
         }
         data.forEach(function (s, i) {
@@ -384,11 +494,19 @@
             var pickClass = state.registeredPicks[s.stkCd] ? "rpd-pick-row-btn done" : "rpd-pick-row-btn";
             var pickLabel = state.registeredPicks[s.stkCd] ? "✓ 등록됨" : "★ 등록";
 
+            // 코스닥 종목은 종목명 앞에 # 접두
+            var stkNmDisplay = (s.listingMarket === "KOSDAQ" ? "# " : "") + (s.stkNm || "");
+            // 분석일 — 시장 최신 BASE_DT 보다 오래된 경우 stale 표시
+            var rowDt = s.baseDt || "—";
+            var isStale = state.baseDt && rowDt && rowDt < state.baseDt;
+            var dtCell = isStale
+                ? '<span style="color:#dc2626;" title="배치 누락 — 최신 분석일과 다름">⚠ ' + rowDt + '</span>'
+                : '<span style="color:#6b7280;">' + rowDt + '</span>';
             var $tr = $(
                 '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
                 '<td>' + escapeHtml(s.stkCd || "") + '</td>' +
-                '<td><strong>' + escapeHtml(s.stkNm || "") + '</strong></td>' +
+                '<td><strong>' + escapeHtml(stkNmDisplay) + '</strong></td>' +
                 '<td>' + escapeHtml(s.listingMarket || s.mktCd || "") + '</td>' +
                 '<td class="text-right">' + (s.curPrice != null ? Number(s.curPrice).toLocaleString() : "—") + '</td>' +
                 '<td class="text-right ' + rateClass + '">' + rateStr + '</td>' +
@@ -396,6 +514,7 @@
                 '<td class="text-right">' + trdValEok.toLocaleString() + '</td>' +
                 '<td>' + gradePill + '</td>' +
                 '<td><div class="rpd-matched-badges">' + matched + '</div></td>' +
+                '<td style="font-size:11px;">' + dtCell + '</td>' +
                 '<td style="text-align:center;"><button type="button" class="' + pickClass + '">' + pickLabel + '</button></td>' +
                 '</tr>'
             );
@@ -490,37 +609,136 @@
         });
     }
 
+    /* ── 차트 옵션 상태 (UI 토글) ─────────────────────── */
+    var chartOpts = {
+        ma:        { 5: true, 20: true, 60: true, 120: false, 240: false },
+        showVolume: true,
+        showCandle: false
+    };
+
+    /** 현재 priceList 캐시 (토글 변경 시 재렌더용) */
+    var _chartPriceList = [];
+    var _chartStock = null;
+
+    var MA_COLORS = {
+        5:   '#dc2626',
+        20:  '#2563eb',
+        60:  '#059669',
+        120: '#9333ea',
+        240: '#ea580c'
+    };
+
     function renderChart(stock, priceList) {
         if (typeof Highcharts === "undefined") {
             $("#rpdChartContainer").text("Highcharts 미로드");
             return;
         }
-        var closeData = [], ma5Data = [], ma20Data = [], ma60Data = [];
+        _chartStock = stock;
+        _chartPriceList = priceList || [];
+
+        // OHLC + 종가 + 거래량 시계열 빌드
+        var closeData = [], ohlcData = [], volumeData = [];
         var closes = [];
         priceList.forEach(function (p) {
             if (!p.tradeDt || p.close == null) return;
             var ts = parseDateUtc(p.tradeDt);
             closes.push(p.close);
             closeData.push([ts, p.close]);
-            ma5Data.push([ts, sma(closes, 5)]);
-            ma20Data.push([ts, sma(closes, 20)]);
-            ma60Data.push([ts, sma(closes, 60)]);
+            if (p.open != null && p.high != null && p.low != null) {
+                ohlcData.push([ts, p.open, p.high, p.low, p.close]);
+            }
+            if (p.volume != null) {
+                volumeData.push([ts, Number(p.volume)]);
+            }
         });
 
-        Highcharts.chart('rpdChartContainer', {
-            chart: { height: 260, spacing: [10, 10, 10, 10] },
+        // MA 시리즈 동적 빌드
+        var maSeries = [];
+        [5, 20, 60, 120, 240].forEach(function (period) {
+            if (!chartOpts.ma[period]) return;
+            var maData = [];
+            var arr = [];
+            priceList.forEach(function (p) {
+                if (!p.tradeDt || p.close == null) return;
+                arr.push(p.close);
+                var ts = parseDateUtc(p.tradeDt);
+                maData.push([ts, sma(arr, period)]);
+            });
+            maSeries.push({
+                name: 'MA' + period, type: 'line', data: maData,
+                color: MA_COLORS[period], lineWidth: 1,
+                dashStyle: period >= 120 ? 'ShortDash' : 'Dash',
+                yAxis: 0, marker: { enabled: false }
+            });
+        });
+
+        // 메인 시리즈 (캔들 또는 종가 라인)
+        var mainSeries = chartOpts.showCandle && ohlcData.length > 0 ? {
+            type: 'candlestick',
+            name: 'OHLC',
+            data: ohlcData,
+            color: '#2563eb', upColor: '#dc2626',
+            lineColor: '#2563eb', upLineColor: '#dc2626',
+            yAxis: 0
+        } : {
+            type: 'line',
+            name: '종가',
+            data: closeData,
+            color: '#374151', lineWidth: 1.5,
+            yAxis: 0, marker: { enabled: false }
+        };
+
+        var allSeries = [mainSeries].concat(maSeries);
+        if (chartOpts.showVolume) {
+            allSeries.push({
+                type: 'column', name: '거래량', data: volumeData,
+                color: '#94a3b8', yAxis: 1
+            });
+        }
+
+        // yAxis 구성 — 거래량 표시 시 더블차트 (가격 70% + 거래량 30%)
+        var yAxisCfg;
+        if (chartOpts.showVolume) {
+            yAxisCfg = [
+                { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
+                  height: '70%', resize: { enabled: true }, lineWidth: 1, title: { text: null } },
+                { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
+                  top: '72%', height: '28%', offset: 0, lineWidth: 1, title: { text: null } }
+            ];
+        } else {
+            yAxisCfg = { labels: { align: 'right', x: -3, style:{fontSize:'10px'} },
+                         lineWidth: 1, title: { text: null } };
+        }
+
+        // Highcharts Stock 사용 (rangeSelector + navigator)
+        var useStock = typeof Highcharts.stockChart === "function";
+        var ChartCtor = useStock ? Highcharts.stockChart : Highcharts.chart;
+
+        ChartCtor('rpdChartContainer', {
+            chart: { spacing: [8, 8, 8, 8] },
             title: { text: null },
             legend: { enabled: true, itemStyle: { fontSize: '10px' } },
+            rangeSelector: useStock ? {
+                buttons: [
+                    { type: 'month', count: 1, text: '1M' },
+                    { type: 'month', count: 3, text: '3M' },
+                    { type: 'month', count: 6, text: '6M' },
+                    { type: 'ytd',  text: 'YTD' },
+                    { type: 'all',  text: '전체' }
+                ],
+                selected: 2,
+                inputEnabled: false
+            } : undefined,
+            navigator: useStock ? { enabled: true, height: 30 } : undefined,
+            scrollbar: useStock ? { enabled: false } : undefined,
             xAxis: { type: 'datetime', labels: { style: { fontSize: '10px' } } },
-            yAxis: { title: null, labels: { style: { fontSize: '10px' } } },
-            tooltip: { shared: true, valueDecimals: 0 },
-            series: [
-                { name: '종가', data: closeData, color: '#374151', lineWidth: 1.5 },
-                { name: 'MA5',  data: ma5Data,  color: '#dc2626', lineWidth: 1, dashStyle: 'Dash' },
-                { name: 'MA20', data: ma20Data, color: '#2563eb', lineWidth: 1, dashStyle: 'Dash' },
-                { name: 'MA60', data: ma60Data, color: '#059669', lineWidth: 1, dashStyle: 'Dot' }
-            ],
-            credits: { enabled: false }
+            yAxis: yAxisCfg,
+            tooltip: { split: useStock, shared: !useStock, valueDecimals: 0 },
+            plotOptions: {
+                series: { dataGrouping: { enabled: false } }
+            },
+            credits: { enabled: false },
+            series: allSeries
         });
     }
 
@@ -629,6 +847,31 @@
             alert("신규 지표 추가 절차:\n\n1. src/com/scheduler/stock/indicator/impl/ 에 클래스 1개 추가\n2. stockService.xml 의 indicatorRegistry list 에 ref 추가\n3. webapp/.../stock/js/indicators/ 에 JS 모듈 1개 추가\n\n→ 기존 코드 0줄 수정");
         });
 
+        // 차트 옵션 토글 — MA 5/20/60/120/240
+        $(document).on("change", ".rpd-chart-controls input[data-ma]", function () {
+            var period = parseInt($(this).data("ma"), 10);
+            chartOpts.ma[period] = $(this).prop("checked");
+            if (_chartStock) renderChart(_chartStock, _chartPriceList);
+        });
+        // 거래량 / 캔들 토글
+        $(document).on("change", "#rpdToggleVolume", function () {
+            chartOpts.showVolume = $(this).prop("checked");
+            if (_chartStock) renderChart(_chartStock, _chartPriceList);
+        });
+        $(document).on("change", "#rpdToggleCandle", function () {
+            chartOpts.showCandle = $(this).prop("checked");
+            if (_chartStock) renderChart(_chartStock, _chartPriceList);
+        });
+        // 차트 새로고침 — KIS API 다시 호출
+        $(document).on("click", "#rpdBtnRefreshChart", function () {
+            if (state.currentSelectedIdx == null) return;
+            var s = state.currentStocks[state.currentSelectedIdx];
+            if (!s) return;
+            $("#rpdChartContainer").html('<div style="text-align:center;color:#9ca3af;padding:60px;font-size:11.5px;">실시간 데이터 갱신 중...</div>');
+            loadDetailChart(s);
+            showToast("실시간 가격 갱신 — KIS API 호출");
+        });
+
         // ESC로 슬라이드 닫기
         $(document).on("keydown.rpd", function (e) {
             if (e.key === "Escape") closeDrawer();
@@ -646,9 +889,12 @@
         state.stockType = "ALL";
         state.sortColumn = "trendStrength";
         $("#rpdSortSelect").val("trendStrength");
+        try { localStorage.removeItem(presetKey()); } catch (e) {}
+        _restoredPreset = null;
         renderMarketChips();
         renderIndicatorPanel();
         applyFilters();
+        showToast("프리셋 초기화 — 기본값 적용");
     }
 
     /* ── 헬퍼 ────────────────────────────────────────── */

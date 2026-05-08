@@ -151,8 +151,22 @@ public class RecPickDynamicService {
             }
         }
 
+        // ── 4) 데이터 신선도 — 결과 행들의 BASE_DT 범위 계산
+        String minDt = null, maxDt = null;
+        int staleCount = 0;
+        for (Map<String, Object> r : resultRows) {
+            String dt = (String) r.get("baseDt");
+            if (dt == null) continue;
+            if (minDt == null || dt.compareTo(minDt) < 0) minDt = dt;
+            if (maxDt == null || dt.compareTo(maxDt) > 0) maxDt = dt;
+            if (baseDt != null && dt.compareTo(baseDt) < 0) staleCount++;
+        }
+
         Map<String, Object> result = new LinkedHashMap<String, Object>();
-        result.put("baseDt", baseDt);
+        result.put("baseDt", baseDt);                  // 시장 최신 BASE_DT
+        result.put("baseDtMin", minDt);                // 결과 중 가장 오래된 분석일
+        result.put("baseDtMax", maxDt);                // 결과 중 가장 최신 분석일
+        result.put("staleCount", staleCount);          // 시장 최신 < 종목 최신인 종목 수 (배치 누락)
         result.put("totalCount", resultRows.size());
         result.put("indicatorCount", selected.size());
         result.put("gradeCount", gradeCount);

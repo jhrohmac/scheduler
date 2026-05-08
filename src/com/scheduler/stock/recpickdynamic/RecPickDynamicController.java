@@ -14,6 +14,7 @@ import org.springframework.web.servlet.ModelAndView;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scheduler.comm.util.ResultMsg;
 import com.scheduler.comm.vo.DataTableSettingVo;
+import com.scheduler.login.service.UserSession;
 import com.scheduler.stock.recpickdynamic.service.RecPickDynamicService;
 import com.scheduler.stock.recpickdynamic.vo.FilterRequestVo;
 import com.scheduler.util.handler.RequestHandler;
@@ -39,6 +40,9 @@ public class RecPickDynamicController {
     @RequestMapping("/stock/recPickDynamic/listView.do")
     public ModelAndView openListView(HttpServletRequest req, HttpServletResponse res) {
         ModelAndView mv = new ModelAndView();
+        // 사용자 ID — 프리셋 저장/복원 키로 사용
+        UserSession us = (UserSession) req.getSession().getAttribute(UserSession.KEY);
+        mv.addObject("userId", us != null && us.user_id != null ? us.user_id : "anonymous");
         mv.setViewName("stock/recPickDynamic/recPickDynamic");
         return mv;
     }
@@ -75,12 +79,16 @@ public class RecPickDynamicController {
             resultVo.setRecordsTotal(total);
             resultVo.setRecordsFiltered(total);
 
-            // 추가 메타정보는 singleData 에 동봉 (baseDt, gradeCount, indicatorCount)
+            // 추가 메타정보는 singleData 에 동봉
             HashMap<String, Object> meta = new HashMap<String, Object>();
             meta.put("baseDt", result.get("baseDt"));
+            meta.put("baseDtMin", result.get("baseDtMin"));
+            meta.put("baseDtMax", result.get("baseDtMax"));
+            meta.put("staleCount", result.get("staleCount"));
             meta.put("totalCount", total);
             meta.put("indicatorCount", result.get("indicatorCount"));
             meta.put("gradeCount", result.get("gradeCount"));
+            if (result.get("warning") != null) meta.put("warning", result.get("warning"));
             resultVo.setSingleData(meta);
 
             ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
