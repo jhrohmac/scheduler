@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-9">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-10">
 
 <div class="rpd-app" id="rpdApp">
 
@@ -271,6 +271,12 @@
             </div>
         </div>
         <div class="rpd-drawer-footer">
+            <div class="rpd-pick-group-row">
+                <label class="rpd-pick-group-label">관심그룹</label>
+                <select id="rpdWatchGroupSelect" class="rpd-pick-group-select">
+                    <option value="">로딩 중...</option>
+                </select>
+            </div>
             <button type="button" class="rpd-pick-big" id="rpdPickBtnBig">★ 관심종목에 추가</button>
         </div>
     </aside>
@@ -287,6 +293,7 @@ window.recPickDynamicConfig = {
     detailUrl:        "<c:url value='/stock/recPickDynamic/detail.do' />",
     refreshPriceUrl:  "<c:url value='/stock/recPickDynamic/refreshPrice.do' />",
     saveToWatchlistUrl: "<c:url value='/stock/recPick/saveToWatchlist.do' />",
+    watchGroupListUrl: "<c:url value='/finance/selectWatchlistGroups.do' />",
     presetLoadUrl:    "<c:url value='/stock/recPickDynamic/preset/load.do' />",
     presetSaveUrl:    "<c:url value='/stock/recPickDynamic/preset/save.do' />",
     presetDeleteUrl:  "<c:url value='/stock/recPickDynamic/preset/delete.do' />",
@@ -317,15 +324,15 @@ window.recPickDynamicConfig = {
         deps.push(ctxPath + "/appone/jsp/finance/kis/kisFinance/js/doubleMonthChartScript.js?v=20260508");
     }
     var modules = [
-        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-9",
-        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-9"
+        "/appone/jsp/stock/recPickDynamic/js/indicators/IndicatorRegistry.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/GoldenArrayIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MonthUpIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/TrendStrengthIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/VolumeFilterIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-10",
+        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-10"
     ].map(function (p) { return ctxPath + p; });
 
     function loadSequential(urls, done) {

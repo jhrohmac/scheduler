@@ -68,19 +68,22 @@
     function init() {
         bindMarketGroupTabs();
         bindFilterButtons();
-        // 1) 지표 메타와 사용자 프리셋을 병렬로 로드
-        Promise.all([loadIndicatorMeta(), loadPresetFromServer()])
-            .then(function () {
-                // 2) 저장된 프리셋이 있으면 state 에 적용
-                restorePresetIntoState();
-                // 3) 시장 칩, 지표 패널 렌더
-                renderMarketChips();
-                renderIndicatorPanel();
-                applyDefaults();
-                // 4) 지표 패널 렌더 후, 저장된 파라미터값을 input 에 주입
-                applySavedParamsToInputs();
-                applyFilters();
-            });
+        // 1) 지표 메타 + 사용자 프리셋 + 관심그룹 목록 병렬 로드
+        Promise.all([
+            loadIndicatorMeta(),
+            loadPresetFromServer(),
+            loadWatchGroupList()
+        ]).then(function () {
+            // 2) 저장된 프리셋이 있으면 state 에 적용
+            restorePresetIntoState();
+            // 3) 시장 칩, 지표 패널 렌더
+            renderMarketChips();
+            renderIndicatorPanel();
+            applyDefaults();
+            // 4) 지표 패널 렌더 후, 저장된 파라미터값을 input 에 주입
+            applySavedParamsToInputs();
+            applyFilters();
+        });
     }
 
     /* ── 사용자별 프리셋 저장/복원 (DB - TB_USER_FILTER_PRESET) ─────────────────── */
@@ -199,6 +202,67 @@
                 }
             });
         });
+    }
+
+    /* ── 관심그룹 목록 로드 + 마지막 선택 복원 ───────────── */
+    var _watchGroupList = [];
+
+    function watchGroupLastUsedKey() {
+        return "rpd.lastWatchGroupId." + (config.userId || "anonymous");
+    }
+
+    function loadWatchGroupList() {
+        return new Promise(function (resolve) {
+            $.ajax({
+                url: config.watchGroupListUrl,
+                method: "GET",
+                dataType: "json",
+                success: function (resp) {
+                    var list = (resp && resp.data) || [];
+                    _watchGroupList = list;
+                    renderWatchGroupSelect();
+                    resolve();
+                },
+                error: function () {
+                    _watchGroupList = [];
+                    renderWatchGroupSelect();
+                    resolve();
+                }
+            });
+        });
+    }
+
+    function renderWatchGroupSelect() {
+        var $sel = $("#rpdWatchGroupSelect");
+        if (!$sel.length) return;
+        $sel.empty();
+        if (!_watchGroupList || _watchGroupList.length === 0) {
+            $sel.append('<option value="">(등록된 관심그룹 없음 — 관심종목 화면에서 그룹 먼저 생성)</option>');
+            $sel.prop("disabled", true);
+            return;
+        }
+        $sel.prop("disabled", false);
+        _watchGroupList.forEach(function (g) {
+            var id = g.GROUP_ID || g.groupId;
+            var name = g.GROUP_NAME || g.groupName;
+            var market = g.GROUP_MARKET || g.groupMarket || "";
+            var cnt = g.STOCK_COUNT != null ? g.STOCK_COUNT : (g.stockCount != null ? g.stockCount : 0);
+            var marketLabel = market === "N" ? "[국내] " : (market === "A" ? "[해외] " : "");
+            $sel.append('<option value="' + escapeHtml(id) + '">' +
+                marketLabel + escapeHtml(name) + ' (' + cnt + ')</option>');
+        });
+        // 마지막 선택 복원
+        try {
+            var last = localStorage.getItem(watchGroupLastUsedKey());
+            if (last) $sel.val(last);
+            if (!$sel.val() && _watchGroupList.length > 0) {
+                $sel.val(_watchGroupList[0].GROUP_ID || _watchGroupList[0].groupId);
+            }
+        } catch (e) {}
+    }
+
+    function currentWatchGroupId() {
+        return $("#rpdWatchGroupSelect").val() || "";
     }
 
     /* ── 백엔드 지표 메타데이터 로드 ──────────────────── */
@@ -1108,23 +1172,45 @@
     }
 
     function callSaveToWatchlist(stock, onOk, onErr) {
+        var groupId = currentWatchGroupId();
+        if (!groupId) {
+            onErr("관심그룹을 선택하세요. (등록된 그룹이 없으면 관심종목 화면에서 먼저 그룹을 만드세요)");
+            return;
+        }
+        // 마지막 선택 그룹 기억
+        try { localStorage.setItem(watchGroupLastUsedKey(), groupId); } catch (e) {}
+
         $.ajax({
             url: config.saveToWatchlistUrl,
             method: "POST",
             dataType: "json",
-            data: { baseDt: stock.baseDt, mktCd: stock.mktCd, stkCd: stock.stkCd },
+            data: {
+                baseDt: stock.baseDt,
+                mktCd: stock.mktCd,
+                stkCd: stock.stkCd,
+                watchGroupId: groupId,
+                watchGroupDiv: "recommend"
+            },
             success: function (resp) {
-                // ResponseHandler 의 성공 코드는 result_code 또는 system_code 로 내려옴
                 var ok = resp && (
                     resp.result_code === "S001" ||
                     resp.result_code === "0000" ||
                     resp.system_code === "0000" ||
-                    !resp.result_code   // 빈 문자열인 경우도 성공으로 간주
+                    !resp.result_code
                 );
                 if (ok) onOk();
                 else onErr(resp && resp.result_msg ? resp.result_msg : "알 수 없는 오류");
             },
-            error: function (xhr, st, err) { onErr(err); }
+            error: function (xhr, st, err) {
+                var msg = err;
+                if (xhr && xhr.responseText) {
+                    try {
+                        var j = JSON.parse(xhr.responseText);
+                        msg = j.system_msg || j.result_msg || err;
+                    } catch (e) {}
+                }
+                onErr(msg);
+            }
         });
     }
 
@@ -1200,6 +1286,14 @@
             var open = !$h.hasClass("is-open");
             $h.toggleClass("is-open", open);
             $body.slideToggle(180);
+        });
+
+        // 관심그룹 select — 변경 시 마지막 선택 저장
+        $(document).on("change", "#rpdWatchGroupSelect", function () {
+            var v = $(this).val();
+            if (v) {
+                try { localStorage.setItem(watchGroupLastUsedKey(), v); } catch (e) {}
+            }
         });
         // 차트 새로고침 — KIS API 다시 호출
         $(document).on("click", "#rpdBtnRefreshChart", function () {
