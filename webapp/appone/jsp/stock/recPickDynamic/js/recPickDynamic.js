@@ -653,35 +653,8 @@
     var _chartPriceList = [];
     var _chartStock = null;
 
-    /** 일봉 → 월봉 OHLC 그룹핑 */
-    function groupByMonth(priceList) {
-        var byMonth = {};
-        var keys = [];
-        priceList.forEach(function (p) {
-            if (!p.tradeDt || p.close == null) return;
-            var ts = parseDateUtc(p.tradeDt);
-            if (ts == null) return;
-            var d = new Date(ts);
-            var key = d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1);
-            if (!byMonth[key]) {
-                byMonth[key] = { ts: Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1),
-                                 open: p.open != null ? p.open : p.close,
-                                 high: p.high != null ? p.high : p.close,
-                                 low:  p.low  != null ? p.low  : p.close,
-                                 close: p.close };
-                keys.push(key);
-            } else {
-                var m = byMonth[key];
-                if (p.high != null && p.high > m.high) m.high = p.high;
-                if (p.low  != null && p.low  < m.low)  m.low  = p.low;
-                m.close = p.close; // 마지막 종가
-            }
-        });
-        return keys.map(function (k) {
-            var m = byMonth[k];
-            return [m.ts, m.open, m.high, m.low, m.close];
-        });
-    }
+    /** 월봉 경계 시간 캐시 (xAxis afterSetExtremes 에서 SVG path 재구성용) */
+    var _monthBoundaryTimes = [];
 
     /** 더블차트 버튼의 모드/dot/라벨 갱신 */
     function updateDoubleChartButton(mode) {
@@ -763,29 +736,32 @@
 
         var allSeries = [mainSeries];
 
-        // 더블차트 — 월봉 OHLC overlay
-        if (chartOpts.doubleChartMode !== 'off' && ohlcData.length > 0) {
-            var monthOhlc = groupByMonth(priceList);
-            if (chartOpts.doubleChartMode === 'recent' && monthOhlc.length > 0) {
-                monthOhlc = [monthOhlc[monthOhlc.length - 1]];
+        // 더블차트 — kisFinance/doubleMonthChartScript.js 그대로 재사용
+        _monthBoundaryTimes = [];
+        if (chartOpts.doubleChartMode !== 'off' && ohlcData.length > 0
+                && typeof DoubleMonthChartScript !== "undefined") {
+            var monthlyInfo = DoubleMonthChartScript.buildMonthlyOverlayFromDaily(ohlcData);
+            var monthOverlay = monthlyInfo.overlay || [];
+            _monthBoundaryTimes = monthlyInfo.boundaries || [];
+            if (chartOpts.doubleChartMode === 'recent' && monthOverlay.length > 0) {
+                monthOverlay = [monthOverlay[monthOverlay.length - 1]];
             }
-            if (monthOhlc.length > 0) {
+            if (monthOverlay.length > 0) {
                 // kisFinance 월봉 색상 — 분홍↑ / 하늘↓ 반투명
                 allSeries.push({
                     type: 'candlestick',
                     name: '월봉',
                     id: 'monthOverlay',
                     linkedTo: 'price',
-                    data: monthOhlc,
-                    color:        '#3498db6e',  // 하락 (반투명 하늘)
+                    data: monthOverlay,
+                    color:        '#3498db6e',
                     lineColor:    '#3498db6e',
-                    upColor:      '#e83e8c6e',  // 상승 (반투명 분홍)
+                    upColor:      '#e83e8c6e',
                     upLineColor:  '#e83e8c6e',
                     yAxis: 0, zIndex: 1,
-                    pointWidth: 38,
+                    pointWidth: null,
                     lineWidth: 2,
-                    dataGrouping: { enabled: false },
-                    enableMouseTracking: false
+                    dataGrouping: { enabled: false }
                 });
             }
         }
@@ -890,11 +866,47 @@
             chart: {
                 spacing: [10, 10, 8, 8],
                 events: {
-                    // 차트 위에 hover 시 정보바 동적 갱신
                     load: function () {
+                        // 1) 정보바 — 마지막 캔들 기준 초기 표시
                         var pts = (this.series[0] && this.series[0].points) || [];
                         if (pts.length) {
                             updateChartInfoBar(pts[pts.length - 1].options || pts[pts.length - 1]);
+                        }
+                        // 2) 월봉 박스 width — 초기 렌더 직후 재계산
+                        var self = this;
+                        setTimeout(function () {
+                            if (chartOpts.doubleChartMode !== 'off'
+                                    && typeof DoubleMonthChartScript !== "undefined"
+                                    && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
+                                try {
+                                    DoubleMonthChartScript.updateMonthOverlayPointWidth(
+                                        self,
+                                        _monthBoundaryTimes,
+                                        self.xAxis[0],
+                                        { doubleChartEnabled: true },
+                                        "D"
+                                    );
+                                } catch (e) {}
+                            }
+                        }, 0);
+                    },
+                    redraw: function () {
+                        // 3) chart redraw 시 (시리즈 토글 등)에도 박스 width 재계산
+                        if (chartOpts.doubleChartMode !== 'off'
+                                && typeof DoubleMonthChartScript !== "undefined"
+                                && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
+                            var self = this;
+                            setTimeout(function () {
+                                try {
+                                    DoubleMonthChartScript.updateMonthOverlayPointWidth(
+                                        self,
+                                        _monthBoundaryTimes,
+                                        self.xAxis[0],
+                                        { doubleChartEnabled: true },
+                                        "D"
+                                    );
+                                } catch (e) {}
+                            }, 0);
                         }
                     }
                 }
@@ -918,7 +930,27 @@
                 type: 'datetime',
                 labels: { style: { fontSize: '10px' } },
                 // kisFinance 패턴 — 검정 점선 crosshair (마우스 위치 수직선)
-                crosshair: { width: 1, color: "black", dashStyle: "Dash" }
+                crosshair: { width: 1, color: "black", dashStyle: "Dash" },
+                events: {
+                    afterSetExtremes: function () {
+                        // 줌/스크롤 변경 시 월봉 박스 폭을 가시 영역에 맞게 재계산 (kisFinance 패턴)
+                        if (chartOpts.doubleChartMode !== 'off'
+                                && typeof DoubleMonthChartScript !== "undefined"
+                                && _monthBoundaryTimes && _monthBoundaryTimes.length >= 2) {
+                            try {
+                                DoubleMonthChartScript.updateMonthOverlayPointWidth(
+                                    this.chart,
+                                    _monthBoundaryTimes,
+                                    this,
+                                    { doubleChartEnabled: true },
+                                    "D"
+                                );
+                            } catch (e) {
+                                console.warn("[recPickDynamic] updateMonthOverlayPointWidth:", e);
+                            }
+                        }
+                    }
+                }
             },
             yAxis: yAxisCfg,
             // 사용자 요청: 차트 hover 툴팁(큰 박스) 제거 → 차트 위 정보바로 대체
