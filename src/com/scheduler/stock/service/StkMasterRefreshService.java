@@ -423,7 +423,7 @@ public class StkMasterRefreshService {
             } else {
                 if ("Y".equalsIgnoreCase(getField(flds, KOSDAQ_IDX_LIQUIDATION)))         stkStatus = "DELIST";
                 else if ("Y".equalsIgnoreCase(getField(flds, KOSDAQ_IDX_HALT)))            stkStatus = "HALT";
-                else if (!isBlank(getField(flds, KOSDAQ_IDX_CAUTION)))                    stkStatus = "CAUTION";
+                else if ("Y".equalsIgnoreCase(getField(flds, KOSDAQ_IDX_CAUTION)))         stkStatus = "CAUTION";
                 else stkStatus = "NORMAL";
             }
 
@@ -453,8 +453,42 @@ public class StkMasterRefreshService {
             list.add(dto);
         }
 
+        validateDomesticStatusDistribution(list, mktCd);
+
         System.out.println("[StkMasterRefreshService] " + mktCd + " 파싱 완료: " + list.size() + "건");
         return list;
+    }
+
+    private void validateDomesticStatusDistribution(List<StkMasterDto> list, String mktCd) {
+        if (list == null || list.isEmpty() || (!"KOSPI".equals(mktCd) && !"KOSDAQ".equals(mktCd))) {
+            return;
+        }
+
+        int normalCnt = 0;
+        int haltCnt = 0;
+        int cautionCnt = 0;
+        int delistCnt = 0;
+        for (int i = 0; i < list.size(); i++) {
+            StkMasterDto dto = list.get(i);
+            String status = dto == null ? "" : trim(dto.getStkStatus());
+            if ("NORMAL".equals(status)) {
+                normalCnt++;
+            } else if ("HALT".equals(status)) {
+                haltCnt++;
+            } else if ("CAUTION".equals(status)) {
+                cautionCnt++;
+            } else if ("DELIST".equals(status)) {
+                delistCnt++;
+            }
+        }
+
+        if (normalCnt == 0 && list.size() >= 100) {
+            throw new IllegalStateException(mktCd + " 종목 마스터 상태값 이상: NORMAL=0"
+                    + ", total=" + list.size()
+                    + ", halt=" + haltCnt
+                    + ", caution=" + cautionCnt
+                    + ", delist=" + delistCnt);
+        }
     }
 
     /**

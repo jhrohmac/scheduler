@@ -82,6 +82,16 @@ public class MarketSummaryDaoImpl extends SqlSessionDaoSupport implements Market
     }
 
     @Override
+    public List<?> selectMarketRegimeSummary() throws Exception {
+        try {
+            return getSqlSession().selectList(NS + "selectMarketRegimeSummary");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new UserTransactionException(this.getClass().getName() + ".selectMarketRegimeSummary() : ", e.getLocalizedMessage());
+        }
+    }
+
+    @Override
     public List<?> selectWatchlistItemsRealtime(HashMap<String, String> map) throws Exception {
         try {
             List<?> list = getSqlSession().selectList(NS + "selectWatchlistItems", map);

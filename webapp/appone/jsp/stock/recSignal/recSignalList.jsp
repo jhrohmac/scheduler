@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="<c:url value='/appone/jsp/stock/recSignal/css/recSignalList.css?v=20260317-8' />">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
-window.__CTX_PATH = "${pageContext.request.contextPath}";
+window.__CTX_PATH = "/scheduler";
 window.__HIGHCHARTS_SRC = {
   highstock: "<c:url value='/appone/plugins/Highcharts-Stock-11.1.0/code/highstock.js' />",
   data: "<c:url value='/appone/plugins/Highcharts-Stock-11.1.0/code/modules/data.js' />",

@@ -47,7 +47,7 @@
 <script defer src="/scheduler/appone/jsp/finance/kis/kisFinance/js/favoriteAction.js"></script>
 
 <script>
-  window.__CTX_PATH = "${pageContext.request.contextPath}";
+  window.__CTX_PATH = "/scheduler";
   window.__WS_WATCHLIST = "<c:url value='/finance/watchlistRealtime.ws'/>";
   window.__WS_MARKET_SUMMARY = "<c:url value='/finance/marketSummaryRealtime.ws'/>";
 
@@ -185,6 +185,7 @@
 				</div>
 
 				<div id="wlError" class="err" style="display: none;"></div>
+				<div id="regimeBar" class="regime-bar" style="display:none;"></div>
 				<div id="watchlist" class="watchlist"></div>
 
 				<!-- 관심그룹 관리 (슬라이드) : AdminLTE chat-pane-toggle 스타일 -->

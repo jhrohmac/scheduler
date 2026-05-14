@@ -10,6 +10,7 @@ public class PositionVo {
     private Long positionId;
     private String stockGroup;
     private String stockCode;
+    private String stockName;
     private String marketCode;
     private Integer totalQty;
     private Double avgPrice;
@@ -49,11 +50,19 @@ public class PositionVo {
     public String getStockCode() {
         return stockCode;
     }
-    
+
     public void setStockCode(String stockCode) {
         this.stockCode = stockCode;
     }
-    
+
+    public String getStockName() {
+        return stockName;
+    }
+
+    public void setStockName(String stockName) {
+        this.stockName = stockName;
+    }
+
     public String getMarketCode() {
         return marketCode;
     }

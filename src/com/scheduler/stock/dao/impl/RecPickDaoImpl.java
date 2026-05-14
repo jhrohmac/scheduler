@@ -26,6 +26,11 @@ public class RecPickDaoImpl extends SqlSessionDaoSupport implements RecPickDao {
     }
 
     @Override
+    public int deleteRecPick(HashMap<String, String> map) throws Exception {
+        return getSqlSession().update(NS + "deleteRecPick", map);
+    }
+
+    @Override
     public int updateRecPickTrackDate(HashMap<String, Object> map) throws Exception {
         return getSqlSession().update(NS + "updateRecPickTrackDate", map);
     }

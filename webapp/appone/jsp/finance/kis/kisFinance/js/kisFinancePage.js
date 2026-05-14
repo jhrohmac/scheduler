@@ -611,20 +611,95 @@ function fmtYmdToPlain(ymd) {
     });
   }
 
+  function macdSignalKo(sig) {
+    var s = String(sig || "").toUpperCase();
+    if (s.indexOf("STRONG_BUY") >= 0)  return "강한매수";
+    if (s.indexOf("BUY") >= 0)          return "매수";
+    if (s.indexOf("STRONG_SELL") >= 0) return "강한매도";
+    if (s.indexOf("SELL") >= 0)         return "매도";
+    if (s.indexOf("HOLD") >= 0)         return "보합";
+    return "보합";
+  }
+
   function watchlistEventLabel(it) {
     if (!it) return "이벤트 확인중";
 
     var ev = it.reco_event_summary || it.RECO_EVENT_SUMMARY || it.event_summary || it.EVENT_SUMMARY || "";
     if (ev) return String(ev);
 
-    var sig = String(it.STOCK_MACD_SIGNAL || it.stock_macd_signal || it.reco_signal_code || it.RECO_SIGNAL_CODE || "").toUpperCase();
-    if (sig.indexOf("STRONG_BUY") >= 0) return "강한매수";
-    if (sig.indexOf("BUY") >= 0) return "매수";
-    if (sig.indexOf("STRONG_SELL") >= 0) return "강한매도";
-    if (sig.indexOf("SELL") >= 0) return "매도";
-    if (sig.indexOf("HOLD") >= 0) return "관망(보합)";
+    var sig = String(it.STOCK_MACD_SIGNAL || it.stock_macd_signal || it.reco_signal_code || it.RECO_SIGNAL_CODE || "");
+    var smaLines = String(it.STOCK_SMA_LINES || it.stock_sma_lines || "");
+    var volSig   = String(it.STOCK_AV_VOLUMESIGNAL || it.stock_av_volumesignal || "").toUpperCase();
 
-    return "관망(보합)";
+    var parts = [];
+    if (sig) parts.push("MACD " + macdSignalKo(sig));
+    if (smaLines) parts.push("정배열 " + smaLines);
+    if (volSig === "UP") parts.push("거래량 증가");
+
+    return parts.length ? parts.join(" / ") : "보합";
+  }
+
+  // ── 시장 레짐 바 ──────────────────────────────────────────────
+  function loadMarketRegime() {
+    $.ajax({
+      url: "/scheduler/finance/selectMarketRegimeSummary.do",
+      type: "GET",
+      dataType: "json",
+      success: function(res) {
+        var list = (res && res.data) ? res.data : [];
+        renderRegimeBar(list);
+      },
+      error: function() { $("#regimeBar").hide(); }
+    });
+  }
+
+  function regimeSignalClass(macdSig) {
+    var s = String(macdSig || "").toUpperCase();
+    if (s.indexOf("BUY") >= 0)  return "regime-up";
+    if (s.indexOf("SELL") >= 0) return "regime-dn";
+    return "regime-neutral";
+  }
+
+  var REGIME_NAMES = {
+    "0001": "KOSPI", "2001": "KOSDAQ",
+    ".DJI": "DOW",  "SPX": "S&P500", "COMP": "NASDAQ"
+  };
+
+  function renderRegimeBar(list) {
+    if (!list || !list.length) { $("#regimeBar").hide(); return; }
+
+    var kr = [], us = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var code = String(r.STOCK_CODE || r.stock_code || "");
+      if (code === "0001" || code === "2001") kr.push(r);
+      else us.push(r);
+    }
+
+    function buildItems(arr) {
+      var h = "";
+      for (var j = 0; j < arr.length; j++) {
+        var r = arr[j];
+        var code   = String(r.STOCK_CODE || r.stock_code || "");
+        var macd   = String(r.STOCK_MACD_SIGNAL || r.stock_macd_signal || "");
+        var sma    = String(r.STOCK_SMA_LINES || r.stock_sma_lines || "");
+        var label  = REGIME_NAMES[code] || code;
+        var cls    = regimeSignalClass(macd);
+        var tip    = macdSignalKo(macd) + (sma ? " / " + sma : "");
+        var msg    = String(r.LAST_MESSAGE || r.last_message || "");
+        h += "<span class='regime-item " + cls + "' title='" + (msg || tip) + "'>";
+        h += "<span class='regime-name'>" + label + "</span>";
+        h += "<span class='regime-signal'>" + macdSignalKo(macd) + "</span>";
+        h += "</span>";
+      }
+      return h;
+    }
+
+    var html = "";
+    if (kr.length) html += "<span class='regime-group'><span class='regime-market-label'>KR</span>" + buildItems(kr) + "</span>";
+    if (us.length) html += "<span class='regime-group'><span class='regime-market-label'>US</span>" + buildItems(us) + "</span>";
+
+    $("#regimeBar").html(html).show();
   }
 
   function renderWatchlist(items) {
@@ -1122,29 +1197,49 @@ function fmtYmdToPlain(ymd) {
       return;
     }
     
+    var STATE_KO = {
+      "HOLD": "보유중", "WATCH": "관심", "ENTRY_READY": "진입준비",
+      "RISK_ON": "리스크ON", "RISK_OFF": "원금회수",
+      "EXIT": "청산", "INVALIDATED": "무효"
+    };
+
     list.forEach(function(pos) {
-      var code = pos.stockCode || "";
-      var qty = pos.totalQty || 0;
-      var avg = pos.avgPrice || 0;
-      var state = pos.stateCode || "HOLD";
+      var code      = pos.stockCode || "";
+      var name      = pos.stockName || "";
+      var qty       = pos.totalQty || 0;
+      var avg       = pos.avgPrice || 0;
+      var stateCode = pos.stateCode || "HOLD";
+      var stateKo   = STATE_KO[stateCode] || stateCode;
       var marketCode = pos.marketCode || "KR";
-      
-      var avgStr = marketCode === "KR" ? 
-        Math.round(avg).toLocaleString() : 
-        avg.toFixed(1);
-      
+
+      var avgStr = marketCode === "KR" ?
+        Math.round(avg).toLocaleString() :
+        avg.toFixed(2);
+
+      var stateCls = stateCode === "HOLD" ? "state-hold"
+                   : stateCode === "RISK_ON" ? "state-riskon"
+                   : stateCode === "RISK_OFF" ? "state-riskoff"
+                   : stateCode === "ENTRY_READY" ? "state-entry"
+                   : stateCode === "EXIT" ? "state-exit"
+                   : "state-default";
+
       var $item = $('<div class="holding-item"></div>');
       $item.attr("data-position-id", pos.positionId);
       $item.attr("data-code", code);
       $item.attr("data-qty", qty);
       $item.attr("data-avg", avg);
-      
+
       $item.html(
-        '<div class="holding-item-code">' + code + '</div>' +
-        '<div class="holding-item-info">' +
+        '<div class="holding-top">' +
+          '<div class="holding-name-wrap">' +
+            (name ? '<span class="holding-name">' + name + '</span>' : '') +
+            '<span class="holding-code">' + code + '</span>' +
+          '</div>' +
           '<span class="holding-qty">' + qty + '주</span>' +
-          '<span class="holding-avg">@' + avgStr + '</span>' +
-          '<span class="holding-state">' + state + '</span>' +
+        '</div>' +
+        '<div class="holding-mid">' +
+          '<span class="holding-price">매입 @' + avgStr + '</span>' +
+          '<span class="holding-state ' + stateCls + '">' + stateKo + '</span>' +
         '</div>'
       );
       
@@ -2779,6 +2874,7 @@ $(document).off("keydown.chartOpt").on("keydown.chartOpt", function (e) {
     syncWlGroupDivFromMarket();
 
     loadWatchlistGroups();
+    loadMarketRegime();
     loadMarketSummary();
     bindMarketSummaryChartClicks();
 

@@ -14,8 +14,6 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import com.scheduler.comm.system.GlobalVariablesFileRead;
-
 public class GetHttpsURLConnection {
 	public static void main(String[] args) throws Exception {
 

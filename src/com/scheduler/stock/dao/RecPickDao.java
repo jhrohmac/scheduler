@@ -14,6 +14,8 @@ public interface RecPickDao {
 
     int updateRecPickBuyLink(RecPickDto dto) throws Exception;
 
+    int deleteRecPick(HashMap<String, String> map) throws Exception;
+
     int updateRecPickTrackDate(HashMap<String, Object> map) throws Exception;
 
     int mergeRecPickDaily(RecPickDailyDto dto) throws Exception;

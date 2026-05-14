@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260508-13">
+<link rel="stylesheet" href="/scheduler/appone/jsp/stock/recPickDynamic/css/recPickDynamic.css?v=20260512-3">
 
 <div class="rpd-app" id="rpdApp">
 
@@ -92,7 +92,7 @@
                     <div class="rpd-grid-tools">
                         <select id="rpdSortSelect">
                             <option value="trendStrength">정렬: 추세강도 ↓</option>
-                            <option value="monChgRate">정렬: 등락률 ↓</option>
+                            <option value="monChgRate">정렬: 월 등락률 ↓</option>
                             <option value="avgTrdVal20">정렬: 거래대금 ↓</option>
                             <option value="curPrice">정렬: 현재가 ↓</option>
                             <option value="stkNm">정렬: 종목명</option>
@@ -108,7 +108,7 @@
                                 <th>종목명</th>
                                 <th>시장</th>
                                 <th class="text-right">현재가</th>
-                                <th class="text-right">등락률</th>
+                                <th class="text-right">월 등락률</th>
                                 <th class="text-right">추세강도</th>
                                 <th class="text-right">거래대금(억)</th>
                                 <th>등급</th>
@@ -271,11 +271,29 @@
             </div>
         </div>
         <div class="rpd-drawer-footer">
-            <div class="rpd-pick-group-row">
-                <label class="rpd-pick-group-label">관심그룹</label>
-                <select id="rpdWatchGroupSelect" class="rpd-pick-group-select">
-                    <option value="">로딩 중...</option>
+            <div class="rpd-pick-group-row left-row">
+                <button type="button" class="wl-market-pill" id="wlMarketSwitchBtn" aria-label="관심종목 시장 전환">
+                    <span class="wl-market-pill-text" id="wlMarketPillText">한국</span>
+                    <span class="wl-market-pill-dot" aria-hidden="true"></span>
+                </button>
+                <select id="wlMarket" class="wl-market-select" aria-hidden="true" tabindex="-1">
+                    <option value="N">국내</option>
+                    <option value="A">해외</option>
                 </select>
+                <select id="wlGroup"><option value="">로딩 중...</option></select>
+                <select id="wlGroupDiv" aria-hidden="true" tabindex="-1" style="display:none;">
+                    <option value="normal">노멀</option>
+                    <option value="month">월말</option>
+                    <option value="recommend">추천</option>
+                </select>
+                <button type="button" class="zoom-step-btn wl-group-div-btn is-active" id="wlGroupDivBtn" data-div-mode="recommend" title="분류: 추천" aria-label="관심그룹 분류">
+                    <span class="wl-group-div-btn-mode">추천</span>
+                    <span class="double-chart-dots" aria-hidden="true">
+                        <span class="double-chart-dot"></span>
+                        <span class="double-chart-dot"></span>
+                        <span class="double-chart-dot is-active"></span>
+                    </span>
+                </button>
             </div>
             <button type="button" class="rpd-pick-big" id="rpdPickBtnBig">★ 관심종목에 추가</button>
         </div>
@@ -306,7 +324,7 @@ window.recPickDynamicConfig = {
  * - 직접 URL 접근: jQuery / Highcharts 가 없으면 자체 로드 후 컨트롤러 시작
  * ──────────────────────────────────────────────────────────── */
 (function () {
-    var ctxPath = "${pageContext.request.contextPath}";
+    var ctxPath = "/scheduler";
     var deps = [];
     if (typeof window.jQuery === "undefined") {
         deps.push("https://code.jquery.com/jquery-3.6.0.min.js");
@@ -332,7 +350,7 @@ window.recPickDynamicConfig = {
         "/appone/jsp/stock/recPickDynamic/js/indicators/PriceRangeIndicator.js?v=20260508-13",
         "/appone/jsp/stock/recPickDynamic/js/indicators/RsiIndicator.js?v=20260508-13",
         "/appone/jsp/stock/recPickDynamic/js/indicators/MacdIndicator.js?v=20260508-13",
-        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260508-13"
+        "/appone/jsp/stock/recPickDynamic/js/recPickDynamic.js?v=20260512-3"
     ].map(function (p) { return ctxPath + p; });
 
     function loadSequential(urls, done) {

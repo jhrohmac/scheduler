@@ -19,4 +19,6 @@ public interface MarketSummaryDao {
     int deleteWatchlistItem(HashMap<String, String> map) throws Exception;
 
     int selectWatchlistItemCount(HashMap<String, String> map) throws Exception;
+
+    List<?> selectMarketRegimeSummary() throws Exception;
 }

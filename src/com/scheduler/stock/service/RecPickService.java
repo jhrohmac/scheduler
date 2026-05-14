@@ -144,9 +144,9 @@ public class RecPickService {
     public HashMap<String, Object> registerBuy(HashMap<String, String> map) throws Exception {
         require(map, "pickId", "pickId 는 필수입니다.");
 
-        int    qty            = parsePositiveInt(map.get("qty"),      "qty 는 1 이상이어야 합니다.");
+        int    qty            = RecPickUtil.isBlank(map.get("qty")) ? 1 : parsePositiveInt(map.get("qty"), "qty 는 1 이상이어야 합니다.");
         double buyPrice       = parsePositiveDouble(map.get("buyPrice"), "buyPrice 는 0보다 커야 합니다.");
-        String buyDate        = RecPickUtil.isBlank(map.get("buyDate")) ? tradeDateOrToday() : RecPickUtil.normalizeDate(map.get("buyDate"));
+        String buyDate        = RecPickUtil.isBlank(map.get("buyDate")) ? today() : RecPickUtil.normalizeDate(map.get("buyDate"));
         String entryRuleCode  = RecPickUtil.isBlank(map.get("entryRuleCode")) ? "MANUAL" : RecPickUtil.trim(map.get("entryRuleCode"));
 
         // PICK 이력 조회
@@ -301,6 +301,26 @@ public class RecPickService {
         return recPickDao.selectRecPick(map);
     }
 
+    public HashMap<String, Object> deleteRecPick(HashMap<String, String> map) throws Exception {
+        require(map, "pickId", "pickId 는 필수입니다.");
+
+        HashMap<String, String> pickMap = new HashMap<String, String>();
+        pickMap.put("pickId", RecPickUtil.trim(map.get("pickId")));
+        RecPickDto pick = recPickDao.selectRecPick(pickMap);
+        if (pick == null) throw new IllegalStateException("추천 저장 이력을 찾을 수 없습니다.");
+        if (pick.getPositionId() != null || "BOUGHT".equalsIgnoreCase(pick.getPickStatus())) {
+            throw new IllegalStateException("매수 등록된 추천 이력은 삭제할 수 없습니다.");
+        }
+
+        int deleteCnt = recPickDao.deleteRecPick(pickMap);
+        if (isDmlFailure(deleteCnt)) throw new IllegalStateException("추천 저장 이력 삭제에 실패했습니다.");
+
+        HashMap<String, Object> result = new HashMap<String, Object>();
+        result.put("pickId", pick.getPickId());
+        result.put("stkCd", pick.getStkCd());
+        return result;
+    }
+
     /* ─────────────────────────────────────────────
        진입 규칙별 가격 계산
     ───────────────────────────────────────────── */
@@ -359,5 +379,9 @@ public class RecPickService {
         return tradeDateService == null
             ? java.time.LocalDate.now().toString()
             : tradeDateService.resolveToday();
+    }
+
+    private String today() {
+        return java.time.LocalDate.now().toString();
     }
 }

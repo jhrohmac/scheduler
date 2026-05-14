@@ -116,6 +116,9 @@
 		if (!single) {
 			return null;
 		}
+		if (single.quote) {
+			return single.quote;
+		}
 		if (single.output) {
 			return single.output;
 		}
@@ -157,17 +160,26 @@
 		var diffDecimals;
 		var priceDecimals;
 		var dir;
+		var sign;
 
 		if (!out) {
 			return null;
 		}
 
-		current = pickNumber(out, ["stckPrpr", "stck_prpr", "price", "last"]);
-		diff = pickNumber(out, ["prdyVrss", "prdy_vrss", "diff", "change"]);
-		prevClose = pickNumber(out, ["stckSdpr", "stck_sdpr", "prevClose", "base"]);
+		current = pickNumber(out, ["price", "stckPrpr", "stck_prpr", "last"]);
+		diff = pickNumber(out, ["diff", "prdyVrss", "prdy_vrss", "change"]);
+		prevClose = pickNumber(out, ["basePrice", "stckSdpr", "stck_sdpr", "prevClose", "base"]);
+		sign = normalizeKisSign(out.sign || out.prdyVrssSign || out.prdy_vrss_sign);
 
 		if (!Number.isFinite(diff) && Number.isFinite(current) && Number.isFinite(prevClose)) {
 			diff = current - prevClose;
+		}
+		if (Number.isFinite(diff) && sign === "-") {
+			diff = -Math.abs(diff);
+		} else if (Number.isFinite(diff) && sign === "+") {
+			diff = Math.abs(diff);
+		} else if (Number.isFinite(diff) && sign === "0") {
+			diff = 0;
 		}
 		if (!Number.isFinite(prevClose) && Number.isFinite(current) && Number.isFinite(diff)) {
 			prevClose = current - diff;
@@ -180,9 +192,9 @@
 			? (diff / prevClose * 100)
 			: NaN;
 
-		priceDecimals = decimalsHint(out.stckPrpr || out.stck_prpr || out.price || out.last, 0);
-		diffDecimals = decimalsHint(out.prdyVrss || out.prdy_vrss || out.diff || out.change, 0);
-		dir = Number.isFinite(diff) ? (diff > 0 ? "up" : (diff < 0 ? "down" : "flat")) : "flat";
+		priceDecimals = decimalsHint(out.price || out.stckPrpr || out.stck_prpr || out.last, 0);
+		diffDecimals = decimalsHint(out.diff || out.prdyVrss || out.prdy_vrss || out.change, 0);
+		dir = sign === "+" ? "up" : (sign === "-" ? "down" : (Number.isFinite(diff) ? (diff > 0 ? "up" : (diff < 0 ? "down" : "flat")) : "flat"));
 
 		return {
 			priceText: formatNumber(current, priceDecimals),
@@ -190,6 +202,14 @@
 			rateText: formatSignedPct(pct),
 			dir: dir
 		};
+	}
+
+	function normalizeKisSign(sign) {
+		var s = (sign === null || sign === undefined) ? "" : String(sign).trim();
+		if (s === "+" || s === "1" || s === "2") return "+";
+		if (s === "-" || s === "4" || s === "5") return "-";
+		if (s === "0" || s === "3") return "0";
+		return "";
 	}
 
 	function applyWatchPriceStateToRow(row, state) {
@@ -259,13 +279,14 @@
 	}
 
 	function getWatchCurrentPriceUrl() {
-		return (window.__CTX_PATH || "") + "/finance/getCurrentPriceByInquirePrice.do";
+		return (window.__CTX_PATH || "") + "/finance/quotes/current.do";
 	}
 
 	function syncWatchRowFromApi(row, force) {
 		var code;
 		var cached;
 		var nowTs;
+		var lastTick;
 
 		if (!row || !window.jQuery || !isDomesticWatchRow(row)) {
 			return;
@@ -281,6 +302,14 @@
 		if (!force && cached && (nowTs - cached.ts) < WATCH_PRICE_CACHE_MS) {
 			applyWatchPriceStateByCode(code, cached.state);
 			return;
+		}
+
+		// WS가 최근 3초 이내 tick을 보냈으면 REST fallback 생략 (중복 방지)
+		if (!force && window.__watchlistWsLastTickByCode) {
+			lastTick = window.__watchlistWsLastTickByCode[code];
+			if (lastTick && (nowTs - lastTick) < 3000) {
+				return;
+			}
 		}
 
 		if (watchPriceInflight[code]) {

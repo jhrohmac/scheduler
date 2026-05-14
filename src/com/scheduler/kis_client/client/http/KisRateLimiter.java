@@ -7,7 +7,7 @@ public final class KisRateLimiter {
 
     private KisRateLimiter() {}
 
-    public static void throttle() {
+    public static void throttle() throws InterruptedException {
         long minIntervalMs = getLong("kis.rate.minIntervalMs", 120L);
         if (minIntervalMs <= 0) return;
 
@@ -23,7 +23,7 @@ public final class KisRateLimiter {
         return (int) getLong("kis.rate.maxRetries", 5L);
     }
 
-    public static void backoffSleep(int attempt) {
+    public static void backoffSleep(int attempt) throws InterruptedException {
         long base = getLong("kis.rate.backoffBaseMs", 300L);
         long max = getLong("kis.rate.backoffMaxMs", 3000L);
 
@@ -34,8 +34,8 @@ public final class KisRateLimiter {
 
     public static boolean isRateLimitResponse(int statusCode, String body) {
         if (body == null) return false;
-        if (statusCode != 200 && body.contains("EGW00201")) return true;
-        if (statusCode != 200 && body.contains("초당 거래건수를 초과")) return true;
+        if (body.contains("EGW00201")) return true;
+        if (body.contains("초당 거래건수를 초과")) return true;
         return false;
     }
 
@@ -49,11 +49,7 @@ public final class KisRateLimiter {
         }
     }
 
-    private static void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
+    private static void sleep(long ms) throws InterruptedException {
+        Thread.sleep(ms);
     }
 }

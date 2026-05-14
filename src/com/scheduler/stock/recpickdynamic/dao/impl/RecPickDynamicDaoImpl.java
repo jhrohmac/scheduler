@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.mybatis.spring.SqlSessionTemplate;
 
-import com.scheduler.stock.dto.DlyPriceDto;
 import com.scheduler.stock.dto.RecSignalDto;
 import com.scheduler.stock.recpickdynamic.dao.RecPickDynamicDao;
 
@@ -24,10 +23,6 @@ public class RecPickDynamicDaoImpl implements RecPickDynamicDao {
 
     public String selectLatestBaseDt(HashMap<String, Object> map) throws Exception {
         return sqlSessionTemplate.selectOne(NAMESPACE + "selectLatestBaseDt", map);
-    }
-
-    public List<DlyPriceDto> selectPriceListBatch(HashMap<String, Object> map) throws Exception {
-        return sqlSessionTemplate.selectList(NAMESPACE + "selectPriceListBatch", map);
     }
 
     public RecSignalDto selectStockDetail(HashMap<String, Object> map) throws Exception {

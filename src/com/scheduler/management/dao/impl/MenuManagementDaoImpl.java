@@ -94,37 +94,12 @@ public class MenuManagementDaoImpl extends SqlSessionDaoSupport implements MenuM
     }
     
     public int saveMenuOrder(HashMap<String, String> map) throws Exception {
-        int result = 0;
         try {
-        	map.put("in_newOrder", String.valueOf(Integer.parseInt(map.get("in_newOrder"))+1));
-        	map.put("in_oldOrder", String.valueOf(Integer.parseInt(map.get("in_oldOrder"))+1));
-        	
-        	//변경되는 Order Update 후 나머지 Order 수정
-        	result = getSqlSession().update(NS+"saveMenuOrder", map);
-        	
-        	List<MenuVo> list = new ArrayList<MenuVo>();
-			list = getSqlSession().selectList(NS+"selectMenuSort", map);
-			
-			for(int i=0; i<list.size(); i++) {
-				HashMap<String, String> seqMap = new HashMap<String, String>();
-				int num = i+1;
-				seqMap.put("in_menuSeq", map.get("in_menuSeq"));
-				seqMap.put("in_userId", map.get("in_userId"));
-				seqMap.put("in_newOrder", String.valueOf(num));
-				seqMap.put("in_parentId", map.get("in_parentId"));
-				seqMap.put("in_sortOrder", list.get(i).getSort_order());
-				if(!map.get("in_newOrder").equals(list.get(i).getSort_order())){
-					result = getSqlSession().update(NS+"saveMenuOrder", seqMap);
-				}else{
-					num++;
-				}
-			}
-        }
-        catch (Exception e) {
+        	return getSqlSession().update(NS+"saveMenuOrder", map);
+        } catch (Exception e) {
         	e.printStackTrace();
         	throw new RuntimeException(this.getClass().getName() + e.getMessage(), e);
         }
-        return result;
     }
     
     @Override

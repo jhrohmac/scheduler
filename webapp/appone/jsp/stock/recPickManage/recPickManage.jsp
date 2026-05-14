@@ -1,6 +1,6 @@
 <%@ page contentType="text/html; charset=utf-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/appone/jsp/stock/recPickManage/css/recPickManage.css?v=20260403-1">
+<link rel="stylesheet" href="/scheduler/appone/jsp/stock/recPickManage/css/recPickManage.css?v=20260403-1">
 
 <div class="container-fluid" id="div_rec_pick_manage">
 	<div class="card card-primary card-outline collapsed-card">
@@ -313,9 +313,10 @@ window.recPickManageConfig = {
     probability: "<c:url value='/stock/recPick/probability.do'/>",
     sellGuide: "<c:url value='/stock/recPick/sellGuide.do'/>",
     registerBuy: "<c:url value='/stock/recPick/registerBuy.do'/>",
+    deletePick: "<c:url value='/stock/recPick/delete.do'/>",
     wsWatchlist: "<c:url value='/finance/watchlistRealtime.ws'/>",
     currentPrice: "<c:url value='/finance/getCurrentPriceByInquirePrice.do'/>"
   }
 };
 </script>
-<script src="${pageContext.request.contextPath}/appone/jsp/stock/recPickManage/js/recPickManage.js?v=20260406-2"></script>
+<script src="/scheduler/appone/jsp/stock/recPickManage/js/recPickManage.js?v=20260513-1"></script>

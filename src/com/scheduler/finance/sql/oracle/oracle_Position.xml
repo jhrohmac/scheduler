@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.finance.sql.Position">
 
     <select id="selectPositionList" parameterType="hashmap" resultType="positionVo">
-        SELECT POSITION_ID AS positionId, STOCK_GROUP AS stockGroup, STOCK_CODE AS stockCode,
-               MARKET_CODE AS marketCode, TOTAL_QTY AS totalQty, AVG_PRICE AS avgPrice,
-               CLOSE_FLAG AS closeFlag, STATE_CODE AS stateCode, LAST_TXN_ID AS lastTxnId,
-               SOURCE_PICK_ID AS sourcePickId, BUY_DATE AS buyDate, TARGET_PRICE AS targetPrice,
-               STOP_PRICE AS stopPrice, TP1_PRICE AS tp1Price, SELL_GUIDE_STATE AS sellGuideState,
-               LAST_SELL_SIGNAL_CODE AS lastSellSignalCode, LAST_TRACK_DATE AS lastTrackDate,
-               MODIFY_DATE AS modifyDate, CREATE_USER AS createUser, CREATE_DATE AS createDate
-          FROM TB_S_POSITION
+        SELECT P.POSITION_ID AS positionId, P.STOCK_GROUP AS stockGroup, P.STOCK_CODE AS stockCode,
+               NVL(S.STOCK_KO_NAME, S.STOCK_EN_NAME) AS stockName,
+               P.MARKET_CODE AS marketCode, P.TOTAL_QTY AS totalQty, P.AVG_PRICE AS avgPrice,
+               P.CLOSE_FLAG AS closeFlag, P.STATE_CODE AS stateCode, P.LAST_TXN_ID AS lastTxnId,
+               P.SOURCE_PICK_ID AS sourcePickId, P.BUY_DATE AS buyDate, P.TARGET_PRICE AS targetPrice,
+               P.STOP_PRICE AS stopPrice, P.TP1_PRICE AS tp1Price, P.SELL_GUIDE_STATE AS sellGuideState,
+               P.LAST_SELL_SIGNAL_CODE AS lastSellSignalCode, P.LAST_TRACK_DATE AS lastTrackDate,
+               P.MODIFY_DATE AS modifyDate, P.CREATE_USER AS createUser, P.CREATE_DATE AS createDate
+          FROM TB_S_POSITION P
+          LEFT JOIN TB_S_INTEREST_STOCK S ON P.STOCK_CODE = S.STOCK_CODE
          WHERE 1=1
-           <if test="stockGroup != null and stockGroup != ''">AND STOCK_GROUP = #{stockGroup}</if>
-           <if test="closeFlag != null and closeFlag != ''">AND CLOSE_FLAG = #{closeFlag}</if>
-           <if test="marketCode != null and marketCode != ''">AND MARKET_CODE = #{marketCode}</if>
-         ORDER BY MODIFY_DATE DESC
+           <if test="stockGroup != null and stockGroup != ''">AND P.STOCK_GROUP = #{stockGroup}</if>
+           <if test="closeFlag != null and closeFlag != ''">AND P.CLOSE_FLAG = #{closeFlag}</if>
+           <if test="marketCode != null and marketCode != ''">AND P.MARKET_CODE = #{marketCode}</if>
+         ORDER BY P.MODIFY_DATE DESC
     </select>
 
     <select id="selectPosition" parameterType="hashmap" resultType="positionVo">

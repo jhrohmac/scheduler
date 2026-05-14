@@ -17,6 +17,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,10 +28,9 @@ import org.slf4j.LoggerFactory;
 
 import com.scheduler.finance.kis.config.KisConfigLoader;
 import com.scheduler.finance.kis.config.KisClientFactory;
-import com.scheduler.kis_api.api.rest.quotations.InquirePriceApi;
-import com.scheduler.kis_api.api.rest.quotations.InquirePriceResult;
-import com.scheduler.kis_api.api.rest.quotations.PriceApi;
-import com.scheduler.kis_api.api.rest.quotations.PriceResult;
+import com.scheduler.finance.kis.quote.KisMarketCode;
+import com.scheduler.finance.kis.quote.KisQuoteDto;
+import com.scheduler.finance.kis.quote.KisQuoteService;
 import com.scheduler.kis_client.KisClient;
 import com.scheduler.kis_client.util.JsonUtil;
 
@@ -46,6 +46,8 @@ import com.scheduler.kis_client.util.JsonUtil;
  * - kis.watchlist.quote.period.ms: 폴링 주기(밀리초) / 최소 500ms, 기본값 5000ms(5초)
  *   예시: 500(0.5초), 1000(1초), 2000(2초), 5000(5초)
  * - kis.watchlist.quote.period.sec: 레거시 설정(초 단위, 하위호환용)
+ * - kis.watchlist.quote.fetch.pool.size: REST 조회 worker 수, 기본값 4
+ * - kis.watchlist.quote.max.tokens.per.cycle: 한 폴링 사이클 REST 조회 종목 수, 기본값 4
  * - kis.watchlist.domestic.realtime.enabled: 국내주식 실시간 WebSocket 활성화 여부
  *
  * Token 형식:
@@ -53,7 +55,7 @@ import com.scheduler.kis_client.util.JsonUtil;
  * - 해외: "US|nasdaq|AAPL" (country|market|code)
  *
  * 최적화:
- * - 배치 처리: 대량 관심종목을 MAX_TOKENS_PER_CYCLE(6개)씩 나누어 조회하여 timeout 방지
+ * - 배치 처리: 대량 관심종목을 MAX_TOKENS_PER_CYCLE씩 나누어 조회하여 timeout/rate limit 방지
  * - 폴링 타임아웃: FETCH_TIMEOUT_MS(3.5초)로 API 응답 지연 감지 및 자동 취소
  * - 변화 감지: 가격 변화 없으면 중복 전송 생략 (대역폭 절약)
  * - 밀리초 정밀도: 0.5초부터 수 초대까지 세밀한 폴링 주기 조정 가능
@@ -88,8 +90,8 @@ public class WatchlistQuoteHub {
 		return t;
 	});
 
-    private static final int FETCH_POOL_SIZE = Math.max(6, Runtime.getRuntime().availableProcessors() * 2);
-    private static final int MAX_TOKENS_PER_CYCLE = Math.max(6, FETCH_POOL_SIZE);
+    private static final int FETCH_POOL_SIZE = resolveFetchPoolSize();
+    private static final int MAX_TOKENS_PER_CYCLE = resolveMaxTokensPerCycle();
 
 	private static final ExecutorService FETCH_POOL = Executors.newFixedThreadPool(FETCH_POOL_SIZE, r -> {
 		Thread t = new Thread(r);
@@ -124,6 +126,20 @@ public class WatchlistQuoteHub {
 
 	private final ConcurrentMap<String, Sub> subs = new ConcurrentHashMap<String, Sub>();
 	private final ConcurrentMap<Session, Set<String>> sessionTokens = new ConcurrentHashMap<Session, Set<String>>();
+
+    // 동일 token 동시 REST 호출 dedupe 및 짧은 TTL 캐시
+    private static final long QUOTE_CACHE_TTL_MS = 1000L;
+    private final ConcurrentMap<String, QuoteCacheEntry> quoteCache = new ConcurrentHashMap<String, QuoteCacheEntry>();
+    private final ConcurrentMap<String, CompletableFuture<QuotePayload>> quoteInflight = new ConcurrentHashMap<String, CompletableFuture<QuotePayload>>();
+
+    private static class QuoteCacheEntry {
+        final QuotePayload payload;
+        final long ts;
+        QuoteCacheEntry(QuotePayload payload, long ts) {
+            this.payload = payload;
+            this.ts = ts;
+        }
+    }
 
 	private volatile ScheduledFuture<?> task;
     private final AtomicInteger cursor = new AtomicInteger(0);
@@ -167,6 +183,35 @@ public class WatchlistQuoteHub {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static int resolveFetchPoolSize() {
+        try {
+            return clamp(KisConfigLoader.getKisProperties().getWatchlistQuoteFetchPoolSize(), 1, 8, 4);
+        } catch (Exception e) {
+            return 4;
+        }
+    }
+
+    private static int resolveMaxTokensPerCycle() {
+        try {
+            return clamp(KisConfigLoader.getKisProperties().getWatchlistQuoteMaxTokensPerCycle(), 1, 8, 4);
+        } catch (Exception e) {
+            return 4;
+        }
+    }
+
+    private static int clamp(int value, int min, int max, int fallback) {
+        if (value <= 0) {
+            return fallback;
+        }
+        if (value < min) {
+            return min;
+        }
+        if (value > max) {
+            return max;
+        }
+        return value;
     }
 
     public void shutdown() {
@@ -214,7 +259,7 @@ public class WatchlistQuoteHub {
 			return;
 		}
 
-        Set<String> domesticCodes = new HashSet<String>();
+        Set<String> domesticTokens = new HashSet<String>();
         Set<String> restTokens = new HashSet<String>();
 
         for (String t : tokens) {
@@ -228,7 +273,7 @@ public class WatchlistQuoteHub {
             }
             if (USE_DOMESTIC_REALTIME && p.isDomestic) {
                 if (p.code != null && !p.code.trim().isEmpty()) {
-                    domesticCodes.add(p.code.trim());
+                    domesticTokens.add(toDomesticToken(p.market, p.code));
                 }
             } else {
                 restTokens.add(token);
@@ -236,20 +281,20 @@ public class WatchlistQuoteHub {
         }
 
         Set<String> domesticFailed = Collections.emptySet();
-        if (USE_DOMESTIC_REALTIME && !domesticCodes.isEmpty()) {
+        if (USE_DOMESTIC_REALTIME && !domesticTokens.isEmpty()) {
             try {
-                domesticFailed = domesticHub.subscribe(session, domesticCodes);
+                domesticFailed = domesticHub.subscribe(session, domesticTokens);
             } catch (Exception e) {
                 logger.warn("[WL-QUOTE] domestic subscribe failed session={} count={}", safeId(session),
-                        Integer.valueOf(domesticCodes.size()), e);
-                domesticFailed = domesticCodes;
+                        Integer.valueOf(domesticTokens.size()), e);
+                domesticFailed = domesticTokens;
             }
         }
 
         if (USE_DOMESTIC_REALTIME && domesticFailed != null && !domesticFailed.isEmpty()) {
-            for (String code : domesticFailed) {
-                if (code != null && !code.trim().isEmpty()) {
-                    restTokens.add("KR|KRX|" + code.trim());
+            for (String token : domesticFailed) {
+                if (token != null && !token.trim().isEmpty()) {
+                    restTokens.add(normalizeToken(token.trim()));
                 }
             }
             logger.warn("[WL-QUOTE] domestic realtime failed. fallback to REST count={}", Integer.valueOf(domesticFailed.size()));
@@ -284,7 +329,7 @@ public class WatchlistQuoteHub {
             logger.info("[WL-QUOTE] subscribe session={} total={} domestic={} overseas={}",
                     safeId(session),
                     Integer.valueOf(tokens.size()),
-                    Integer.valueOf(domesticCodes.size()),
+                    Integer.valueOf(domesticTokens.size()),
                     Integer.valueOf(restTokens.size()));
         }
 	}
@@ -427,7 +472,7 @@ public class WatchlistQuoteHub {
         Map<Future<QuotePayload>, String> tokenByFuture = new HashMap<Future<QuotePayload>, String>(batch.size());
 
         for (String token : batch) {
-            Future<QuotePayload> f = ecs.submit(() -> fetchQuote(client, token));
+            Future<QuotePayload> f = ecs.submit(() -> fetchQuoteCached(client, token));
             futures.add(f);
             tokenByFuture.put(f, token);
         }
@@ -636,6 +681,53 @@ public class WatchlistQuoteHub {
         return false;
     }
 
+    /**
+     * token별 TTL 캐시 + inflight coalescing.
+     * - 캐시가 신선하면 즉시 반환
+     * - 진행 중인 호출이 있으면 같은 Future를 공유
+     * - 아니면 새로 호출하고 결과를 캐시
+     */
+    private QuotePayload fetchQuoteCached(KisClient client, String token) {
+        long now = System.currentTimeMillis();
+        QuoteCacheEntry cached = quoteCache.get(token);
+        if (cached != null && (now - cached.ts) < QUOTE_CACHE_TTL_MS) {
+            return cached.payload;
+        }
+
+        CompletableFuture<QuotePayload> existing = quoteInflight.get(token);
+        if (existing != null) {
+            try {
+                return existing.get(2, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                return fetchQuote(client, token);
+            }
+        }
+
+        CompletableFuture<QuotePayload> future = new CompletableFuture<QuotePayload>();
+        CompletableFuture<QuotePayload> prev = quoteInflight.putIfAbsent(token, future);
+        if (prev != null) {
+            try {
+                return prev.get(2, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                return fetchQuote(client, token);
+            }
+        }
+
+        QuotePayload payload;
+        try {
+            payload = fetchQuote(client, token);
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
+            quoteInflight.remove(token, future);
+            throw e;
+        }
+
+        quoteCache.put(token, new QuoteCacheEntry(payload, System.currentTimeMillis()));
+        future.complete(payload);
+        quoteInflight.remove(token, future);
+        return payload;
+    }
+
 	private QuotePayload fetchQuote(KisClient client, String token) {
 		TokenParts p = parseToken(token);
 		if (p == null) {
@@ -650,27 +742,9 @@ public class WatchlistQuoteHub {
 		payload.code = p.code;
 
 		try {
+            KisQuoteService quoteService = new KisQuoteService(client);
 			if (p.isDomestic) {
-				InquirePriceApi api = new InquirePriceApi();
-				api.setFidInputIscd(p.code);
-				api.setFidCondMrktDivCode("UN");
-
-				InquirePriceResult result = client.execute(api);
-                if (result == null || result.getOutput() == null) {
-                    return payload;
-                }
-
-                String rtCd = result.getRtCd();
-                if (rtCd != null && !rtCd.isEmpty() && !"0".equals(rtCd)) {
-                    return payload;
-                }
-
-                InquirePriceResult.Output o = result.getOutput();
-                payload.price = safe(o.getStckPrpr());
-                payload.diff = safe(o.getPrdyVrss());
-                payload.rate = safe(o.getPrdyCtrt());
-                payload.sign = safe(o.getPrdyVrssSign());
-                return payload;
+                return toPayload(quoteService.getDomesticCurrentQuote(token, p.market, p.code));
 			}
 
 			String excd = normalizeExcd(p.market, p.country);
@@ -678,36 +752,32 @@ public class WatchlistQuoteHub {
 				excd = "NAS";
 			}
 
-			PriceApi api = new PriceApi();
-			api.setExcd(excd);
-			api.setSymb(p.code);
-			PriceResult result = client.execute(api);
-			if (result == null || result.getOutput() == null) {
-				return payload;
-			}
-
-            String rtCd = result.getRtCd();
-            if (rtCd != null && !rtCd.isEmpty() && !"0".equals(rtCd)) {
-                return payload;
-            }
-
-			PriceResult.Output o = result.getOutput();
-			payload.price = safe(o.getLast());
-			payload.rate = safe(o.getRate());
-			payload.sign = safe(o.getSign());
-			// 해외 API는 diff가 절대값으로 오므로 sign(4=하락,5=하한)일 때 음수로 변환
-			String diffVal = safe(o.getDiff());
-			String signCode = payload.sign;
-			if (!diffVal.isEmpty() && !diffVal.startsWith("-")
-					&& ("4".equals(signCode) || "5".equals(signCode))) {
-				diffVal = "-" + diffVal;
-			}
-			payload.diff = diffVal;
-			return payload;
+            return toPayload(quoteService.getOverseasCurrentQuote(token, p.country, excd, p.code));
 		} catch (Exception e) {
 			return payload;
 		}
 	}
+
+    private QuotePayload toPayload(KisQuoteDto dto) {
+        QuotePayload payload = new QuotePayload();
+        if (dto == null) {
+            return payload;
+        }
+        payload.type = dto.getType();
+        payload.token = dto.getToken();
+        payload.country = dto.getCountry();
+        payload.market = dto.getMarket();
+        payload.code = dto.getCode();
+        payload.price = dto.getPrice();
+        payload.diff = dto.getDiff();
+        payload.rate = dto.getRate();
+        payload.sign = dto.getSign();
+        payload.basePrice = dto.getBasePrice();
+        payload.source = dto.getSource();
+        payload.fetchedAt = dto.getFetchedAt();
+        payload.stale = dto.isStale();
+        return payload;
+    }
 
 	private KisClient getClientSafe() {
 		KisClient local = client;
@@ -806,6 +876,7 @@ public class WatchlistQuoteHub {
 			if (p.market.isEmpty()) {
 				p.market = "KRX";
 			}
+            p.market = KisMarketCode.normalizeDomesticMarket(p.market);
 			return p;
 		}
 
@@ -846,9 +917,16 @@ public class WatchlistQuoteHub {
 		if (m.isEmpty()) {
 			m = "KR".equalsIgnoreCase(c) ? "KRX" : "NAS";
 		}
+        if ("KR".equalsIgnoreCase(c)) {
+            m = KisMarketCode.normalizeDomesticMarket(m);
+        }
 
 		return c + "|" + m + "|" + code;
 	}
+
+    private String toDomesticToken(String market, String code) {
+        return "KR|" + KisMarketCode.normalizeDomesticMarket(market) + "|" + safe(code);
+    }
 
 	private String normalizeExcd(String market, String country) {
 		String c = safe(country).toUpperCase();
@@ -922,5 +1000,9 @@ public class WatchlistQuoteHub {
 		public String diff;
 		public String rate;
 		public String sign;
+        public String basePrice;
+        public String source;
+        public long fetchedAt;
+        public boolean stale;
 	}
 }

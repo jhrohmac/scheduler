@@ -1,7 +1,7 @@
 var ChartScript = (function () {
     var apiUrl = "/scheduler/finance/kisItemchartpriceData.do";
     var metaUrl = "/scheduler/finance/searchStocksKeyword.do";
-    var currentPriceUrl = "/scheduler/finance/getCurrentPriceByInquirePrice.do";
+    var currentPriceUrl = "/scheduler/finance/quotes/current.do";
 
     var metaCache = {}; // { [stockCode]: {name, market, raw} }
     var currentPriceCache = { code: null, ts: 0, raw: null }; // 3초 캐시
@@ -347,20 +347,27 @@ var ChartScript = (function () {
     function applyCurrentPriceResult(single) {
         if (!single) return;
 
+        var quote = single.quote || null;
         var out = single.output || single.out || null;
         if (!out && single.data && single.data.output) out = single.data.output;
-        if (!out) return;
+        if (!quote && !out) return;
 
-        var cur = pickNumber(out, ["stckPrpr", "stck_prpr", "ovrsNmixPrpr", "ovrs_nmix_prpr", "last", "lastPrice", "price"]);
-        var diff = pickNumber(out, ["prdyVrss", "prdy_vrss", "ovrsNmixPrdyVrss", "ovrs_nmix_prdy_vrss", "diff", "change"]);
-        var prevClose = pickNumber(out, ["stckSdpr", "stck_sdpr", "ovrsPrdyClpr", "ovrs_prdy_clpr", "prevClose", "base"]);
+        var cur = quote ? pickNumber(quote, ["price"]) : NaN;
+        var diff = quote ? pickNumber(quote, ["diff"]) : NaN;
+        var prevClose = quote ? pickNumber(quote, ["basePrice", "base"]) : NaN;
+
+        if (out) {
+            if (isNaN(cur)) cur = pickNumber(out, ["stckPrpr", "stck_prpr", "ovrsNmixPrpr", "ovrs_nmix_prpr", "last", "lastPrice", "price"]);
+            if (isNaN(diff)) diff = pickNumber(out, ["prdyVrss", "prdy_vrss", "ovrsNmixPrdyVrss", "ovrs_nmix_prdy_vrss", "diff", "change"]);
+            if (isNaN(prevClose)) prevClose = pickNumber(out, ["stckSdpr", "stck_sdpr", "ovrsPrdyClpr", "ovrs_prdy_clpr", "prevClose", "base"]);
+        }
 
         if (isNaN(prevClose) && !isNaN(cur) && !isNaN(diff)) {
             prevClose = cur - diff;
         }
 
         // 종목 기본정보(마켓명) 보강
-        if (!headerStatic.market) {
+        if (out && !headerStatic.market) {
             var m = pickString(out, ["rprsMrktKorName"]);
             if (m) headerStatic.market = m;
             applyHeaderStatic();
@@ -376,9 +383,16 @@ var ChartScript = (function () {
                 }
             }
 
+            if (!isNaN(diff)) {
+                try {
+                    updateTopHeader(cur, prevClose);
+                } catch (e0) { }
+            }
+
             // 누적 거래량
             if ($("#kisHdrVol").length) {
-                var v = pickNumber(out, ["acmlVol", "acml_vol", "volume"]);
+                var v = quote ? pickNumber(quote, ["totalVolume", "volume"]) : NaN;
+                if (isNaN(v) && out) v = pickNumber(out, ["acmlVol", "acml_vol", "volume"]);
                 if (!isNaN(v)) {
                     $("#kisHdrVol").text("거래량 " + v.toLocaleString());
                 }
@@ -451,7 +465,8 @@ var ChartScript = (function () {
             }
         }
         var diff = parseFloat(msg.diff);
-        var prevClose = (!isNaN(diff)) ? (price - diff) : NaN;
+        var basePrice = parseFloat(msg.basePrice);
+        var prevClose = !isNaN(basePrice) ? basePrice : ((!isNaN(diff)) ? (price - diff) : NaN);
 
         try {
             updateTopHeader(price, prevClose);

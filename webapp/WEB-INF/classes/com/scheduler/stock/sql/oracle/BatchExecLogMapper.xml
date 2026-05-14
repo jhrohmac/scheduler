@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.stock.sql.BatchExecLog">
 
@@ -13,19 +13,19 @@
             #{execId,jdbcType=VARCHAR},
             #{batchId,jdbcType=VARCHAR},
             TO_DATE(#{baseDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
-            SYSDATE,
+            CURRENT_TIMESTAMP,
             'RUNNING',
             0,
             0,
             0,
             NULL,
-            SYSDATE
+            CURRENT_TIMESTAMP
         )
     </insert>
 
     <update id="updateBatchExecLog" parameterType="hashmap">
         UPDATE TB_BATCH_EXEC_LOG
-           SET END_AT      = SYSDATE,
+           SET END_AT      = CURRENT_TIMESTAMP,
                STATUS      = #{status,jdbcType=VARCHAR},
                TOTAL_CNT   = #{totalCnt,jdbcType=NUMERIC},
                SUCCESS_CNT = #{successCnt,jdbcType=NUMERIC},

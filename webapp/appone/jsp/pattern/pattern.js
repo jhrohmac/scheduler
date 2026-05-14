@@ -3437,7 +3437,10 @@ function normalizeChartBars(list) {
 
 function getRealtimeToken(stock) {
   const item = normalizeStock(stock);
-  if (item.stock_country_code === "KR") return item.stock_code;
+  if (item.stock_country_code === "KR") {
+    const market = item.stock_market || "KRX";
+    return [item.stock_country_code, market, item.stock_code].join("|");
+  }
   const market = item.stock_market || "NAS";
   return [item.stock_country_code, market, item.stock_code].join("|");
 }

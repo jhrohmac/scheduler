@@ -315,6 +315,45 @@ body {
   color: #1d4ed8;
 }
 
+/* ── 시장 레짐 바 ─────────────────────────────────────── */
+.regime-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 4px 4px;
+  font-size: 11px;
+}
+.regime-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f4f6fb;
+  border-radius: 8px;
+  padding: 3px 6px;
+}
+.regime-market-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: .04em;
+  margin-right: 2px;
+}
+.regime-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: default;
+  white-space: nowrap;
+}
+.regime-item.regime-up      { background:#dcfce7; color:#166534; }
+.regime-item.regime-dn      { background:#fee2e2; color:#991b1b; }
+.regime-item.regime-neutral { background:#f1f5f9; color:#475569; }
+.regime-name   { font-weight: 600; }
+.regime-signal { font-size: 10px; opacity: .85; }
+
 .watchlist {
   display: flex;
   flex-direction: column;
@@ -3310,6 +3349,21 @@ body {
 .holding-roi.up { color: #ef4444; }
 .holding-roi.down { color: #2563eb; }
 .holding-roi.flat { color: #6b7280; }
+
+.holding-state {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  letter-spacing: .02em;
+}
+.holding-state.state-hold     { background: #eff6ff; color: #1d4ed8; }
+.holding-state.state-riskon   { background: #fef9c3; color: #854d0e; }
+.holding-state.state-riskoff  { background: #dcfce7; color: #166534; }
+.holding-state.state-entry    { background: #f0fdf4; color: #15803d; }
+.holding-state.state-exit     { background: #fee2e2; color: #991b1b; }
+.holding-state.state-default  { background: #f1f5f9; color: #475569; }
 
 @media (max-width: 768px) {
   .holding-form {

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE catalog PUBLIC "-//OASIS//DTD XML Catalogs V1.1//EN"
+  "http://www.oasis-open.org/committees/entity/release/1.1/catalog.dtd">
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
+  <public publicId="-//mybatis.org//DTD Mapper 3.0//EN"
+          uri="org/apache/ibatis/builder/xml/mybatis-3-mapper.dtd"/>
+  <public publicId="-//mybatis.org//DTD Config 3.0//EN"
+          uri="org/apache/ibatis/builder/xml/mybatis-3-config.dtd"/>
+</catalog>

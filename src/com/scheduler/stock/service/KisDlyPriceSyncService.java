@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.scheduler.finance.kis.config.KisClientFactory;
+import com.scheduler.finance.kis.quote.KisMarketCode;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceApi;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResult;
 import com.scheduler.kis_api.api.rest.quotations.InquireDailyItemchartpriceResult.Output2;
@@ -184,6 +185,7 @@ public class KisDlyPriceSyncService {
 
             InquireDailyItemchartpriceApi api = new InquireDailyItemchartpriceApi();
             api.setFidInputIscd(stkCd);
+            api.setFidCondMrktDivCode(KisMarketCode.toDomesticRestCode("UN"));
             api.setFidInputDate1(startDate.format(BASIC_DATE));
             api.setFidInputDate2(currentEnd.format(BASIC_DATE));
             api.setFidPeriodDivCode("D");
@@ -383,6 +385,7 @@ public class KisDlyPriceSyncService {
         KisClient client = KisClientFactory.getClient();
         InquirePriceApi api = new InquirePriceApi();
         api.setFidInputIscd(stkCd);
+        api.setFidCondMrktDivCode(KisMarketCode.toDomesticRestCode("UN"));
 
         InquirePriceResult result = client.execute(api);
         if (result == null) {

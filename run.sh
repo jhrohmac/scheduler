@@ -96,10 +96,7 @@ start() {
 
     # Oracle Autonomous DB (OCI) TLS 인증서 신뢰 설정
     # - ewallet.pem에서 추출한 Oracle ADB CA를 Java SSL truststore에 등록
-    ORACLE_TRUST_STORE="$PROJECT_DIR/oracle-trust.jks"
-    if [ -f "$ORACLE_TRUST_STORE" ]; then
-        export CATALINA_OPTS="${CATALINA_OPTS} -Djavax.net.ssl.trustStore=$ORACLE_TRUST_STORE -Djavax.net.ssl.trustStorePassword=changeit"
-    fi
+    setup_oracle_trust_store
 
     echo ""
     echo "=== Tomcat 시작(foreground) ==="
@@ -118,12 +115,37 @@ start() {
 
 # 8080, 8005 포트 사용 중인 프로세스 종료
 kill_existing() {
+    stop_brew_service
+
     local pids=$(lsof -ti:8080,8005 2>/dev/null)
     if [ -n "$pids" ]; then
         echo "기존 프로세스 종료 중 (포트 8080/8005)..."
         echo "$pids" | xargs kill -9 2>/dev/null || true
         sleep 1
         echo "  종료 완료"
+    fi
+}
+
+setup_oracle_trust_store() {
+    ORACLE_TRUST_STORE="$PROJECT_DIR/oracle-trust.jks"
+    if [ ! -f "$ORACLE_TRUST_STORE" ]; then
+        return
+    fi
+    if [[ "${CATALINA_OPTS:-}" == *"-Djavax.net.ssl.trustStore="* ]]; then
+        return
+    fi
+    export CATALINA_OPTS="${CATALINA_OPTS:-} -Djavax.net.ssl.trustStore=$ORACLE_TRUST_STORE -Djavax.net.ssl.trustStorePassword=changeit"
+}
+
+stop_brew_service() {
+    if ! command -v brew >/dev/null 2>&1; then
+        return
+    fi
+    if brew services list 2>/dev/null | grep -E '^tomcat@9[[:space:]]+started' >/dev/null 2>&1; then
+        echo "Homebrew tomcat@9 서비스 중지 중..."
+        brew services stop tomcat@9 >/dev/null 2>&1 || true
+        sleep 1
+        echo "  Homebrew tomcat@9 서비스 중지 완료"
     fi
 }
 

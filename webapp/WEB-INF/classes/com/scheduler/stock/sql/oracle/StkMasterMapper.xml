@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.stock.sql.StkMaster">
 
@@ -156,7 +156,7 @@
                 T.LIST_DT      = NVL(S.LIST_DT, T.LIST_DT),
                 T.USE_YN       = CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE T.USE_YN END,
                 T.DELIST_DT    = CASE WHEN S.STK_STATUS = 'DELIST' AND T.STK_STATUS != 'DELIST'
-                                      THEN SYSDATE ELSE T.DELIST_DT END,
+                                      THEN CURRENT_TIMESTAMP ELSE T.DELIST_DT END,
                 /* 그룹1 */
                 T.SCRT_GRP_CLS_CD = NVL(S.SCRT_GRP_CLS_CD, T.SCRT_GRP_CLS_CD),
                 T.SYMBOL           = NVL(S.SYMBOL, T.SYMBOL),
@@ -236,7 +236,7 @@
                 T.BASE_DT       = S.BASE_DT,
                 T.PRDY_AVLS_SCAL = S.PRDY_AVLS_SCAL,
                 T.CO_CD         = S.CO_CD,
-                T.UPDATED_AT    = SYSDATE
+                T.UPDATED_AT    = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (
                 STK_CD, STK_NM, STK_NM_EN, MKT_CD, STK_STATUS, STK_TYPE,
@@ -287,7 +287,7 @@
                 S.SALE_ACCOUNT, S.BSOP_PRFI, S.OP_PRFI, S.THTR_NTIN, S.ROE_VAL,
                 S.BASE_DT, S.PRDY_AVLS_SCAL, S.CO_CD,
                 CASE WHEN S.STK_STATUS = 'DELIST' THEN 'N' ELSE 'Y' END,
-                SYSDATE, SYSDATE
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
     </update>
 
@@ -295,9 +295,9 @@
     <update id="updateStkMasterDelist" parameterType="hashmap">
         UPDATE TB_STK_MASTER
            SET STK_STATUS  = 'DELIST',
-               DELIST_DT   = SYSDATE,
+               DELIST_DT   = CURRENT_TIMESTAMP,
                USE_YN      = 'N',
-               UPDATED_AT  = SYSDATE
+               UPDATED_AT  = CURRENT_TIMESTAMP
          WHERE STK_CD      = #{stkCd,jdbcType=VARCHAR}
            AND STK_STATUS != 'DELIST'
     </update>

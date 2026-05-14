@@ -2,7 +2,7 @@
 
 <!DOCTYPE mapper      
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"      
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="sql.MenuManage">
 
@@ -257,15 +257,7 @@
   	 	   SET SORT_ORDER = #{in_newOrder}
   	 	      ,MODIFY_USER = #{in_userId}
   	 	      ,MODIFY_DATE = sysdate
-  	 	WHERE 1=1
-  	 	<if test="in_parentId !=''">
-  	 		AND PARENT_ID = #{in_parentId}
-  	 	</if>
-  	 	<if test="in_parentId ==''">
-  	 		AND PARENT_ID IS NULL
-  	 	</if>
-  	 		AND MENU_SEQ = #{in_menuSeq}
-  	 		AND SORT_ORDER = #{in_sortOrder}
+  	 	 WHERE MENU_SEQ = #{in_menuSeq}
   	</update>
   	
  	<delete id="deleteMenu">

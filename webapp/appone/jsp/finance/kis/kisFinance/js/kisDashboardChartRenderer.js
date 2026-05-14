@@ -545,7 +545,7 @@
 
           ctx.setLineDash([4, 4]);
           ctx.strokeStyle = 'rgba(80,80,80,0.45)';
-          ctx.lineWidth = 0.9;
+          ctx.lineWidth = 0.3;
           ctx.beginPath();
           ctx.moveTo(x0, marginT);
           ctx.lineTo(x0, marginT + mainH);

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.stock.sql.RecSignal">
 
@@ -49,7 +49,7 @@
                 T.REC_YN         = S.REC_YN,
                 T.REC_GRADE      = S.REC_GRADE,
                 T.REC_REASON     = S.REC_REASON,
-                T.UPDATED_AT     = SYSDATE
+                T.UPDATED_AT     = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (
                 BASE_DT, STK_CD, STK_NM, MKT_CD, CUR_PRICE, MON_OPEN_PRICE,
@@ -63,7 +63,7 @@
                 S.MA5, S.MA20, S.MA60, S.MA120, S.MA240,
                 S.GOLDEN_YN, S.MON_UP_YN, S.MON_CHG_RATE, S.TREND_STRENGTH, S.AVG_TRD_VAL_20,
                 S.REC_YN, S.REC_GRADE, S.REC_REASON,
-                SYSDATE, SYSDATE
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
     </update>
 

@@ -18,6 +18,11 @@ import java.util.Properties;
  *  - kis.rest.limit.per.second
  *  - kis.socket.limit.per.second
  *  - kis.watchlist.quote.period.sec
+ *  - kis.watchlist.quote.fetch.pool.size
+ *  - kis.watchlist.quote.max.tokens.per.cycle
+ *  - kis.ws.max.subscriptions
+ *  - kis.ws.subscribe.min.interval.ms
+ *  - kis.ws.unsubscribe.min.interval.ms
  *  - kis.watchlist.domestic.realtime.enabled
  */
 public class KisProperties {
@@ -40,6 +45,11 @@ public class KisProperties {
     private final int socketLimitPerSecond;
     private final int watchlistQuotePeriodSec;
     private final int watchlistQuotePeriodMs;
+    private final int watchlistQuoteFetchPoolSize;
+    private final int watchlistQuoteMaxTokensPerCycle;
+    private final int wsMaxSubscriptions;
+    private final int wsSubscribeMinIntervalMs;
+    private final int wsUnsubscribeMinIntervalMs;
     private final boolean watchlistDomesticRealtimeEnabled;
 
     public KisProperties(Properties properties) {
@@ -76,6 +86,11 @@ public class KisProperties {
             this.watchlistQuotePeriodMs = periodMs;
         }
 
+        this.watchlistQuoteFetchPoolSize = getInt(properties, "kis.watchlist.quote.fetch.pool.size", 4);
+        this.watchlistQuoteMaxTokensPerCycle = getInt(properties, "kis.watchlist.quote.max.tokens.per.cycle", 4);
+        this.wsMaxSubscriptions = getInt(properties, "kis.ws.max.subscriptions", 40);
+        this.wsSubscribeMinIntervalMs = getInt(properties, "kis.ws.subscribe.min.interval.ms", 100);
+        this.wsUnsubscribeMinIntervalMs = getInt(properties, "kis.ws.unsubscribe.min.interval.ms", 100);
         this.watchlistDomesticRealtimeEnabled = getBool(properties, "kis.watchlist.domestic.realtime.enabled", false);
     }
 
@@ -182,6 +197,26 @@ public class KisProperties {
         return watchlistQuotePeriodMs;
     }
 
+    public int getWatchlistQuoteFetchPoolSize() {
+        return watchlistQuoteFetchPoolSize;
+    }
+
+    public int getWatchlistQuoteMaxTokensPerCycle() {
+        return watchlistQuoteMaxTokensPerCycle;
+    }
+
+    public int getWsMaxSubscriptions() {
+        return wsMaxSubscriptions;
+    }
+
+    public int getWsSubscribeMinIntervalMs() {
+        return wsSubscribeMinIntervalMs;
+    }
+
+    public int getWsUnsubscribeMinIntervalMs() {
+        return wsUnsubscribeMinIntervalMs;
+    }
+
     public boolean isWatchlistDomesticRealtimeEnabled() {
         return watchlistDomesticRealtimeEnabled;
     }
@@ -201,6 +236,12 @@ public class KisProperties {
                 ", restLimitPerSecond=" + restLimitPerSecond +
                 ", socketLimitPerSecond=" + socketLimitPerSecond +
                 ", watchlistQuotePeriodSec=" + watchlistQuotePeriodSec +
+                ", watchlistQuotePeriodMs=" + watchlistQuotePeriodMs +
+                ", watchlistQuoteFetchPoolSize=" + watchlistQuoteFetchPoolSize +
+                ", watchlistQuoteMaxTokensPerCycle=" + watchlistQuoteMaxTokensPerCycle +
+                ", wsMaxSubscriptions=" + wsMaxSubscriptions +
+                ", wsSubscribeMinIntervalMs=" + wsSubscribeMinIntervalMs +
+                ", wsUnsubscribeMinIntervalMs=" + wsUnsubscribeMinIntervalMs +
                 ", watchlistDomesticRealtimeEnabled=" + watchlistDomesticRealtimeEnabled +
                 '}';
     }

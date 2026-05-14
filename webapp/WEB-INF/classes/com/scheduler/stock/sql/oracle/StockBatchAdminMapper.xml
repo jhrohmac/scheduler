@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.stock.sql.StockBatchAdmin">
 
@@ -36,8 +36,8 @@
             #{bean_name},
             'Y',
             #{task_desc},
-            SYSDATE,
-            SYSDATE
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
         )
     </insert>
 
@@ -225,7 +225,7 @@
                   JOIN TB_STK_BATCH_JOB_DEF J ON J.JOB_ID = S.JOB_ID
                  WHERE S.LOG_RETENTION_DAYS IS NOT NULL
                    AND S.LOG_RETENTION_DAYS <![CDATA[>]]> 0
-                   AND L.START_AT <![CDATA[<]]> SYSDATE - S.LOG_RETENTION_DAYS
+                   AND L.START_AT <![CDATA[<]]> CURRENT_TIMESTAMP - S.LOG_RETENTION_DAYS
                    AND (
                        L.BATCH_ID = J.JOB_ID
                        OR L.BATCH_ID LIKE 'BATCH_' || REPLACE(UPPER(J.TASK_KEY), '_RUN', '') || '_%'
@@ -245,7 +245,7 @@
             #{timezone}, TO_NUMBER(#{max_runtime_sec}), #{allow_manual_run_yn},
             'SINGLETON', #{description},
             'NONE', 'CREATED',
-            SYSDATE, SYSDATE
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     </insert>
 
@@ -258,7 +258,7 @@
              , MAX_RUNTIME_SEC = TO_NUMBER(#{max_runtime_sec})
              , ALLOW_MANUAL_RUN_YN = #{allow_manual_run_yn}
              , DESCRIPTION = #{description}
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
@@ -285,7 +285,7 @@
                 T.LOG_RETENTION_DAYS = CASE WHEN #{log_retention_days} = '0' THEN NULL ELSE TO_NUMBER(#{log_retention_days}) END,
                 T.NEXT_RUN_AT = TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS'),
                 T.LAST_EVAL_AT = TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS'),
-                T.MOD_DT = SYSDATE
+                T.MOD_DT = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (
                 SCHEDULE_ID, JOB_ID, SCHEDULE_TYPE, CRON_EXPR,
@@ -302,7 +302,7 @@
                 CASE WHEN #{log_retention_days} = '0' THEN NULL ELSE TO_NUMBER(#{log_retention_days}) END,
                 TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS'),
                 TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS'),
-                SYSDATE, SYSDATE
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
     </update>
 
@@ -333,8 +333,8 @@
             #{param_type},
             #{required_yn},
             #{masked_yn},
-            SYSDATE,
-            SYSDATE
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
         )
     </insert>
 
@@ -347,14 +347,14 @@
                        T.PARAM_TYPE   = #{param_type},
                        T.REQUIRED_YN  = #{required_yn},
                        T.MASKED_YN    = #{masked_yn},
-                       T.MOD_DT       = SYSDATE
+                       T.MOD_DT       = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (PARAM_ID, JOB_ID, PARAM_KEY, PARAM_VALUE,
                     PARAM_TYPE, REQUIRED_YN, MASKED_YN, REG_DT, MOD_DT)
             VALUES (SEQ_STK_BATCH_JOB_PARAM.NEXTVAL,
                     #{job_id}, #{param_key}, #{param_value},
                     #{param_type}, #{required_yn}, #{masked_yn},
-                    SYSDATE, SYSDATE)
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     </insert>
 
     <insert id="ensureJobRuntime" parameterType="hashmap">
@@ -363,26 +363,26 @@
            ON (T.JOB_ID = S.JOB_ID)
         WHEN NOT MATCHED THEN
             INSERT (JOB_ID, RUNNING_YN, STOP_REQUEST_YN, MOD_DT)
-            VALUES (#{job_id}, 'N', 'N', SYSDATE)
+            VALUES (#{job_id}, 'N', 'N', CURRENT_TIMESTAMP)
     </insert>
 
     <update id="tryAcquireRuntimeLock" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_RUNTIME
            SET RUNNING_YN = 'Y'
              , LOCK_OWNER = #{lock_owner}
-             , LOCK_AT = SYSDATE
-             , LAST_HEARTBEAT_AT = SYSDATE
+             , LOCK_AT = CURRENT_TIMESTAMP
+             , LAST_HEARTBEAT_AT = CURRENT_TIMESTAMP
              , STOP_REQUEST_YN = 'N'
              , CURRENT_EXEC_ID = #{exec_id}
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
            AND RUNNING_YN = 'N'
     </update>
 
     <update id="heartbeatRuntime" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_RUNTIME
-           SET LAST_HEARTBEAT_AT = SYSDATE
-             , MOD_DT = SYSDATE
+           SET LAST_HEARTBEAT_AT = CURRENT_TIMESTAMP
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
            AND RUNNING_YN = 'Y'
     </update>
@@ -393,14 +393,14 @@
              , STOP_REQUEST_YN = 'N'
              , CURRENT_EXEC_ID = NULL
              , LAST_HEARTBEAT_AT = NULL
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
     <update id="requestStop" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_RUNTIME
            SET STOP_REQUEST_YN = 'Y'
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
@@ -421,7 +421,7 @@
         UPDATE TB_STK_BATCH_JOB_SCHEDULE
            SET NEXT_RUN_AT = TO_DATE(#{next_run_at}, 'YYYY-MM-DD HH24:MI:SS')
              , LAST_EVAL_AT = TO_DATE(#{last_eval_at}, 'YYYY-MM-DD HH24:MI:SS')
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
@@ -455,7 +455,7 @@
            AND S.ENABLED_YN = 'Y'
            AND T.ENABLED_YN = 'Y'
            AND NVL(R.RUNNING_YN, 'N') = 'N'
-           AND (S.NEXT_RUN_AT IS NULL OR S.NEXT_RUN_AT <![CDATA[<=]]> SYSDATE)
+           AND (S.NEXT_RUN_AT IS NULL OR S.NEXT_RUN_AT <![CDATA[<=]]> CURRENT_TIMESTAMP)
          ORDER BY S.NEXT_RUN_AT NULLS FIRST, J.JOB_ID
     </select>
 
@@ -466,12 +466,15 @@
             ON J.JOB_ID = R.JOB_ID
          WHERE R.RUNNING_YN = 'Y'
            AND R.LOCK_AT IS NOT NULL
-           AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+           AND (
+                NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (CURRENT_TIMESTAMP - (10 / (24*60)))
+                OR R.LOCK_AT <![CDATA[<]]> (CURRENT_TIMESTAMP - (J.MAX_RUNTIME_SEC / (24*60*60)))
+           )
     </select>
 
     <update id="clearStaleBatchExecLogs" parameterType="hashmap">
         UPDATE TB_BATCH_EXEC_LOG L
-           SET END_AT = SYSDATE,
+           SET END_AT = CURRENT_TIMESTAMP,
                STATUS = 'FAIL',
                ERROR_MSG = SUBSTR(
                    CASE
@@ -501,7 +504,10 @@
                     ON P.JOB_ID = J.JOB_ID
                  WHERE R.RUNNING_YN = 'Y'
                    AND R.LOCK_AT IS NOT NULL
-                   AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+                   AND (
+                        NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (CURRENT_TIMESTAMP - (10 / (24*60)))
+                        OR R.LOCK_AT <![CDATA[<]]> (CURRENT_TIMESTAMP - (J.MAX_RUNTIME_SEC / (24*60*60)))
+                   )
                    AND (
                         L.EXEC_ID = R.CURRENT_EXEC_ID
                         OR (
@@ -517,20 +523,45 @@
            )
     </update>
 
+    <update id="clearOrphanRunningBatchExecLogs" parameterType="hashmap">
+        UPDATE TB_BATCH_EXEC_LOG L
+           SET END_AT = CURRENT_TIMESTAMP,
+               STATUS = 'FAIL',
+               ERROR_MSG = SUBSTR(
+                   CASE
+                       WHEN L.ERROR_MSG IS NULL OR TRIM(L.ERROR_MSG) = '' THEN 'AUTO_ABORT_ORPHAN_RUNNING_LOG'
+                       ELSE L.ERROR_MSG || ' / AUTO_ABORT_ORPHAN_RUNNING_LOG'
+                   END,
+                   1,
+                   2000
+               )
+         WHERE L.STATUS = 'RUNNING'
+           AND L.START_AT <![CDATA[<]]> (CURRENT_TIMESTAMP - 1)
+           AND NOT EXISTS (
+                SELECT 1
+                  FROM TB_STK_BATCH_JOB_RUNTIME R
+                 WHERE R.RUNNING_YN = 'Y'
+                   AND R.CURRENT_EXEC_ID = L.EXEC_ID
+           )
+    </update>
+
     <update id="clearStaleRuntimeLocks" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_RUNTIME R
            SET RUNNING_YN = 'N'
              , STOP_REQUEST_YN = 'N'
              , CURRENT_EXEC_ID = NULL
              , LAST_HEARTBEAT_AT = NULL
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE R.RUNNING_YN = 'Y'
            AND R.LOCK_AT IS NOT NULL
            AND EXISTS (
                 SELECT 1
-                  FROM TB_STK_BATCH_JOB_DEF J
-                 WHERE J.JOB_ID = R.JOB_ID
-                   AND NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (SYSDATE - (J.MAX_RUNTIME_SEC / (24*60*60)))
+                 FROM TB_STK_BATCH_JOB_DEF J
+                WHERE J.JOB_ID = R.JOB_ID
+                   AND (
+                        NVL(R.LAST_HEARTBEAT_AT, R.LOCK_AT) <![CDATA[<]]> (CURRENT_TIMESTAMP - (10 / (24*60)))
+                        OR R.LOCK_AT <![CDATA[<]]> (CURRENT_TIMESTAMP - (J.MAX_RUNTIME_SEC / (24*60*60)))
+                   )
            )
     </update>
 
@@ -538,9 +569,10 @@
     <update id="fixOrphanRunningStatus" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_DEF J
            SET J.LAST_RESULT_CODE = 'ABORTED'
-             , J.LAST_END_AT      = SYSDATE
-             , J.MOD_DT           = SYSDATE
-         WHERE J.LAST_RESULT_CODE = 'RUNNING'
+             , J.LAST_RESULT_MSG  = 'AUTO_ABORT_STALE_RUNTIME'
+             , J.LAST_END_AT      = CURRENT_TIMESTAMP
+             , J.MOD_DT           = CURRENT_TIMESTAMP
+         WHERE (J.LAST_RESULT_CODE = 'RUNNING' OR J.LAST_RESULT_MSG = 'RUNNING')
            AND NOT EXISTS (
                 SELECT 1
                   FROM TB_STK_BATCH_JOB_RUNTIME R
@@ -551,19 +583,20 @@
 
     <update id="markJobStart" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_DEF
-           SET LAST_START_AT = SYSDATE
+           SET LAST_START_AT = CURRENT_TIMESTAMP
+             , LAST_END_AT = NULL
              , LAST_RESULT_CODE = 'RUNNING'
              , LAST_RESULT_MSG = 'RUNNING'
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
     <update id="markJobFinish" parameterType="hashmap">
         UPDATE TB_STK_BATCH_JOB_DEF
-           SET LAST_END_AT = SYSDATE
+           SET LAST_END_AT = CURRENT_TIMESTAMP
              , LAST_RESULT_CODE = #{last_result_code}
              , LAST_RESULT_MSG = #{last_result_msg}
-             , MOD_DT = SYSDATE
+             , MOD_DT = CURRENT_TIMESTAMP
          WHERE JOB_ID = #{job_id}
     </update>
 
@@ -574,18 +607,18 @@
         ) VALUES (
             #{exec_id,jdbcType=VARCHAR},
             #{batch_id,jdbcType=VARCHAR},
-            TRUNC(SYSDATE),
-            SYSDATE,
+            TRUNC(CURRENT_TIMESTAMP),
+            CURRENT_TIMESTAMP,
             'RUNNING',
             0, 0, 0,
             NULL,
-            SYSDATE
+            CURRENT_TIMESTAMP
         )
     </insert>
 
     <update id="updateJobExecLog" parameterType="hashmap">
         UPDATE TB_BATCH_EXEC_LOG
-           SET END_AT      = SYSDATE,
+           SET END_AT      = CURRENT_TIMESTAMP,
                STATUS      = #{status,jdbcType=VARCHAR},
                TOTAL_CNT   = #{total_cnt,jdbcType=NUMERIC},
                SUCCESS_CNT = #{success_cnt,jdbcType=NUMERIC},

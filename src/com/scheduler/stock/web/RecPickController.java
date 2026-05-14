@@ -108,6 +108,20 @@ public class RecPickController {
         }
     }
 
+    @RequestMapping("/stock/recPick/delete.do")
+    public void deleteRecPick(HttpServletRequest req, HttpServletResponse res) {
+        HashMap<String, String> map = RequestHandler.extractParameters(req);
+        try {
+            HashMap<String, Object> resultMap = recPickService.deleteRecPick(map);
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setSingleData(resultMap);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
     @RequestMapping("/stock/recPick/dailyTrack.do")
     public void selectDailyTrack(HttpServletRequest req, HttpServletResponse res) {
         HashMap<String, String> map = RequestHandler.extractParameters(req);

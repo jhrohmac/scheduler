@@ -67,6 +67,7 @@
     /* ── 페이지 초기화 ─────────────────────────────── */
     function init() {
         bindMarketGroupTabs();
+        bindWlMarketTabs();
         bindFilterButtons();
         // 1) 지표 메타 + 사용자 프리셋 + 관심그룹 목록 병렬 로드
         Promise.all([
@@ -204,65 +205,137 @@
         });
     }
 
-    /* ── 관심그룹 목록 로드 + 마지막 선택 복원 ───────────── */
-    var _watchGroupList = [];
+    /* ── 관심그룹 (kisFinance 패턴: wlMarket pill + wlGroup + wlGroupDiv) ─── */
+    var _watchGroupsKR = [];
+    var _watchGroupsUS = [];
+    var __WL_GROUP_DIV_LABELS = { normal: "노멀", month: "월말", recommend: "추천" };
+    var __WL_GROUP_DIV_ORDER = ["normal", "month", "recommend"];
 
     function watchGroupLastUsedKey() {
         return "rpd.lastWatchGroupId." + (config.userId || "anonymous");
     }
+    function watchGroupDivLastKey() {
+        return "rpd.lastWlGroupDiv." + (config.userId || "anonymous");
+    }
+    function currentMarketVal() { return ($("#wlMarket").val() || "N"); }
+    function normalizeWlGroupDiv(v) {
+        v = (v || "").toString().toLowerCase();
+        return __WL_GROUP_DIV_ORDER.indexOf(v) >= 0 ? v : "normal";
+    }
 
-    function loadWatchGroupList() {
+    function fetchGroupsByMarket(marketParam) {
         return new Promise(function (resolve) {
             $.ajax({
                 url: config.watchGroupListUrl,
                 method: "GET",
                 dataType: "json",
-                success: function (resp) {
-                    var list = (resp && resp.data) || [];
-                    _watchGroupList = list;
-                    renderWatchGroupSelect();
-                    resolve();
-                },
-                error: function () {
-                    _watchGroupList = [];
-                    renderWatchGroupSelect();
-                    resolve();
-                }
+                data: { market: marketParam },
+                success: function (resp) { resolve((resp && resp.data) || []); },
+                error: function () { resolve([]); }
             });
         });
     }
 
+    // wlMarket select 값(N/A) → DB GROUP_MARKET 코드(KR/US) 변환
+    function toGroupMarketCode(v) { return v === "A" ? "US" : "KR"; }
+
+    function loadWatchGroupList() {
+        return Promise.all([
+            fetchGroupsByMarket("KR"),
+            fetchGroupsByMarket("US")
+        ]).then(function (results) {
+            _watchGroupsKR = results[0];
+            _watchGroupsUS = results[1];
+            renderWatchGroupSelect();
+        });
+    }
+
     function renderWatchGroupSelect() {
-        var $sel = $("#rpdWatchGroupSelect");
+        var $sel = $("#wlGroup");
         if (!$sel.length) return;
         $sel.empty();
-        if (!_watchGroupList || _watchGroupList.length === 0) {
-            $sel.append('<option value="">(등록된 관심그룹 없음 — 관심종목 화면에서 그룹 먼저 생성)</option>');
+        var mkt = currentMarketVal();
+        var list = mkt === "A" ? _watchGroupsUS : _watchGroupsKR;
+        if (!list || list.length === 0) {
+            var label = mkt === "A" ? "미국" : "한국";
+            $sel.append('<option value="">(' + label + ' 관심그룹 없음)</option>');
             $sel.prop("disabled", true);
             return;
         }
         $sel.prop("disabled", false);
-        _watchGroupList.forEach(function (g) {
+        list.forEach(function (g) {
             var id = g.GROUP_ID || g.groupId;
             var name = g.GROUP_NAME || g.groupName;
-            var market = g.GROUP_MARKET || g.groupMarket || "";
-            var cnt = g.STOCK_COUNT != null ? g.STOCK_COUNT : (g.stockCount != null ? g.stockCount : 0);
-            var marketLabel = market === "N" ? "[국내] " : (market === "A" ? "[해외] " : "");
             $sel.append('<option value="' + escapeHtml(id) + '">' +
-                marketLabel + escapeHtml(name) + ' (' + cnt + ')</option>');
+                escapeHtml(name) + '</option>');
         });
-        // 마지막 선택 복원
         try {
-            var last = localStorage.getItem(watchGroupLastUsedKey());
-            if (last) $sel.val(last);
-            if (!$sel.val() && _watchGroupList.length > 0) {
-                $sel.val(_watchGroupList[0].GROUP_ID || _watchGroupList[0].groupId);
+            var last = localStorage.getItem(watchGroupLastUsedKey() + "." + mkt);
+            if (last && $sel.find('option[value="' + last + '"]').length) {
+                $sel.val(last);
+            } else if (list.length > 0) {
+                $sel.val(list[0].GROUP_ID || list[0].groupId);
             }
         } catch (e) {}
     }
 
-    function currentWatchGroupId() {
-        return $("#rpdWatchGroupSelect").val() || "";
+    function currentWatchGroupId() { return $("#wlGroup").val() || ""; }
+    function currentWatchGroupDiv() { return normalizeWlGroupDiv($("#wlGroupDiv").val()); }
+
+    function setWlMarketPillText(isOverseas) {
+        $("#wlMarketPillText").text(isOverseas ? "미국" : "한국");
+        $("#wlMarketSwitchBtn").toggleClass("is-overseas", isOverseas);
+    }
+
+    function syncWlGroupDivBtn(mode) {
+        var $btn = $("#wlGroupDivBtn");
+        if (!$btn.length) return;
+        mode = normalizeWlGroupDiv(mode);
+        var label = __WL_GROUP_DIV_LABELS[mode] || "노멀";
+        var idx = __WL_GROUP_DIV_ORDER.indexOf(mode);
+        $btn.attr("data-div-mode", mode).attr("title", "분류: " + label);
+        $btn.toggleClass("is-active", mode !== "normal");
+        $btn.find(".wl-group-div-btn-mode").text(label);
+        $btn.find(".double-chart-dot").removeClass("is-active");
+        if (idx >= 0) $btn.find(".double-chart-dot").eq(idx).addClass("is-active");
+    }
+
+    function bindWlMarketTabs() {
+        // 초기 분류 mode 복원
+        try {
+            var savedDiv = localStorage.getItem(watchGroupDivLastKey());
+            if (savedDiv) $("#wlGroupDiv").val(normalizeWlGroupDiv(savedDiv));
+        } catch (e) {}
+        syncWlGroupDivBtn($("#wlGroupDiv").val());
+        setWlMarketPillText(currentMarketVal() === "A");
+
+        // 시장 pill 토글
+        $(document).on("click", "#wlMarketSwitchBtn", function () {
+            var next = currentMarketVal() === "A" ? "N" : "A";
+            $("#wlMarket").val(next).trigger("change");
+        });
+        $(document).on("change", "#wlMarket", function () {
+            setWlMarketPillText($(this).val() === "A");
+            renderWatchGroupSelect();
+        });
+
+        // 그룹 select 변경 → 마지막 선택 저장 (시장별)
+        $(document).on("change", "#wlGroup", function () {
+            var v = $(this).val();
+            if (v) {
+                try { localStorage.setItem(watchGroupLastUsedKey() + "." + currentMarketVal(), v); } catch (e) {}
+            }
+        });
+
+        // 분류 cycle 버튼: normal → month → recommend → normal
+        $(document).on("click", "#wlGroupDivBtn", function () {
+            var cur = currentWatchGroupDiv();
+            var idx = __WL_GROUP_DIV_ORDER.indexOf(cur);
+            var next = __WL_GROUP_DIV_ORDER[(idx + 1) % __WL_GROUP_DIV_ORDER.length];
+            $("#wlGroupDiv").val(next);
+            syncWlGroupDivBtn(next);
+            try { localStorage.setItem(watchGroupDivLastKey(), next); } catch (e) {}
+        });
     }
 
     /* ── 백엔드 지표 메타데이터 로드 ──────────────────── */
@@ -300,6 +373,11 @@
             state.stockType = "ALL";
             renderMarketChips();
             applyFilters();
+            // 관심그룹 시장도 동기화 (KR→N, US→A)
+            var nextMkt = group === "US" ? "A" : "N";
+            if ($("#wlMarket").val() !== nextMkt) {
+                $("#wlMarket").val(nextMkt).trigger("change");
+            }
         });
     }
 
@@ -1185,7 +1263,7 @@
                 mktCd: stock.mktCd,
                 stkCd: stock.stkCd,
                 watchGroupId: groupId,
-                watchGroupDiv: "recommend"
+                watchGroupDiv: currentWatchGroupDiv()
             },
             success: function (resp) {
                 var ok = resp && (
@@ -1283,13 +1361,6 @@
             $body.slideToggle(180);
         });
 
-        // 관심그룹 select — 변경 시 마지막 선택 저장
-        $(document).on("change", "#rpdWatchGroupSelect", function () {
-            var v = $(this).val();
-            if (v) {
-                try { localStorage.setItem(watchGroupLastUsedKey(), v); } catch (e) {}
-            }
-        });
         // 차트 새로고침 — KIS API 다시 호출
         $(document).on("click", "#rpdBtnRefreshChart", function () {
             if (state.currentSelectedIdx == null) return;

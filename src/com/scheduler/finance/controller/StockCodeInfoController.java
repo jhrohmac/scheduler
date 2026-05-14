@@ -36,6 +36,10 @@ import com.scheduler.comm.util.StringUtil;
 import com.scheduler.comm.util.TimeUtil;
 import com.scheduler.comm.vo.DataTableSettingVo;
 import com.scheduler.finance.dao.StockCodeInfoDao;
+import com.scheduler.finance.kis.quote.KisQuoteDto;
+import com.scheduler.finance.kis.quote.KisQuoteMapper;
+import com.scheduler.finance.kis.quote.KisQuoteResponse;
+import com.scheduler.finance.kis.quote.KisQuoteService;
 import com.scheduler.finance.module.AlphaSquareApiUtil;
 import com.scheduler.finance.module.MACDOSCCalculator;
 import com.scheduler.finance.module.MovingAverageAlignmentModule;
@@ -1627,6 +1631,60 @@ public class StockCodeInfoController {
     		e.printStackTrace();
     		ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
     	}
+    }
+
+    /**
+     * Ajax: 화면 표준 현재가 조회
+     *
+     * 기존 /finance/getCurrentPriceByInquirePrice.do 는 원 KIS 응답 호환을 유지하고,
+     * 신규 화면은 이 endpoint의 quote DTO를 우선 사용한다.
+     */
+    @RequestMapping({ "/finance/quotes/current.do" })
+    public void getCurrentQuote(HttpServletRequest req, HttpServletResponse res) {
+        HashMap<String, String> map = RequestHandler.extractParameters(req);
+        String stockCode = req.getParameter("in_stockCode");
+        if (stockCode == null || stockCode.trim().isEmpty()) {
+            stockCode = "005930";
+            map.put("in_stockCode", stockCode);
+        }
+
+        String country = trimToUpper(req.getParameter("in_country"));
+        String market = trimToUpper(req.getParameter("in_market"));
+
+        try {
+            String code = stockCode == null ? "" : stockCode.trim();
+            KisQuoteService quoteService = new KisQuoteService();
+
+            KisQuoteResponse response = new KisQuoteResponse();
+            boolean overseas = !country.isEmpty() && !"KR".equals(country);
+
+            if (overseas) {
+                String excd = market.isEmpty() ? "NAS" : market;
+                String token = country + "|" + excd + "|" + code;
+                KisQuoteDto quote = quoteService.getOverseasCurrentQuote(token, country, excd, code);
+                response.setQuote(quote);
+            } else {
+                InquirePriceResult result = quoteService.getDomesticCurrentRaw(code);
+                KisQuoteDto quote = KisQuoteMapper.fromDomesticRest("KR|KRX|" + code, code, result);
+                response.setQuote(quote);
+                response.setOutput(result == null ? null : result.getOutput());
+                response.setRaw(result);
+            }
+
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setSingleData(response);
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    private String trimToUpper(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().toUpperCase();
     }
     
     /**

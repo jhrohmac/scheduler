@@ -242,8 +242,11 @@
       return;
     }
 
-    diff = toNumber(msg.diff);
-    prevClose = Number.isFinite(diff) ? (price - diff) : NaN;
+    prevClose = toNumber(msg.basePrice);
+    if (!Number.isFinite(prevClose)) {
+      diff = toNumber(msg.diff);
+      prevClose = Number.isFinite(diff) ? (price - diff) : NaN;
+    }
     global.KisDashboardChartRenderer.updateRealtimePrice(price, prevClose);
   }
 
@@ -268,7 +271,11 @@
   }
 
   function signFromDiff(it) {
-    // 전일비(diff/rate) 기준 우선 — tick 부호(sign)는 fallback
+    // KIS 부호코드가 있으면 방향 판단의 1순위로 사용한다.
+    // 1/2=상승, 3=보합, 4/5=하락. diff/rate는 sign이 없을 때만 fallback.
+    var explicit = normalizeSign(it && it.sign);
+    if (explicit) return explicit;
+
     var n = toNumber(it && it.diff);
     if (Number.isFinite(n)) {
       if (n > 0) return "+";
@@ -282,10 +289,6 @@
       if (n < 0) return "-";
       return "0";
     }
-
-    // diff/rate 없을 때만 tick sign 사용
-    var explicit = normalizeSign(it && it.sign);
-    if (explicit) return explicit;
 
     return "0";
   }
@@ -799,6 +802,15 @@
           if (msg.type === "WL") {
             markMessageReceived(WatchlistRealtime);
             setWlStatus("연결됨", "is-on", "message");
+            try {
+              var wlCode = (msg && msg.code ? String(msg.code).trim() : "");
+              if (wlCode) {
+                if (!global.__watchlistWsLastTickByCode) {
+                  global.__watchlistWsLastTickByCode = {};
+                }
+                global.__watchlistWsLastTickByCode[wlCode] = Date.now();
+              }
+            } catch (ignore) {}
             queueWatchlistUpdate(msg);
             return;
           }

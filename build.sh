@@ -91,6 +91,15 @@ find "$SRC_DIR" -name "*.xml" -type f | while read xml_file; do
 done
 echo "  MyBatis mapper XML 복사 완료"
 
+# MyBatis mapper DTD 파일 복사 (IDE XML 검증용 로컬 DTD)
+find "$SRC_DIR" -name "*.dtd" -type f | while read dtd_file; do
+    rel_path="${dtd_file#$SRC_DIR/}"
+    dest="$CLASSES_DIR/$rel_path"
+    mkdir -p "$(dirname "$dest")"
+    cp "$dtd_file" "$dest"
+done
+echo "  MyBatis mapper DTD 복사 완료"
+
 # Spring/MyBatis 설정 파일 복사 (webapp/WEB-INF/resources/ → classes/)
 if [ -d "$RESOURCES_DIR" ]; then
     cp -R "$RESOURCES_DIR"/* "$CLASSES_DIR/"

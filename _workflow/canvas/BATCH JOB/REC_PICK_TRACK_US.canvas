@@ -1,222 +1,31 @@
 {
-  "nodes": [
-    {
-      "id": "title",
-      "type": "text",
-      "text": "JOB_ID: REC_PICK_TRACK_US\n\n요약: 미국 추천 종목 중 WATCH 또는 BOUGHT 상태 pick 을 매일 추적해 daily 와 eval 스냅샷을 갱신하는 배치다.\nTASK_KEY: REC_PICK_DAILY_TRACK\n주요 파라미터: mktCd=US, forcePickId optional\n결과 저장: TB_S_RECO_PICK_DAILY, TB_S_RECO_PICK_EVAL, TB_S_RECO_PICK.lastTrackDt\n비고: JOB_ID 명은 사용자 요청 기준으로 캔버스화했다.",
-      "x": -320,
-      "y": -392,
-      "width": 1320,
-      "height": 272,
-      "color": "3"
-    },
-    {
-      "id": "n1",
-      "type": "text",
-      "text": "1. Trigger And Lock\n요약: BatchAdmin 수동 실행이나 scheduler tick 이 job 을 시작하고 runtime lock 을 획득한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- StockBatchAdminService.triggerJob()\n- markJobStart() 실행\n- heartbeat 시작",
-      "x": 0,
-      "y": 0,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n2",
-      "type": "text",
-      "text": "2. Job Definition Load\n요약: 실행할 task bean 과 파라미터를 읽어 추적 실행 map 을 만든다.\n관련 테이블:\n- TB_STK_BATCH_JOB_DEF\n- TB_STK_BATCH_TASK_DEF\n- TB_STK_BATCH_JOB_PARAM\n핵심 처리:\n- job_id = REC_PICK_TRACK_US\n- mktCd=US 기본값 로드\n- forcePickId 가 있으면 단건 실행 파라미터로 승격",
-      "x": 0,
-      "y": 332,
-      "width": 700,
-      "height": 320
-    },
-    {
-      "id": "n3",
-      "type": "text",
-      "text": "3. Task Bean Chain\n요약: BatchAdmin 이 Rec Pick 추적 배치 서비스로 실행을 위임한다.\n관련 구성:\n- recPickRunTask\n- RecPickDailyBatch.run()\n- RecPickTrackService.runDailyTrack()",
-      "x": 0,
-      "y": 712,
-      "width": 700,
-      "height": 224
-    },
-    {
-      "id": "n4",
-      "type": "text",
-      "text": "4. Target Pick Load\n요약: 추적 대상 pick 을 WATCH 와 BOUGHT 상태 기준으로 조회하고 시장 조건으로 좁힌다.\n관련 테이블:\n- TB_S_RECO_PICK\n핵심 처리:\n- PICK_STATUS IN ('WATCH', 'BOUGHT')\n- mktCd=US 필터 적용\n- forcePickId 가 있으면 해당 pick 1건만 실행",
-      "x": 0,
-      "y": 996,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n5",
-      "type": "text",
-      "text": "5. Price Fetch And Calendar Merge\n요약: 각 pick 종목의 보정 일봉을 KIS 에서 받아 오고 수신한 거래일을 거래 캘린더에 반영한다.\n관련 테이블:\n- TB_TRADE_CALENDAR\n핵심 처리:\n- KisDlyPriceSyncService.fetchAdjustedDailyPrices()\n- FETCH_DAYS=400, REQUEST_INTERVAL_MS=1000 사용\n- TB_TRADE_CALENDAR MERGE",
-      "x": 0,
-      "y": 1328,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n6",
-      "type": "text",
-      "text": "6. Daily Snapshot Build\n요약: 추천일, WATCH 저장일, BUY 일자를 anchor 로 삼아 일별 손익과 MFE, MAE 를 계산한다.\n관련 테이블:\n- TB_S_RECO_PICK\n- TB_S_POSITION\n핵심 처리:\n- upsertDailyRows()\n- holdDayNo, returnPct, mfePct, maePct 계산\n- BUY 포지션이 있으면 tp1HitYn, stopHitYn 계산",
-      "x": 0,
-      "y": 1660,
-      "width": 700,
-      "height": 296
-    },
-    {
-      "id": "n7",
-      "type": "text",
-      "text": "7. Daily Persist\n요약: pick 와 trade date 단위의 daily 추적 행을 upsert 한다.\n관련 테이블:\n- TB_S_RECO_PICK_DAILY\n핵심 처리:\n- mergeRecPickDaily()\n- PRICE_SOURCE = KIS_DAILY\n- 기존 sellSignalCode 가 있으면 CASE 로 보존",
-      "x": 0,
-      "y": 2016,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n8",
-      "type": "text",
-      "text": "8. Horizon Eval Build\n요약: REC, WATCH, BUY 각 anchor 에 대해 5일, 20일, 60일 horizon 성과를 계산한다.\n관련 테이블:\n- TB_S_POSITION\n핵심 처리:\n- upsertEvalRows()\n- evalType = REC, WATCH, BUY\n- calcStatus = READY 또는 PENDING 산출",
-      "x": 0,
-      "y": 2348,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n9",
-      "type": "text",
-      "text": "9. Eval Persist And Track Date Update\n요약: horizon 평가 결과를 저장하고 pick 의 마지막 추적일을 오늘로 갱신한다.\n관련 테이블:\n- TB_S_RECO_PICK_EVAL\n- TB_S_RECO_PICK\n핵심 처리:\n- mergeRecPickEval()\n- updateRecPickTrackDate(lastTrackDt=today)",
-      "x": 0,
-      "y": 2680,
-      "width": 700,
-      "height": 272
-    },
-    {
-      "id": "n10",
-      "type": "text",
-      "text": "10. Finish\n요약: 실패 건수를 기준으로 SUCCESS, PARTIAL, FAIL 을 정리하고 runtime lock 을 해제한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- failedPickCnt 와 targetPickCnt 집계\n- message 에 lastError 반영",
-      "x": 0,
-      "y": 3012,
-      "width": 700,
-      "height": 248
-    },
-    {
-      "id": "db1",
-      "type": "text",
-      "text": "Input Tables\n요약: 추적 대상을 만들고 계산 기준값을 읽는 원본 테이블이다.\n관련 테이블:\n- TB_S_RECO_PICK\n- TB_TRADE_CALENDAR\n- TB_S_POSITION",
-      "x": 860,
-      "y": 1328,
-      "width": 620,
-      "height": 224,
-      "color": "4"
-    },
-    {
-      "id": "db2",
-      "type": "text",
-      "text": "Output Tables\n요약: 일별 추적 결과와 horizon 평가 결과가 저장되는 테이블이다.\n관련 테이블:\n- TB_S_RECO_PICK_DAILY\n- TB_S_RECO_PICK_EVAL\n- TB_S_RECO_PICK",
-      "x": 860,
-      "y": 2348,
-      "width": 620,
-      "height": 224,
-      "color": "4"
-    }
-  ],
-  "edges": [
-    {
-      "id": "e1",
-      "fromNode": "title",
-      "fromSide": "bottom",
-      "toNode": "n1",
-      "toSide": "top",
-      "color": "#90a4ae"
-    },
-    {
-      "id": "e2",
-      "fromNode": "n1",
-      "fromSide": "bottom",
-      "toNode": "n2",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e3",
-      "fromNode": "n2",
-      "fromSide": "bottom",
-      "toNode": "n3",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e4",
-      "fromNode": "n3",
-      "fromSide": "bottom",
-      "toNode": "n4",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e5",
-      "fromNode": "n4",
-      "fromSide": "bottom",
-      "toNode": "n5",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e6",
-      "fromNode": "n5",
-      "fromSide": "bottom",
-      "toNode": "n6",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e7",
-      "fromNode": "n6",
-      "fromSide": "bottom",
-      "toNode": "n7",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e8",
-      "fromNode": "n7",
-      "fromSide": "bottom",
-      "toNode": "n8",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e9",
-      "fromNode": "n8",
-      "fromSide": "bottom",
-      "toNode": "n9",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e10",
-      "fromNode": "n9",
-      "fromSide": "bottom",
-      "toNode": "n10",
-      "toSide": "top",
-      "color": "#66bb6a"
-    },
-    {
-      "id": "e11",
-      "fromNode": "n5",
-      "fromSide": "right",
-      "toNode": "db1",
-      "toSide": "left",
-      "color": "#9e9e9e"
-    },
-    {
-      "id": "e12",
-      "fromNode": "n8",
-      "fromSide": "right",
-      "toNode": "db2",
-      "toSide": "left",
-      "color": "#9e9e9e"
-    }
-  ]
+	"nodes":[
+		{"id":"title","type":"text","text":"JOB_ID: REC_PICK_TRACK_US\n\n요약: 미국 추천 종목 중 WATCH 또는 BOUGHT 상태 pick 을 매일 추적해 daily 와 eval 스냅샷을 갱신하는 배치다.\nTASK_KEY: REC_PICK_DAILY_TRACK\n주요 파라미터: mktCd=US, forcePickId optional\n결과 저장: TB_S_RECO_PICK_DAILY, TB_S_RECO_PICK_EVAL, TB_S_RECO_PICK.lastTrackDt\n비고: JOB_ID 명은 사용자 요청 기준으로 캔버스화했다.","x":-320,"y":-392,"width":1320,"height":272,"color":"3"},
+		{"id":"n1","type":"text","text":"1. Trigger And Lock\n요약: BatchAdmin 수동 실행이나 scheduler tick 이 job 을 시작하고 runtime lock 을 획득한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- StockBatchAdminService.triggerJob()\n- markJobStart() 실행\n- heartbeat 시작","x":0,"y":0,"width":700,"height":272},
+		{"id":"n2","type":"text","text":"2. Job Definition Load\n요약: 실행할 task bean 과 파라미터를 읽어 추적 실행 map 을 만든다.\n관련 테이블:\n- TB_STK_BATCH_JOB_DEF\n- TB_STK_BATCH_TASK_DEF\n- TB_STK_BATCH_JOB_PARAM\n핵심 처리:\n- job_id = REC_PICK_TRACK_US\n- mktCd=US 기본값 로드\n- forcePickId 가 있으면 단건 실행 파라미터로 승격","x":0,"y":332,"width":700,"height":320},
+		{"id":"n3","type":"text","text":"3. Task Bean Chain\n요약: BatchAdmin 이 Rec Pick 추적 배치 서비스로 실행을 위임한다.\n관련 구성:\n- recPickRunTask\n- RecPickDailyBatch.run()\n- RecPickTrackService.runDailyTrack()","x":0,"y":712,"width":700,"height":224},
+		{"id":"n4","type":"text","text":"4. Target Pick Load\n요약: 추적 대상 pick 을 WATCH 와 BOUGHT 상태 기준으로 조회하고 시장 조건으로 좁힌다.\n관련 테이블:\n- TB_S_RECO_PICK\n핵심 처리:\n- PICK_STATUS IN ('WATCH', 'BOUGHT')\n- mktCd=US 필터 적용\n- forcePickId 가 있으면 해당 pick 1건만 실행","x":0,"y":996,"width":700,"height":272},
+		{"id":"n5","type":"text","text":"5. Price Fetch And Calendar Merge\n요약: 각 pick 종목의 보정 일봉을 KIS 에서 받아 오고 수신한 거래일을 거래 캘린더에 반영한다.\n관련 테이블:\n- TB_TRADE_CALENDAR\n핵심 처리:\n- KisDlyPriceSyncService.fetchAdjustedDailyPrices()\n- FETCH_DAYS=400, REQUEST_INTERVAL_MS=1000 사용\n- TB_TRADE_CALENDAR MERGE","x":0,"y":1328,"width":700,"height":272},
+		{"id":"n6","type":"text","text":"6. Daily Snapshot Build\n요약: 추천일, WATCH 저장일, BUY 일자를 anchor 로 삼아 일별 손익과 MFE, MAE 를 계산한다.\n관련 테이블:\n- TB_S_RECO_PICK\n- TB_S_POSITION\n핵심 처리:\n- upsertDailyRows()\n- holdDayNo, returnPct, mfePct, maePct 계산\n- BUY 포지션이 있으면 tp1HitYn, stopHitYn 계산","x":0,"y":1660,"width":700,"height":296},
+		{"id":"n7","type":"text","text":"7. Daily Persist\n요약: pick 와 trade date 단위의 daily 추적 행을 upsert 한다.\n관련 테이블:\n- TB_S_RECO_PICK_DAILY\n핵심 처리:\n- mergeRecPickDaily()\n- PRICE_SOURCE = KIS_DAILY\n- 기존 sellSignalCode 가 있으면 CASE 로 보존","x":0,"y":2016,"width":700,"height":272},
+		{"id":"n8","type":"text","text":"8. Horizon Eval Build\n요약: REC, WATCH, BUY 각 anchor 에 대해 5일, 20일, 60일 horizon 성과를 계산한다.\n관련 테이블:\n- TB_S_POSITION\n핵심 처리:\n- upsertEvalRows()\n- evalType = REC, WATCH, BUY\n- calcStatus = READY 또는 PENDING 산출","x":0,"y":2348,"width":700,"height":272},
+		{"id":"n9","type":"text","text":"9. Eval Persist And Track Date Update\n요약: horizon 평가 결과를 저장하고 pick 의 마지막 추적일을 오늘로 갱신한다.\n관련 테이블:\n- TB_S_RECO_PICK_EVAL\n- TB_S_RECO_PICK\n핵심 처리:\n- mergeRecPickEval()\n- updateRecPickTrackDate(lastTrackDt=today)","x":0,"y":2680,"width":700,"height":272},
+		{"id":"n10","type":"text","text":"10. Finish\n요약: 실패 건수를 기준으로 SUCCESS, PARTIAL, FAIL 을 정리하고 runtime lock 을 해제한다.\n관련 테이블:\n- TB_STK_BATCH_JOB_RUNTIME\n핵심 처리:\n- failedPickCnt 와 targetPickCnt 집계\n- message 에 lastError 반영","x":0,"y":3012,"width":700,"height":248},
+		{"id":"db1","type":"text","text":"Input Tables\n요약: 추적 대상을 만들고 계산 기준값을 읽는 원본 테이블이다.\n관련 테이블:\n- TB_S_RECO_PICK\n- TB_TRADE_CALENDAR\n- TB_S_POSITION","x":860,"y":1328,"width":620,"height":224,"color":"4"},
+		{"id":"db2","type":"text","text":"Output Tables\n요약: 일별 추적 결과와 horizon 평가 결과가 저장되는 테이블이다.\n관련 테이블:\n- TB_S_RECO_PICK_DAILY\n- TB_S_RECO_PICK_EVAL\n- TB_S_RECO_PICK","x":860,"y":2348,"width":620,"height":224,"color":"4"}
+	],
+	"edges":[
+		{"id":"e1","fromNode":"title","fromSide":"bottom","toNode":"n1","toSide":"top","color":"#90a4ae"},
+		{"id":"e2","fromNode":"n1","fromSide":"bottom","toNode":"n2","toSide":"top","color":"#66bb6a"},
+		{"id":"e3","fromNode":"n2","fromSide":"bottom","toNode":"n3","toSide":"top","color":"#66bb6a"},
+		{"id":"e4","fromNode":"n3","fromSide":"bottom","toNode":"n4","toSide":"top","color":"#66bb6a"},
+		{"id":"e5","fromNode":"n4","fromSide":"bottom","toNode":"n5","toSide":"top","color":"#66bb6a"},
+		{"id":"e6","fromNode":"n5","fromSide":"bottom","toNode":"n6","toSide":"top","color":"#66bb6a"},
+		{"id":"e7","fromNode":"n6","fromSide":"bottom","toNode":"n7","toSide":"top","color":"#66bb6a"},
+		{"id":"e8","fromNode":"n7","fromSide":"bottom","toNode":"n8","toSide":"top","color":"#66bb6a"},
+		{"id":"e9","fromNode":"n8","fromSide":"bottom","toNode":"n9","toSide":"top","color":"#66bb6a"},
+		{"id":"e10","fromNode":"n9","fromSide":"bottom","toNode":"n10","toSide":"top","color":"#66bb6a"},
+		{"id":"e11","fromNode":"n5","fromSide":"right","toNode":"db1","toSide":"left","color":"#9e9e9e"},
+		{"id":"e12","fromNode":"n8","fromSide":"right","toNode":"db2","toSide":"left","color":"#9e9e9e"}
+	]
 }

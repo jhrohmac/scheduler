@@ -5,8 +5,12 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -52,11 +56,23 @@ public class MarketSummaryRealtimeEndpoint {
         return t;
     });
 
+    private static final MarketSummaryRealtimeEndpoint WORKER = new MarketSummaryRealtimeEndpoint();
+    private static final Set<Session> SESSIONS = Collections.newSetFromMap(new ConcurrentHashMap<Session, Boolean>());
+    private static volatile ScheduledFuture<?> GLOBAL_TASK;
+    private static volatile SummaryPayload LAST_PAYLOAD;
+
     private volatile KisClient client;
     private volatile String lastInitError;
 
     public static void shutdown() {
         try {
+            synchronized (MarketSummaryRealtimeEndpoint.class) {
+                if (GLOBAL_TASK != null) {
+                    GLOBAL_TASK.cancel(true);
+                    GLOBAL_TASK = null;
+                }
+            }
+            SESSIONS.clear();
             EXEC.shutdown();
             if (!EXEC.awaitTermination(2, TimeUnit.SECONDS)) {
                 EXEC.shutdownNow();
@@ -75,26 +91,12 @@ public class MarketSummaryRealtimeEndpoint {
         }
 
         try {
-            ScheduledFuture<?> f = EXEC.scheduleWithFixedDelay(() -> {
-                try {
-                    if (!session.isOpen()) {
-                        return;
-                    }
-                    KisClient client = getClientSafe();
-                    if (client == null) {
-                        if (session.getUserProperties().get("MS_INIT_ERR_SENT") == null) {
-                            session.getUserProperties().put("MS_INIT_ERR_SENT", Boolean.TRUE);
-                            sendError(session, "KIS client init failed: " + safe(lastInitError));
-                        }
-                        return;
-                    }
-                    SummaryPayload payload = buildPayload(client);
-                    session.getAsyncRemote().sendText(JsonUtil.toJson(payload));
-                } catch (Exception ignore) {
-                }
-            }, 0, 5, TimeUnit.SECONDS);
-
-            session.getUserProperties().put("MS_TASK", f);
+            SESSIONS.add(session);
+            SummaryPayload cached = LAST_PAYLOAD;
+            if (cached != null) {
+                session.getAsyncRemote().sendText(JsonUtil.toJson(cached));
+            }
+            startGlobalTaskIfNeeded();
             logger.info("[MS-WS] open session={}", safeId(session));
         } catch (Exception e) {
             logger.error("[MS-WS] open error", e);
@@ -117,11 +119,106 @@ public class MarketSummaryRealtimeEndpoint {
         if (session == null) {
             return;
         }
+        SESSIONS.remove(session);
         Object o = session.getUserProperties().get("MS_TASK");
         if (o instanceof ScheduledFuture) {
             try {
                 ((ScheduledFuture<?>) o).cancel(true);
             } catch (Exception ignore) {
+            }
+        }
+        stopGlobalTaskIfIdle();
+    }
+
+    private static void startGlobalTaskIfNeeded() {
+        if (GLOBAL_TASK != null && !GLOBAL_TASK.isCancelled()) {
+            return;
+        }
+        synchronized (MarketSummaryRealtimeEndpoint.class) {
+            if (GLOBAL_TASK != null && !GLOBAL_TASK.isCancelled()) {
+                return;
+            }
+            GLOBAL_TASK = EXEC.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    WORKER.pollAndBroadcast();
+                }
+            }, 0, 5, TimeUnit.SECONDS);
+            logger.info("[MS-WS] global polling started");
+        }
+    }
+
+    private static void stopGlobalTaskIfIdle() {
+        if (!SESSIONS.isEmpty()) {
+            return;
+        }
+        synchronized (MarketSummaryRealtimeEndpoint.class) {
+            if (!SESSIONS.isEmpty()) {
+                return;
+            }
+            if (GLOBAL_TASK != null) {
+                GLOBAL_TASK.cancel(true);
+                GLOBAL_TASK = null;
+                logger.info("[MS-WS] global polling stopped");
+            }
+        }
+    }
+
+    private void pollAndBroadcast() {
+        cleanupClosedSessions();
+        if (SESSIONS.isEmpty()) {
+            stopGlobalTaskIfIdle();
+            return;
+        }
+
+        KisClient client = getClientSafe();
+        if (client == null) {
+            broadcastInitErrorOnce();
+            return;
+        }
+
+        SummaryPayload payload = buildPayload(client);
+        LAST_PAYLOAD = payload;
+        String msg = JsonUtil.toJson(payload);
+        for (Session session : new HashSet<Session>(SESSIONS)) {
+            try {
+                if (session != null && session.isOpen()) {
+                    session.getAsyncRemote().sendText(msg);
+                } else {
+                    SESSIONS.remove(session);
+                }
+            } catch (Exception ignore) {
+                SESSIONS.remove(session);
+            }
+        }
+        stopGlobalTaskIfIdle();
+    }
+
+    private static void cleanupClosedSessions() {
+        for (Session session : new HashSet<Session>(SESSIONS)) {
+            try {
+                if (session == null || !session.isOpen()) {
+                    SESSIONS.remove(session);
+                }
+            } catch (Exception e) {
+                SESSIONS.remove(session);
+            }
+        }
+    }
+
+    private void broadcastInitErrorOnce() {
+        for (Session session : new HashSet<Session>(SESSIONS)) {
+            try {
+                if (session == null || !session.isOpen()) {
+                    SESSIONS.remove(session);
+                    continue;
+                }
+                if (session.getUserProperties().get("MS_INIT_ERR_SENT") == null) {
+                    session.getUserProperties().put("MS_INIT_ERR_SENT", Boolean.TRUE);
+                    sendError(session, "KIS client init failed: " + safe(lastInitError));
+                }
+            } catch (Exception ignore) {
+                SESSIONS.remove(session);
             }
         }
     }
@@ -159,15 +256,17 @@ public class MarketSummaryRealtimeEndpoint {
         try {
             InquireIndexPriceApi api = newIndexPriceApi(fidInputIscd);
             InquireIndexPriceResult result = client.execute(api);
-            if (result == null || result.getOutput() == null) {
+            com.scheduler.finance.kis.quote.KisQuoteDto dto =
+                    com.scheduler.finance.kis.quote.KisQuoteMapper.fromDomesticIndex(
+                            "KR|KRX|" + safe(fidInputIscd), fidInputIscd, result);
+            if (dto.isStale()) {
                 return it;
             }
-
-            InquireIndexPriceResult.Output o = result.getOutput();
-            String prpr = safe(o.getBstpNmixPrpr());
-            String diff = safe(o.getBstpNmixPrdyVrss());
-            String rate = safe(o.getBstpNmixPrdyCtrt());
-            String sign = normalizeSign(o.getPrdyVrssSign());
+            String prpr = safe(dto.getPrice());
+            String diff = safe(dto.getDiff());
+            String rate = safe(dto.getRate());
+            String sign = safe(dto.getSign());
+            if (sign.isEmpty()) sign = "0";
 
             it.text = buildText(prpr, diff, rate, sign);
             it.sign = sign;
@@ -245,15 +344,18 @@ public class MarketSummaryRealtimeEndpoint {
             api.setFidPeriodDivCode("D");
 
             InquireOverseasDailyChartPriceResult result = client.execute(api);
-            if (result == null || result.getOutput1() == null) {
+            com.scheduler.finance.kis.quote.KisQuoteDto dto =
+                    com.scheduler.finance.kis.quote.KisQuoteMapper.fromOverseasIndex(
+                            safe(fidCondMrktDivCode) + "|IDX|" + safe(fidInputIscd),
+                            safe(fidCondMrktDivCode), "IDX", fidInputIscd, result);
+            if (dto.isStale()) {
                 return it;
             }
-
-            InquireOverseasDailyChartPriceResult.Output1 o = result.getOutput1();
-            String prpr = safe(o.getOvrsNmixPrpr());
-            String diff = safe(o.getOvrsNmixPrdyVrss());
-            String rate = safe(o.getPrdyCtrt());
-            String sign = normalizeSign(o.getPrdyVrssSign());
+            String prpr = safe(dto.getPrice());
+            String diff = safe(dto.getDiff());
+            String rate = safe(dto.getRate());
+            String sign = safe(dto.getSign());
+            if (sign.isEmpty()) sign = "0";
 
             if (isMissingOverseasValue(prpr, diff, rate)) {
                 return null;

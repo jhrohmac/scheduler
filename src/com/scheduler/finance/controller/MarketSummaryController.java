@@ -215,6 +215,26 @@ public class MarketSummaryController {
     }
 
     /**
+     * 시장 레짐 요약: 주요 지수(KR/US) 분석 결과 조회
+     * return: data(List) - 0001/2001/.DJI/SPX/COMP 의 MACD/SMA/이벤트
+     */
+    @RequestMapping({ "/finance/selectMarketRegimeSummary.do" })
+    public void selectMarketRegimeSummary(HttpServletRequest req, HttpServletResponse res) {
+        try {
+            List<?> list = marketSummaryDao.selectMarketRegimeSummary();
+            if (list == null) list = new ArrayList<Object>();
+
+            DataTableSettingVo resultVo = new DataTableSettingVo();
+            resultVo.setData(list);
+
+            ResponseHandler.sendResponse(res, ResultMsg.SUCCESS_CODE, ResultMsg.SUCCESS_MSG, resultVo);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ResponseHandler.sendResponse(res, ResultMsg.ERROR_CODE, e.getLocalizedMessage(), null);
+        }
+    }
+
+    /**
      * 우측 시장요약 조회 (KIS: 국내지수/해외지수/환율)
      * return: singleData(Map)
      */

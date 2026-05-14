@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="com.scheduler.stock.sql.RecPick">
 
@@ -33,7 +33,7 @@
             #{avgTrdVal20,jdbcType=NUMERIC},
             #{recAnchorPrice,jdbcType=NUMERIC},
             #{watchAnchorPrice,jdbcType=NUMERIC},
-            SYSDATE,
+            CURRENT_TIMESTAMP,
             #{positionId,jdbcType=NUMERIC},
             #{entryRuleCode,jdbcType=VARCHAR},
             #{snapshotJson,jdbcType=CLOB},
@@ -42,8 +42,8 @@
                 <otherwise>NULL</otherwise>
             </choose>,
             #{createUser,jdbcType=VARCHAR},
-            SYSDATE,
-            SYSDATE
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
         )
     </insert>
 
@@ -58,14 +58,23 @@
                FIRST_BUY_QTY = NVL(#{firstBuyQty,jdbcType=NUMERIC}, FIRST_BUY_QTY),
                POSITION_ID = NVL(#{positionId,jdbcType=NUMERIC}, POSITION_ID),
                ENTRY_RULE_CODE = NVL(#{entryRuleCode,jdbcType=VARCHAR}, ENTRY_RULE_CODE),
-               MODIFY_DATE = SYSDATE
+               MODIFY_DATE = CURRENT_TIMESTAMP
          WHERE PICK_ID = #{pickId,jdbcType=NUMERIC}
+    </update>
+
+    <update id="deleteRecPick" parameterType="hashmap">
+        UPDATE TB_S_RECO_PICK
+           SET PICK_STATUS = 'DELETED',
+               MODIFY_DATE = CURRENT_TIMESTAMP
+         WHERE PICK_ID = TO_NUMBER(#{pickId})
+           AND POSITION_ID IS NULL
+           AND PICK_STATUS = 'WATCH'
     </update>
 
     <update id="updateRecPickTrackDate" parameterType="hashmap">
         UPDATE TB_S_RECO_PICK
            SET LAST_TRACK_DT = TO_DATE(#{lastTrackDt,jdbcType=VARCHAR}, 'YYYY-MM-DD'),
-               MODIFY_DATE = SYSDATE
+               MODIFY_DATE = CURRENT_TIMESTAMP
          WHERE PICK_ID = #{pickId,jdbcType=NUMERIC}
     </update>
 
@@ -137,7 +146,7 @@
                     ELSE T.SELL_SIGNAL_TEXT
                 END,
                 T.PRICE_SOURCE = S.PRICE_SOURCE,
-                T.MODIFY_DATE = SYSDATE
+                T.MODIFY_DATE = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (
                 PICK_ID, TRADE_DT, MKT_CD, STK_CD,
@@ -157,7 +166,7 @@
                 S.MFE_FROM_REC_PCT, S.MAE_FROM_REC_PCT, S.MFE_FROM_BUY_PCT, S.MAE_FROM_BUY_PCT,
                 S.UP_DOWN_FLAG, S.TP1_HIT_YN, S.STOP_HIT_YN,
                 NVL(S.SELL_SIGNAL_CODE, 'NONE'), S.SELL_SIGNAL_TEXT, S.PRICE_SOURCE,
-                SYSDATE, SYSDATE
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
     </update>
 
@@ -194,7 +203,7 @@
                 T.TP1_HIT_YN = S.TP1_HIT_YN,
                 T.STOP_HIT_YN = S.STOP_HIT_YN,
                 T.CALC_STATUS = S.CALC_STATUS,
-                T.MODIFY_DATE = SYSDATE
+                T.MODIFY_DATE = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN
             INSERT (
                 PICK_ID, EVAL_TYPE, HOLD_DAYS, ANCHOR_DATE, TARGET_DATE,
@@ -204,7 +213,7 @@
             VALUES (
                 S.PICK_ID, S.EVAL_TYPE, S.HOLD_DAYS, S.ANCHOR_DATE, S.TARGET_DATE,
                 S.RETURN_PCT, S.MFE_PCT, S.MAE_PCT, S.WIN_YN, S.TP1_HIT_YN, S.STOP_HIT_YN,
-                S.CALC_STATUS, SYSDATE, SYSDATE
+                S.CALC_STATUS, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
     </update>
 
@@ -291,6 +300,7 @@
           ) D ON D.PICK_ID = P.PICK_ID
          WHERE 1 = 1
            <if test="pickStatus != null and pickStatus != ''">AND P.PICK_STATUS = #{pickStatus}</if>
+           <if test="pickStatus == null or pickStatus == ''">AND P.PICK_STATUS != 'DELETED'</if>
            <if test="mktCd != null and mktCd != ''">AND P.SOURCE_MKT_CD = #{mktCd}</if>
            <if test="watchGroupId != null and watchGroupId != ''">AND P.WATCH_GROUP_ID = #{watchGroupId}</if>
            <if test="stkCd != null and stkCd != ''">AND P.STK_CD = #{stkCd}</if>

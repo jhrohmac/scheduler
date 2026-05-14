@@ -63,6 +63,8 @@ public interface StockBatchAdminDao {
 
     int clearStaleBatchExecLogs(HashMap<String, String> map) throws Exception;
 
+    int clearOrphanRunningBatchExecLogs(HashMap<String, String> map) throws Exception;
+
     int clearStaleRuntimeLocks(HashMap<String, String> map) throws Exception;
 
     int fixOrphanRunningStatus(HashMap<String, String> map) throws Exception;

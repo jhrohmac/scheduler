@@ -842,9 +842,6 @@ document.onkeyup = function(e) {
 * 페이지 이동
 *************************************************************************/
 function fn_PageMove(in_menuId) {
-	// 페이지 전용 WebSocket 종료 (메뉴 전환 시 orphan 방지)
-	try { if (window.WatchlistRealtime) WatchlistRealtime.close(true); } catch(e) {}
-	try { if (window.ChartPriceRealtime) ChartPriceRealtime.close(); } catch(e) {}
 	$('#mainContent').empty();
 	var url = "/scheduler/menu/selPageMove.do";
 	var type = "html";
@@ -1255,22 +1252,56 @@ function dataTableGrid(gridObj, gridOptions) {
 					if(gridOptions.rowReorder){
 						// rowReorder 이벤트 추가
 					   grid_table.on('row-reorder', function (e, details, changes) {
-							var orderData = [];
-							details.forEach(function (detail) {
-								var table = $('#' + grid_id).dataTable();
-							   	var row_position = table.fnGetPosition(detail.node);
-						   		var row_data = table.fnGetData(row_position);
-								orderData.push({
-					               	in_menuSeq: row_data.menu_seq,
-					               	in_parentId: row_data.parent_id,
-					               	in_sortOrder: row_data.sort_order,
-								   	in_newOrder: detail.newPosition,
-									in_oldOrder: detail.oldPosition
-					           	});
-					       });
-						   
-						   if(orderData.length > 1){
-					       		saveRowOrder(grid_id, orderData);
+						   if (details.length === 0) return;
+
+						   var dtTable = $('#' + grid_id).DataTable();
+						   var totalRows = dtTable.rows({ page: 'current' }).count();
+
+						   // 현재 페이지 행 데이터 수집 (oldPosition -> data 매핑)
+						   var oldOrderMap = {};
+						   dtTable.rows({ page: 'current' }).every(function(rowIdx) {
+							   oldOrderMap[rowIdx] = this.data();
+						   });
+
+						   // details 기반으로 새 순서 배열 구성
+						   var newOrder = new Array(totalRows);
+						   var movedOldPositions = {};
+						   details.forEach(function(d) {
+							   var rowData = dtTable.row(d.node).data();
+							   if (rowData) {
+								   newOrder[d.newPosition] = rowData;
+								   movedOldPositions[d.oldPosition] = true;
+							   }
+						   });
+
+						   // 이동하지 않은 행은 원래 순서대로 빈 슬롯에 채움
+						   var unmoved = [];
+						   for (var i = 0; i < totalRows; i++) {
+							   if (!movedOldPositions[i]) {
+								   unmoved.push(oldOrderMap[i]);
+							   }
+						   }
+						   var unmovedIdx = 0;
+						   for (var j = 0; j < totalRows; j++) {
+							   if (newOrder[j] === undefined || newOrder[j] === null) {
+								   newOrder[j] = unmoved[unmovedIdx++];
+							   }
+						   }
+
+						   // 새 순서대로 순번(1부터) 할당하여 전송
+						   var orderData = [];
+						   newOrder.forEach(function(row, idx) {
+							   if (row && row.menu_seq) {
+								   orderData.push({
+									   in_menuSeq: row.menu_seq,
+									   in_parentId: row.parent_id || '',
+									   in_newOrder: idx + 1
+								   });
+							   }
+						   });
+
+						   if (orderData.length > 0) {
+							   saveRowOrder(grid_id, orderData);
 						   }
 					   });
 					}
@@ -1330,13 +1361,15 @@ function saveRowOrder(grid_id, orderData) {
         data: param,
         success: function (response) {
             if (response.system_code === "0000") {
-                showAlert('success', 'Menu order saved successfully!', 2000);
+                showAlert('success', '메뉴 순서가 저장되었습니다.', 2000);
+                var dt = $('#' + grid_id).DataTable();
+                if (dt) { dt.ajax.reload(null, false); }
             } else {
-                showAlert('error', 'Failed to save menu order: ' + response.result_msg, 2000);
+                showAlert('error', '메뉴 순서 저장 실패: ' + response.result_msg, 2000);
             }
         },
         error: function (request) {
-            showAlert('error', 'Error saving menu order: ' + request.statusText, 3000);
+            showAlert('error', '메뉴 순서 저장 오류: ' + request.statusText, 3000);
         }
     });
 }

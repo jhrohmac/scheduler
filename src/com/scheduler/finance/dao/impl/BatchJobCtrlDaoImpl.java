@@ -825,8 +825,9 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                         String macdSig = nvl(analysis.get("stock_macd_signal"), "");
                         if (!macdSig.isEmpty()) {
                             String grade = ("BUY".equalsIgnoreCase(macdSig) ? "GOOD" : ("SELL".equalsIgnoreCase(macdSig) ? "WARN" : "INFO"));
+                            String macdLabel = "BUY".equalsIgnoreCase(macdSig) ? "매수" : ("SELL".equalsIgnoreCase(macdSig) ? "매도" : "보합");
                             tryLogSignalEvent(jobId, stockCode, "DAY", "DAILY_MACD_" + macdSig.toUpperCase(), grade, "0", eventTime,
-                                    String.valueOf(close), "", "일봉 MACD: " + macdSig);
+                                    String.valueOf(close), "", "일봉 MACD " + macdLabel);
                         }
                     } catch (Exception ignore2) {}
 
@@ -834,8 +835,9 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                         String volSig = nvl(analysis.get("stock_av_volumesignal"), "");
                         if (!volSig.isEmpty()) {
                             String grade = ("UP".equalsIgnoreCase(volSig) ? "GOOD" : "INFO");
+                            String volLabel = "UP".equalsIgnoreCase(volSig) ? "증가" : ("DOWN".equalsIgnoreCase(volSig) ? "감소" : volSig);
                             tryLogSignalEvent(jobId, stockCode, "DAY", "DAILY_VOLUME_" + volSig.toUpperCase(), grade, "0", eventTime,
-                                    String.valueOf(close), "", "일봉 거래량: " + volSig);
+                                    String.valueOf(close), "", "일봉 거래량 " + volLabel);
                         }
                     } catch (Exception ignore2) {}
 
@@ -1054,8 +1056,9 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                         String macdSig = nvl(analysis.get("stock_macd_signal"), "");
                         if (!macdSig.isEmpty()) {
                             String grade = ("BUY".equalsIgnoreCase(macdSig) ? "GOOD" : ("SELL".equalsIgnoreCase(macdSig) ? "WARN" : "INFO"));
+                            String m30MacdLabel = "BUY".equalsIgnoreCase(macdSig) ? "매수" : ("SELL".equalsIgnoreCase(macdSig) ? "매도" : "보합");
                             tryLogSignalEvent(jobId, stockCode, "30MIN", "M30_MACD_" + macdSig.toUpperCase(), grade, "0", eventTime,
-                                    String.valueOf(close), "", "30분 MACD: " + macdSig);
+                                    String.valueOf(close), "", "30분 MACD " + m30MacdLabel);
                         }
                     } catch (Exception ignore2) {}
 
@@ -1063,8 +1066,9 @@ public class BatchJobCtrlDaoImpl extends SqlSessionDaoSupport implements BatchJo
                         String volSig = nvl(analysis.get("stock_av_volumesignal"), "");
                         if (!volSig.isEmpty()) {
                             String grade = ("UP".equalsIgnoreCase(volSig) ? "GOOD" : "INFO");
+                            String m30VolLabel = "UP".equalsIgnoreCase(volSig) ? "증가" : ("DOWN".equalsIgnoreCase(volSig) ? "감소" : volSig);
                             tryLogSignalEvent(jobId, stockCode, "30MIN", "M30_VOLUME_" + volSig.toUpperCase(), grade, "0", eventTime,
-                                    String.valueOf(close), "", "30분 거래량: " + volSig);
+                                    String.valueOf(close), "", "30분 거래량 " + m30VolLabel);
                         }
                     } catch (Exception ignore2) {}
 

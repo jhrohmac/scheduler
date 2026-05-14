@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
   PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  "mybatis-3-sql-mapper.dtd">
 
 <mapper namespace="sql.MarketSummary">
 
@@ -155,5 +155,37 @@
         END
       ) = NVL(NULLIF(#{groupDiv,jdbcType=VARCHAR}, ''), 'normal')
   </delete>
+
+
+  <!-- 시장 레짐 요약: 주요 지수(KR/US)의 분석 결과 조회 -->
+  <select id="selectMarketRegimeSummary" resultType="hashmap">
+    SELECT
+      A.STOCK_CODE,
+      NVL(S.STOCK_KO_NAME, S.STOCK_EN_NAME) AS STOCK_NAME,
+      A.STOCK_CLOSE,
+      A.STOCK_MACD_SIGNAL,
+      A.STOCK_SMA_LINES,
+      A.STOCK_MON,
+      A.STOCK_AV_VOLUMESIGNAL,
+      A.STOCK_MACD_STREAKSIGNAL,
+      TO_CHAR(A.MODIFY_DATE, 'MM/DD HH24:MI') AS UPDATE_TIME,
+      (
+        SELECT MAX(E.MESSAGE) KEEP (DENSE_RANK LAST ORDER BY E.EVENT_TIME, E.EVENT_ID)
+        FROM TB_S_SIGNAL_EVENT E
+        WHERE E.STOCK_CODE = A.STOCK_CODE
+      ) AS LAST_MESSAGE
+    FROM TB_S_STOCK_ANALYSIS A
+    LEFT JOIN TB_S_INTEREST_STOCK S ON A.STOCK_CODE = S.STOCK_CODE
+    WHERE A.STOCK_CODE IN ('0001', '2001', '.DJI', 'SPX', 'COMP')
+    ORDER BY
+      CASE A.STOCK_CODE
+        WHEN '0001'  THEN 1
+        WHEN '2001'  THEN 2
+        WHEN '.DJI'  THEN 3
+        WHEN 'SPX'   THEN 4
+        WHEN 'COMP'  THEN 5
+        ELSE 9
+      END
+  </select>
 
 </mapper>

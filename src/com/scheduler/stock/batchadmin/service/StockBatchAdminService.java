@@ -272,6 +272,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         abortLocalStaleJobs(staleJobIds);
 
         int recoveredLogCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleBatchExecLogs(empty));
+        int orphanLogCnt = normalizeUpdateCount(stockBatchAdminDao.clearOrphanRunningBatchExecLogs(empty));
         int releasedRuntimeCnt = normalizeUpdateCount(stockBatchAdminDao.clearStaleRuntimeLocks(empty));
         int fixedOrphanCnt = normalizeUpdateCount(stockBatchAdminDao.fixOrphanRunningStatus(empty));
         int purgedLogCnt = normalizeUpdateCount(stockBatchAdminDao.purgeOldBatchExecLogs(empty));
@@ -301,6 +302,7 @@ public class StockBatchAdminService implements ApplicationContextAware {
         meta.put("skipped", skipped);
         meta.put("due", dueJobs == null ? 0 : dueJobs.size());
         meta.put("recoveredLogCnt", recoveredLogCnt);
+        meta.put("orphanLogCnt", orphanLogCnt);
         meta.put("releasedRuntimeCnt", releasedRuntimeCnt);
         meta.put("fixedOrphanCnt", fixedOrphanCnt);
         meta.put("purgedLogCnt", purgedLogCnt);

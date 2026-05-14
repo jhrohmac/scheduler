@@ -112,17 +112,10 @@ public class RecPickDynamicService {
         boolean priceListAvailable = true;
         String priceListWarning = null;
         if (needPriceList && !candidates.isEmpty()) {
-            try {
-                priceMap = prefetchPriceList(candidates);
-                if (priceMap.isEmpty()) {
-                    priceListAvailable = false;
-                    priceListWarning = "TB_STK_DLY_PRICE 데이터 없음 → 실시간 지표 SKIP";
-                }
-            } catch (Exception ex) {
-                priceListAvailable = false;
-                priceListWarning = "일봉 조회 실패 (" + ex.getClass().getSimpleName() + ") → 실시간 지표 SKIP";
-                System.err.println("[RecPickDynamicService] " + priceListWarning + ": " + ex.getMessage());
-            }
+            // 일봉 DB 캐시 미보유 — MACD/RSI 등 일봉 기반 실시간 지표는 SKIP
+            // (대량 종목에 대해 KIS API 직접 호출은 rate limit 문제로 비현실적)
+            priceListAvailable = false;
+            priceListWarning = "일봉 캐시 미보유 → 실시간 지표(MACD/RSI 등) SKIP";
         }
 
         List<Map<String, Object>> resultRows = new ArrayList<Map<String, Object>>();
@@ -190,25 +183,9 @@ public class RecPickDynamicService {
 
         RecSignalDto detail = recPickDynamicDao.selectStockDetail(map);
 
-        // 일봉 200일치
-        HashMap<String, Object> priceMap = new HashMap<String, Object>();
-        priceMap.put("fromDt", addDays(baseDt, -300));
-        priceMap.put("toDt", baseDt);
-        List<String> stkList = new ArrayList<String>();
-        stkList.add(stkCd);
-        priceMap.put("stkCdList", stkList);
-
-        List<DlyPriceDto> priceList;
-        try {
-            priceList = recPickDynamicDao.selectPriceListBatch(priceMap);
-        } catch (Exception ex) {
-            System.err.println("[RecPickDynamicService] 상세 일봉 DB 조회 실패: " + ex.getMessage());
-            priceList = new ArrayList<DlyPriceDto>();
-        }
-        if (priceList == null) priceList = new ArrayList<DlyPriceDto>();
-
-        // DB가 비었으면 KIS API 로 fallback (단건 조회 - 차트용 240일치)
-        if (priceList.isEmpty() && kisDlyPriceSyncService != null && detail != null) {
+        // 일봉 240일치 — KIS API 직접 조회 (DB 캐시 미보유)
+        List<DlyPriceDto> priceList = new ArrayList<DlyPriceDto>();
+        if (kisDlyPriceSyncService != null && detail != null) {
             try {
                 String marketGroup = detail.getMktCd();   // "KR" 또는 "US"
                 String listingMkt  = detail.getListingMarket(); // KOSPI/KOSDAQ/NASDAQ/NYSE
@@ -221,10 +198,8 @@ public class RecPickDynamicService {
                     0L
                 );
                 if (priceList == null) priceList = new ArrayList<DlyPriceDto>();
-                System.out.println("[RecPickDynamicService] KIS API fallback OK: stkCd=" + stkCd
-                    + " size=" + priceList.size());
             } catch (Exception ex) {
-                System.err.println("[RecPickDynamicService] KIS API fallback 실패: " + ex.getMessage());
+                System.err.println("[RecPickDynamicService] KIS API 일봉 조회 실패: stkCd=" + stkCd + " : " + ex.getMessage());
                 priceList = new ArrayList<DlyPriceDto>();
             }
         }
@@ -286,37 +261,6 @@ public class RecPickDynamicService {
     // ────────────────────────────────────────────────────────────
     // helpers
     // ────────────────────────────────────────────────────────────
-
-    private Map<String, List<DlyPriceDto>> prefetchPriceList(List<RecSignalDto> candidates) throws Exception {
-        Set<String> stkSet = new LinkedHashSet<String>();
-        String baseDt = null;
-        for (RecSignalDto s : candidates) {
-            if (s == null) continue;
-            stkSet.add(s.getStkCd());
-            if (baseDt == null) baseDt = s.getBaseDt();
-        }
-        if (stkSet.isEmpty() || baseDt == null) return new HashMap<String, List<DlyPriceDto>>();
-
-        HashMap<String, Object> priceMap = new HashMap<String, Object>();
-        priceMap.put("fromDt", addDays(baseDt, -300));
-        priceMap.put("toDt", baseDt);
-        priceMap.put("stkCdList", new ArrayList<String>(stkSet));
-
-        List<DlyPriceDto> all = recPickDynamicDao.selectPriceListBatch(priceMap);
-        Map<String, List<DlyPriceDto>> grouped = new HashMap<String, List<DlyPriceDto>>();
-        if (all != null) {
-            for (DlyPriceDto p : all) {
-                if (p == null || p.getStkCd() == null) continue;
-                List<DlyPriceDto> list = grouped.get(p.getStkCd());
-                if (list == null) {
-                    list = new ArrayList<DlyPriceDto>();
-                    grouped.put(p.getStkCd(), list);
-                }
-                list.add(p);
-            }
-        }
-        return grouped;
-    }
 
     private List<String> collectMatchedIndicatorIds(List<Indicator> indicators) {
         Set<String> ids = new LinkedHashSet<String>();

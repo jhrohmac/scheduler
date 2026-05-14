@@ -46,6 +46,13 @@ function rpFormatPrice(v) {
   return n == null ? '-' : n.toLocaleString();
 }
 
+function rpTodayString() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1);
+  var day = String(d.getDate());
+  return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (day.length < 2 ? '0' + day : day);
+}
+
 function rpFormatRecDiff(row) {
   var currentPrice = rpToNumber(row.currentPrice);
   var recAnchorPrice = rpToNumber(row.recAnchorPrice);
@@ -139,6 +146,16 @@ function rpBuildWsUrl(path, query) {
 function rpResolveRealtimeMarket(row) {
   var sourceMktCd = String(row && row.sourceMktCd || '').toUpperCase();
   var listingMarket = String(row && row.listingMarket || '').toUpperCase();
+
+  if (listingMarket === 'NXT' || sourceMktCd === 'NXT') {
+    return { country: 'KR', market: 'NXT' };
+  }
+  if (listingMarket === 'UN' || listingMarket === '통합' || sourceMktCd === 'UN') {
+    return { country: 'KR', market: 'UN' };
+  }
+  if (listingMarket === 'OVERTIME' || listingMarket === 'AFTER' || sourceMktCd === 'OVERTIME') {
+    return { country: 'KR', market: 'OVERTIME' };
+  }
 
   if (sourceMktCd === 'KR' || listingMarket === 'KOSPI' || listingMarket === 'KOSDAQ' || listingMarket === 'KRX') {
     return { country: 'KR', market: 'KRX' };
@@ -459,6 +476,13 @@ function rpBindPickListTableEvents() {
     if (!rowData) return;
     rpOpenBuyModal(rowData.pickId, rowData.recAnchorPrice || 0, rowData.stkCd || '', rowData.stkNm || '');
   });
+
+  $tbody.off('click.rpDeleteBtn').on('click.rpDeleteBtn', '.btn-rp-delete', function(e) {
+    e.stopPropagation();
+    var rowData = rpPickRowDataFromElement(this);
+    if (!rowData) return;
+    rpDeletePick(rowData);
+  });
 }
 
 function rpBuildPickListGrid() {
@@ -527,6 +551,7 @@ function rpBuildPickListGrid() {
           var buttons = '<button type="button" class="btn btn-primary btn-xs btn-rp-select">선택</button>';
           if (row.pickStatus === 'WATCH') {
             buttons += ' <button type="button" class="btn btn-success btn-xs btn-rp-buy">매수</button>';
+            buttons += ' <button type="button" class="btn btn-danger btn-xs btn-rp-delete">삭제</button>';
           }
           return buttons;
         }
@@ -783,6 +808,30 @@ function rpLoadPickList() {
   rpBuildPickListGrid();
 }
 
+function rpDeletePick(row) {
+  var pickLabel;
+  if (!row || !row.pickId) return;
+  if (row.positionId || row.pickStatus !== 'WATCH') {
+    alert('매수 등록된 추천 이력은 삭제할 수 없습니다.');
+    return;
+  }
+
+  pickLabel = (row.stkNm || row.stkCd || '') + ' (PICK ' + row.pickId + ')';
+  if (!confirm(pickLabel + ' 추천 저장 이력을 삭제할까요?')) return;
+
+  rpAjax(RP_URL.deletePick, { pickId: row.pickId }, function(res) {
+    if (res.system_code === '0000') {
+      if (String(RP_STATE.selectedPickId) === String(row.pickId)) {
+        rpRememberSelection('', '', '', '', '');
+        rpResetSellGuide();
+      }
+      rpLoadPickList();
+      return;
+    }
+    alert('오류: ' + (res.system_msg || '알 수 없는 오류'));
+  });
+}
+
 function rpLoadDailyTrack() {
   var pickId = document.getElementById('rp_trackPickId').value;
   if (!pickId) { alert('상단 추천 저장 이력에서 종목을 먼저 선택하세요'); return; }
@@ -827,8 +876,8 @@ function rpOpenBuyModal(pickId, anchorPrice, stockCode, stockName) {
   rpRememberSelection(pickId, '', stockCode || RP_STATE.selectedStockCode, stockName || RP_STATE.selectedStockName, 'WATCH');
   document.getElementById('rp_buyPickId').value = pickId;
   document.getElementById('rp_buyPrice').value  = anchorPrice || '';
-  document.getElementById('rp_buyQty').value    = '';
-  document.getElementById('rp_buyDate').value   = '';
+  document.getElementById('rp_buyQty').value    = '1';
+  document.getElementById('rp_buyDate').value   = rpTodayString();
   $('#rp_buyModal').modal('show');
 }
 
